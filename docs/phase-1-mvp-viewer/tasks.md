@@ -202,7 +202,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Verify serialize → deserialize produces equivalent object (100+ iterations)
 
 - [ ] 9. Implement ErrorLogService
-  - [ ] 9.1 Create IErrorLogService interface and implementation
+  - [x] 9.1 Create IErrorLogService interface and implementation
     - Implement LogErrorAsync() method
     - Format ViewerError as structured log entry
     - Include timestamp, severity, category, message, operation, file path, exception type, stack trace
@@ -212,12 +212,12 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Implement log retention (keep last 30 days, cleanup on app start)
     - _Requirements: 10.1-10.10_
 
-  - [ ]* 9.2 Write unit tests for ErrorLogService
+  - [x]* 9.2 Write unit tests for ErrorLogService
     - Test log entry formatting for each error category
     - Test log file naming
     - _Requirements: 10.1-10.10_
 
-  - [ ]* 9.3 Write integration tests for error logging
+  - [x]* 9.3 Write integration tests for error logging
     - Test log file creation
     - Test log entry writing to disk
     - Test log rotation behavior
