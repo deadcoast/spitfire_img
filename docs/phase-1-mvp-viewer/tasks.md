@@ -82,7 +82,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test case-insensitive matching
 
 - [ ] 5. Implement ImageDecodeService
-  - [ ] 5.1 Create IImageDecodeService interface and implementation
+  - [x] 5.1 Create IImageDecodeService interface and implementation
     - Implement IsSupportedFormat() method with supported extensions list
     - Implement IsDeferredFormat() method with deferred extensions list
     - Implement DecodeImageAsync() method using WinUI BitmapImage and WIC
@@ -92,7 +92,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Return Result<DecodedImage> with appropriate errors
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 12.1, 12.2, 12.3, 12.4, 12.5, 17.4, 18.1_
 
-  - [ ]* 5.2 Write unit tests for ImageDecodeService
+  - [x]* 5.2 Write unit tests for ImageDecodeService
     - Test format detection for all supported extensions
     - Test format detection for deferred extensions
     - Test case-insensitive extension matching
@@ -104,6 +104,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test metadata extraction accuracy
     - Test handling of corrupted files
     - Test out-of-memory handling with large images
+    - PNG metadata and corrupt-file coverage are implemented; full real-file coverage for JPEG, BMP, and WEBP remains open
     - _Requirements: 2.1-2.5, 18.1, 18.4_
 
   - [ ]* 5.4 Write property test for metadata formatting
