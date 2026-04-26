@@ -52,6 +52,45 @@ public sealed class ImageDecodeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DecodeImageAsync_JpegHeader_ReturnsMetadata()
+    {
+        var path = Path.Combine(_tempDirectory, "sample.jpg");
+        await File.WriteAllBytesAsync(path, CreateJpegHeader(width: 640, height: 480));
+
+        var result = await _service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(640, result.Value.Metadata.PixelWidth);
+        Assert.Equal(480, result.Value.Metadata.PixelHeight);
+    }
+
+    [Fact]
+    public async Task DecodeImageAsync_BmpHeader_ReturnsMetadata()
+    {
+        var path = Path.Combine(_tempDirectory, "sample.bmp");
+        await File.WriteAllBytesAsync(path, CreateBmpHeader(width: 800, height: 600));
+
+        var result = await _service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(800, result.Value.Metadata.PixelWidth);
+        Assert.Equal(600, result.Value.Metadata.PixelHeight);
+    }
+
+    [Fact]
+    public async Task DecodeImageAsync_WebpVp8XHeader_ReturnsMetadata()
+    {
+        var path = Path.Combine(_tempDirectory, "sample.webp");
+        await File.WriteAllBytesAsync(path, CreateWebpVp8XHeader(width: 1024, height: 768));
+
+        var result = await _service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1024, result.Value.Metadata.PixelWidth);
+        Assert.Equal(768, result.Value.Metadata.PixelHeight);
+    }
+
+    [Fact]
     public async Task DecodeImageAsync_CorruptSupportedFile_ReturnsDecodeError()
     {
         var path = Path.Combine(_tempDirectory, "corrupt.png");
@@ -103,5 +142,62 @@ public sealed class ImageDecodeServiceTests : IDisposable
         bytes[offset + 1] = (byte)((value >> 16) & 0xFF);
         bytes[offset + 2] = (byte)((value >> 8) & 0xFF);
         bytes[offset + 3] = (byte)(value & 0xFF);
+    }
+
+    private static byte[] CreateJpegHeader(int width, int height)
+    {
+        return
+        [
+            0xFF, 0xD8,
+            0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00,
+            0xFF, 0xC0, 0x00, 0x11, 0x08,
+            (byte)((height >> 8) & 0xFF), (byte)(height & 0xFF),
+            (byte)((width >> 8) & 0xFF), (byte)(width & 0xFF),
+            0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00
+        ];
+    }
+
+    private static byte[] CreateBmpHeader(int width, int height)
+    {
+        var bytes = new byte[26];
+        bytes[0] = 0x42;
+        bytes[1] = 0x4D;
+        WriteLittleEndian(bytes, 18, width);
+        WriteLittleEndian(bytes, 22, height);
+        return bytes;
+    }
+
+    private static byte[] CreateWebpVp8XHeader(int width, int height)
+    {
+        var bytes = new byte[30];
+        WriteAscii(bytes, 0, "RIFF");
+        WriteAscii(bytes, 8, "WEBP");
+        WriteAscii(bytes, 12, "VP8X");
+        WriteUInt24LittleEndian(bytes, 24, width - 1);
+        WriteUInt24LittleEndian(bytes, 27, height - 1);
+        return bytes;
+    }
+
+    private static void WriteLittleEndian(byte[] bytes, int offset, int value)
+    {
+        bytes[offset] = (byte)(value & 0xFF);
+        bytes[offset + 1] = (byte)((value >> 8) & 0xFF);
+        bytes[offset + 2] = (byte)((value >> 16) & 0xFF);
+        bytes[offset + 3] = (byte)((value >> 24) & 0xFF);
+    }
+
+    private static void WriteUInt24LittleEndian(byte[] bytes, int offset, int value)
+    {
+        bytes[offset] = (byte)(value & 0xFF);
+        bytes[offset + 1] = (byte)((value >> 8) & 0xFF);
+        bytes[offset + 2] = (byte)((value >> 16) & 0xFF);
+    }
+
+    private static void WriteAscii(byte[] bytes, int offset, string value)
+    {
+        for (var index = 0; index < value.Length; index++)
+        {
+            bytes[offset + index] = (byte)value[index];
+        }
     }
 }
