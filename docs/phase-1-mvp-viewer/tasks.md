@@ -234,7 +234,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Generate errors of each category
     - Verify user messages match specification, no raw exception text (100+ iterations)
 
-- [ ] 10. Checkpoint - Ensure all service tests pass
+- [x] 10. Checkpoint - Ensure all service tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 11. Implement ViewerState and PlaylistState
