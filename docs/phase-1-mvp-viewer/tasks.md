@@ -57,14 +57,14 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
 - [x] 3. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Implement FileOpenService
-  - [ ] 4.1 Create IFileOpenService interface and implementation
+- [x] 4. Implement FileOpenService
+  - [x] 4.1 Create IFileOpenService interface and implementation
     - Implement PickFileAsync() method with Windows file picker
     - Filter to supported extensions: .png, .jpg, .jpeg, .bmp, .webp
     - Implement ValidateFilePath() method
     - Check file exists, is readable, and has supported extension
     - Return appropriate Result with FileAccessError or UnsupportedFormatError
-    - Core validation is implemented and tested; WinUI file picker wiring remains for the UI phase
+    - Core validation is implemented and tested; WinUI file picker wiring is implemented in MainWindow
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
   - [x]* 4.2 Write unit tests for FileOpenService
@@ -81,7 +81,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Verify correct classification for each category (100+ iterations)
     - Test case-insensitive matching
 
-- [ ] 5. Implement ImageDecodeService
+- [x] 5. Implement ImageDecodeService
   - [x] 5.1 Create IImageDecodeService interface and implementation
     - Implement IsSupportedFormat() method with supported extensions list
     - Implement IsDeferredFormat() method with deferred extensions list
@@ -113,7 +113,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Generate random pixel dimensions and file sizes
     - Verify formatted strings match expected patterns (100+ iterations)
 
-- [ ] 6. Implement FolderPlaylistService
+- [x] 6. Implement FolderPlaylistService
   - [x] 6.1 Create IFolderPlaylistService interface and implementation
     - Implement BuildPlaylistAsync() method
     - Extract parent folder from opened file path
@@ -147,7 +147,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Generate random folder structures with mixed file types
     - Verify only supported formats included, correct sorting, correct index (100+ iterations)
 
-- [ ] 7. Implement NavigationService
+- [x] 7. Implement NavigationService
   - [x] 7.1 Create INavigationService interface and implementation
     - Implement NavigateToIndexAsync() method
     - Validate target index is within playlist bounds
@@ -171,7 +171,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Generate playlists of various sizes with random starting positions
     - Verify navigation respects boundaries and index calculations (100+ iterations)
 
-- [ ] 8. Implement SettingsService
+- [x] 8. Implement SettingsService
   - [x] 8.1 Create ISettingsService interface and implementation
     - Implement LoadSettingsAsync() method
     - Read settings.json from ApplicationData.Current.LocalFolder
@@ -201,7 +201,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Generate random ViewerSettings with valid values
     - Verify serialize → deserialize produces equivalent object (100+ iterations)
 
-- [ ] 9. Implement ErrorLogService
+- [x] 9. Implement ErrorLogService
   - [x] 9.1 Create IErrorLogService interface and implementation
     - Implement LogErrorAsync() method
     - Format ViewerError as structured log entry
@@ -237,7 +237,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
 - [x] 10. Checkpoint - Ensure all service tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 11. Implement ViewerState and PlaylistState
+- [x] 11. Implement ViewerState and PlaylistState
   - [x] 11.1 Create ViewerState class
     - Implement properties: CurrentImage, Metadata, ZoomLevel, DisplayMode, PanOffset, IsFullscreen
     - Implement methods: SetImage(), SetZoom(), SetDisplayMode(), ResetPan()
@@ -302,7 +302,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Apply theme preference
     - Handle command-line file argument if present
     - Show empty state if no file provided
-    - Settings loading is implemented; command-line file argument and empty-state UI remain for later UI wiring
+    - Settings loading, command-line file argument, and empty-state UI are implemented
     - _Requirements: 9.1, 9.2, 9.3, 14.2, 14.3, 14.4, 15.2, 15.3, 20.1, 20.2, 20.3, 20.4_
 
   - [x]* 12.7 Write unit tests for MainViewModel
@@ -496,6 +496,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - _Requirements: 20.4_
 
 - [ ] 24. Final integration and manual testing
+  - Smoke launch verified with `dotnet run --project src/ImageViewer.App/ImageViewer.App.csproj -p:Platform=x64 --no-build`; visible human UI pass remains required for detailed manual scenarios
   - [ ] 24.1 Manual test: Fading UI behavior
     - Verify chrome appears on activity
     - Verify 2-second fade delay
