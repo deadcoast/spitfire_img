@@ -41,6 +41,112 @@ public sealed class MainViewModelTests
         Assert.Equal(error, services.ErrorLogService.LoggedErrors[0]);
     }
 
+    [Fact]
+    public async Task NavigateNextAsync_UpdatesCurrentIndexAndImage()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.NavigateNextAsync();
+
+        Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(@"C:\Photos\b.png", viewModel.ViewerState.CurrentImage?.FilePath);
+        Assert.True(viewModel.IsChromeVisible);
+    }
+
+    [Fact]
+    public async Task NavigatePreviousAsync_AtFirstItem_RemainsAtFirstItem()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.NavigatePreviousAsync();
+
+        Assert.Equal(0, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(@"C:\Photos\a.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
+    public async Task NavigateLastAsync_DecodeFailure_LogsNavigationError()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist, failDecodePath: @"C:\Photos\b.png");
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.NavigateLastAsync();
+
+        Assert.Equal(ErrorCategory.NavigationError, services.ErrorLogService.LoggedErrors.Single().Category);
+        Assert.Equal("Unable to load the requested image.", viewModel.ErrorMessage);
+    }
+
+    [Fact]
+    public void ZoomCommands_UpdateViewerState()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+
+        viewModel.ZoomIn();
+        Assert.Equal(125, viewModel.ViewerState.ZoomLevel);
+        Assert.Equal(DisplayMode.Custom, viewModel.ViewerState.DisplayMode);
+
+        viewModel.ZoomOut();
+        Assert.Equal(100, viewModel.ViewerState.ZoomLevel);
+
+        viewModel.ActualSize();
+        Assert.Equal(DisplayMode.ActualSize, viewModel.ViewerState.DisplayMode);
+
+        viewModel.FitToWindow();
+        Assert.Equal(DisplayMode.FitToWindow, viewModel.ViewerState.DisplayMode);
+    }
+
+    [Fact]
+    public async Task ToggleThemeAsync_TogglesBetweenDarkAndLightAndSaves()
+    {
+        var settings = ViewerSettings.Default with { Theme = ViewerTheme.Dark };
+        var services = TestServices.WithSettings(settings);
+        var viewModel = services.CreateViewModel();
+        await viewModel.InitializeAsync();
+
+        await viewModel.ToggleThemeAsync();
+
+        Assert.Equal(ViewerTheme.Light, viewModel.Settings.Theme);
+        Assert.Equal(ViewerTheme.Light, services.SettingsService.SavedSettings.Single().Theme);
+    }
+
+    [Fact]
+    public void ToggleFullscreen_UpdatesViewerState()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+
+        viewModel.ToggleFullscreen();
+
+        Assert.True(viewModel.ViewerState.IsFullscreen);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_LoadsSettings()
+    {
+        var settings = ViewerSettings.Default with { Theme = ViewerTheme.Light, WindowWidth = 1400 };
+        var services = TestServices.WithSettings(settings);
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.InitializeAsync();
+
+        Assert.Equal(settings, viewModel.Settings);
+    }
+
+    private static Playlist CreateTwoItemPlaylist()
+    {
+        return new Playlist(
+            [new ImageItem(@"C:\Photos\a.png"), new ImageItem(@"C:\Photos\b.png")],
+            0,
+            @"C:\Photos");
+    }
+
     private sealed class TestServices
     {
         private TestServices(
@@ -48,7 +154,7 @@ public sealed class MainViewModelTests
             IImageDecodeService imageDecodeService,
             IFolderPlaylistService folderPlaylistService,
             INavigationService navigationService,
-            ISettingsService settingsService,
+            StubSettingsService settingsService,
             RecordingErrorLogService errorLogService)
         {
             FileOpenService = fileOpenService;
@@ -67,7 +173,7 @@ public sealed class MainViewModelTests
 
         public INavigationService NavigationService { get; }
 
-        public ISettingsService SettingsService { get; }
+        public StubSettingsService SettingsService { get; }
 
         public RecordingErrorLogService ErrorLogService { get; }
 
@@ -80,6 +186,30 @@ public sealed class MainViewModelTests
                 new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
                 new NavigationService(decoder),
                 new StubSettingsService(),
+                new RecordingErrorLogService());
+        }
+
+        public static TestServices WithPlaylist(Playlist playlist, string? failDecodePath = null)
+        {
+            var decoder = new PathImageDecodeService(failDecodePath);
+            return new TestServices(
+                new StubFileOpenService(Result<string>.Success(playlist.CurrentItem?.FilePath ?? string.Empty)),
+                decoder,
+                new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
+                new NavigationService(decoder),
+                new StubSettingsService(),
+                new RecordingErrorLogService());
+        }
+
+        public static TestServices WithSettings(ViewerSettings settings)
+        {
+            var decoder = new PathImageDecodeService();
+            return new TestServices(
+                new StubFileOpenService(Result<string>.Success(@"C:\Photos\a.png")),
+                decoder,
+                new StubFolderPlaylistService(Result<Playlist>.Success(CreateTwoItemPlaylist())),
+                new NavigationService(decoder),
+                new StubSettingsService(settings),
                 new RecordingErrorLogService());
         }
 
@@ -155,15 +285,55 @@ public sealed class MainViewModelTests
 
     private sealed class StubSettingsService : ISettingsService
     {
+        private readonly ViewerSettings _settings;
+
+        public StubSettingsService()
+            : this(ViewerSettings.Default)
+        {
+        }
+
+        public StubSettingsService(ViewerSettings settings)
+        {
+            _settings = settings;
+        }
+
+        public List<ViewerSettings> SavedSettings { get; } = [];
+
         public Task<Result<ViewerSettings>> LoadSettingsAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(Result<ViewerSettings>.Success(ViewerSettings.Default));
+            return Task.FromResult(Result<ViewerSettings>.Success(_settings));
         }
 
         public Task<Result> SaveSettingsAsync(ViewerSettings settings, CancellationToken cancellationToken = default)
         {
+            SavedSettings.Add(settings);
             return Task.FromResult(Result.Success());
         }
+    }
+
+    private sealed class PathImageDecodeService : IImageDecodeService
+    {
+        private readonly string? _failPath;
+
+        public PathImageDecodeService(string? failPath = null)
+        {
+            _failPath = failPath;
+        }
+
+        public Task<Result<DecodedImage>> DecodeImageAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            if (string.Equals(filePath, _failPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(Result<DecodedImage>.Failure(ViewerError.DecodeError("DecodeImage", filePath)));
+            }
+
+            return Task.FromResult(Result<DecodedImage>.Success(
+                new DecodedImage(filePath, new ImageMetadata(100, 100, 10))));
+        }
+
+        public bool IsSupportedFormat(string extension) => true;
+
+        public bool IsDeferredFormat(string extension) => false;
     }
 
     private sealed class RecordingErrorLogService : IErrorLogService

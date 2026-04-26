@@ -122,6 +122,107 @@ public sealed class MainViewModel : ObservableObject
         IsChromeVisible = true;
     }
 
+    public Task NavigateNextAsync(CancellationToken cancellationToken = default)
+    {
+        return NavigateToIndexAsync(PlaylistState.CurrentIndex + 1, cancellationToken);
+    }
+
+    public Task NavigatePreviousAsync(CancellationToken cancellationToken = default)
+    {
+        return NavigateToIndexAsync(PlaylistState.CurrentIndex - 1, cancellationToken);
+    }
+
+    public Task NavigateFirstAsync(CancellationToken cancellationToken = default)
+    {
+        return NavigateToIndexAsync(0, cancellationToken);
+    }
+
+    public Task NavigateLastAsync(CancellationToken cancellationToken = default)
+    {
+        return NavigateToIndexAsync(PlaylistState.TotalCount - 1, cancellationToken);
+    }
+
+    public void ZoomIn()
+    {
+        ViewerState.SetZoom(ViewerState.ZoomLevel + 25);
+        ShowChrome();
+    }
+
+    public void ZoomOut()
+    {
+        ViewerState.SetZoom(Math.Max(100, ViewerState.ZoomLevel - 25));
+        ShowChrome();
+    }
+
+    public void FitToWindow()
+    {
+        ViewerState.SetDisplayMode(DisplayMode.FitToWindow);
+        ViewerState.ResetPan();
+        ShowChrome();
+    }
+
+    public void ActualSize()
+    {
+        ViewerState.SetDisplayMode(DisplayMode.ActualSize);
+        ViewerState.ResetPan();
+        ShowChrome();
+    }
+
+    public void ToggleFullscreen()
+    {
+        ViewerState.IsFullscreen = !ViewerState.IsFullscreen;
+        ShowChrome();
+    }
+
+    public async Task ToggleThemeAsync(CancellationToken cancellationToken = default)
+    {
+        var nextTheme = Settings.Theme == ViewerTheme.Dark
+            ? ViewerTheme.Light
+            : ViewerTheme.Dark;
+
+        var nextSettings = Settings with { Theme = nextTheme };
+        Settings = nextSettings;
+        var saveResult = await _settingsService.SaveSettingsAsync(nextSettings, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (saveResult.IsFailure)
+        {
+            await HandleErrorAsync(saveResult.Error, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task NavigateToIndexAsync(int targetIndex, CancellationToken cancellationToken)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        IsLoading = true;
+        ErrorMessage = null;
+
+        try
+        {
+            var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
+            var navigationResult = await _navigationService.NavigateToIndexAsync(playlist, targetIndex, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (navigationResult.IsFailure)
+            {
+                await HandleErrorAsync(navigationResult.Error, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            PlaylistState.SetCurrentIndex(navigationResult.Value.Index);
+            ViewerState.SetImage(navigationResult.Value.Image);
+            ShowChrome();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
     private async Task HandleErrorAsync(ViewerError error, CancellationToken cancellationToken)
     {
         ErrorMessage = error.UserMessage;

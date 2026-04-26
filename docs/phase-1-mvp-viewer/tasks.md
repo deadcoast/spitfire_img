@@ -275,7 +275,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Show chrome briefly after opening
     - _Requirements: 1.1-1.5, 2.1-2.5, 3.1-3.6, 10.1-10.10, 11.1-11.6, 20.1, 20.2, 20.3_
 
-  - [ ] 12.3 Implement navigation commands
+  - [x] 12.3 Implement navigation commands
     - Create NavigateNextCommand, NavigatePreviousCommand, NavigateFirstCommand, NavigateLastCommand
     - Implement navigation methods using NavigationService
     - Update ViewerState with new image
@@ -284,20 +284,20 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Show chrome briefly on navigation
     - _Requirements: 4.1-4.7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 16.1-16.4, 19.1, 19.2_
 
-  - [ ] 12.4 Implement zoom and display mode commands
+  - [x] 12.4 Implement zoom and display mode commands
     - Create ZoomInCommand, ZoomOutCommand, FitToWindowCommand, ActualSizeCommand
     - Implement zoom methods (increase/decrease by 25%)
     - Update ViewerState zoom level and display mode
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 13.1, 13.2, 13.3, 13.4, 13.5, 19.3_
 
-  - [ ] 12.5 Implement fullscreen and theme commands
+  - [x] 12.5 Implement fullscreen and theme commands
     - Create ToggleFullscreenCommand, ToggleThemeCommand
     - Implement fullscreen toggle logic
     - Implement theme switching logic
     - Save theme preference to settings
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 9.2, 15.1, 15.2, 15.3, 15.4, 15.5, 15.6, 19.1, 19.4_
 
-  - [ ] 12.6 Implement initialization and settings loading
+  - [x] 12.6 Implement initialization and settings loading
     - Load settings on ViewModel construction
     - Apply theme preference
     - Handle command-line file argument if present
@@ -305,7 +305,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Settings loading is implemented; command-line file argument and empty-state UI remain for later UI wiring
     - _Requirements: 9.1, 9.2, 9.3, 14.2, 14.3, 14.4, 15.2, 15.3, 20.1, 20.2, 20.3, 20.4_
 
-  - [ ]* 12.7 Write unit tests for MainViewModel
+  - [x]* 12.7 Write unit tests for MainViewModel
     - Test command execution
     - Test state updates
     - Test error handling

@@ -87,4 +87,15 @@ public sealed class PlaylistState : ObservableObject
             CurrentIndex = Items.Count - 1;
         }
     }
+
+    public void SetCurrentIndex(int index)
+    {
+        if (Items.Count == 0)
+        {
+            CurrentIndex = -1;
+            return;
+        }
+
+        CurrentIndex = Math.Clamp(index, 0, Items.Count - 1);
+    }
 }
