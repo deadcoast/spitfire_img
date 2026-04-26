@@ -2,7 +2,6 @@
 bin/
 obj/
 .vs/
-.kiro/
-
+.notes/
 *.user
 *.suo

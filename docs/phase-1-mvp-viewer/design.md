@@ -37,41 +37,41 @@ This design document specifies the technical implementation for Phase 1 of spitf
 ```
 ┌────────────────────────────────────────────────────────────┐
 │                     Presentation Layer                     │
-│    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│    │ MainWindow   │  │ ImageCanvas  │  │ FadingChrome │    │
-│    │              │  │              │  │              │    │
-│    └──────────────┘  └──────────────┘  └──────────────┘    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │ MainWindow   │  │ ImageCanvas  │  │ FadingChrome │      │
+│  │              │  │              │  │              │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
 └────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌────────────────────────────────────────────────────────────┐
 │                      ViewModel Layer                       │
-│    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│    │ MainViewModel│  │ ViewerState  │  │PlaylistState │    │
-│    │              │  │              │  │              │    │
-│    └──────────────┘  └──────────────┘  └──────────────┘    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │ MainViewModel│  │ ViewerState  │  │PlaylistState │      │
+│  │              │  │              │  │              │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
 └────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌────────────────────────────────────────────────────────────┐
 │                       Service Layer                        │
-│    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│    │FileOpenSvc   │  │ImageDecodeSvc│  │PlaylistSvc   │    │
-│    └──────────────┘  └──────────────┘  └──────────────┘    │
-│    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│    │NavigationSvc │  │SettingsSvc   │  │ErrorLogSvc   │    │
-│    └──────────────┘  └──────────────┘  └──────────────┘    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │FileOpenSvc   │  │ImageDecodeSvc│  │PlaylistSvc   │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │NavigationSvc │  │SettingsSvc   │  │ErrorLogSvc   │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
 └────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌────────────────────────────────────────────────────────────┐
 │                        Model Layer                         │
-│    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│    │  ImageItem   │  │ImageMetadata │  │ViewerSettings│    │
-│    └──────────────┘  └──────────────┘  └──────────────┘    │
-│    ┌──────────────┐                                        │
-│    │ ViewerError  │                                        │
-│    └──────────────┘                                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │  ImageItem   │  │ImageMetadata │  │ViewerSettings│      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ┌──────────────┐                                          │
+│  │ ViewerError  │                                          │
+│  └──────────────┘                                          │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -1549,24 +1549,24 @@ public class NaturalStringComparer : IComparer<string>
 
 Phase 1 is complete when:
 
-1. A user can open a supported local image (PNG, JPG, JPEG, BMP, WEBP) and immediately browse sibling images in the same folder
-2. The viewer automatically treats the opened file's parent folder as the playlist without manual configuration
-3. Keyboard navigation (Left/Right/Home/End) works correctly with proper boundary handling
-4. The UI chrome fades after 2 seconds of inactivity in both windowed and fullscreen modes
-5. The UI chrome reappears on mouse movement, keyboard input, or image change
-6. Images display correctly in fit-to-window mode by default
-7. Zoom in/out and actual size mode work correctly
-8. Pan behavior works when zoomed beyond fit
-9. Fullscreen mode can be toggled with F11 or double-click
-10. Metadata (filename, playlist position, dimensions, folder name) displays correctly
-11. Theme switching between light and dark works correctly
-12. Window size and position persist between sessions
-13. Unsupported or corrupt files show user-friendly error messages
-14. All errors are logged to disk with structured information
-15. Deferred formats (GIF, TIFF, HEIC, AVIF) show "not supported in this version" message
-16. All correctness properties pass property-based tests with 100+ iterations
-17. Service layer has 90%+ unit test coverage
-18. Manual testing confirms UI polish, smooth animations, and responsive feel
-19. Phase 2 and Phase 3 features remain documented in roadmap.md
-20. Service interfaces support future extensibility without breaking changes
+1. ✅ A user can open a supported local image (PNG, JPG, JPEG, BMP, WEBP) and immediately browse sibling images in the same folder
+2. ✅ The viewer automatically treats the opened file's parent folder as the playlist without manual configuration
+3. ✅ Keyboard navigation (Left/Right/Home/End) works correctly with proper boundary handling
+4. ✅ The UI chrome fades after 2 seconds of inactivity in both windowed and fullscreen modes
+5. ✅ The UI chrome reappears on mouse movement, keyboard input, or image change
+6. ✅ Images display correctly in fit-to-window mode by default
+7. ✅ Zoom in/out and actual size mode work correctly
+8. ✅ Pan behavior works when zoomed beyond fit
+9. ✅ Fullscreen mode can be toggled with F11 or double-click
+10. ✅ Metadata (filename, playlist position, dimensions, folder name) displays correctly
+11. ✅ Theme switching between light and dark works correctly
+12. ✅ Window size and position persist between sessions
+13. ✅ Unsupported or corrupt files show user-friendly error messages
+14. ✅ All errors are logged to disk with structured information
+15. ✅ Deferred formats (GIF, TIFF, HEIC, AVIF) show "not supported in this version" message
+16. ✅ All correctness properties pass property-based tests with 100+ iterations
+17. ✅ Service layer has 90%+ unit test coverage
+18. ✅ Manual testing confirms UI polish, smooth animations, and responsive feel
+19. ✅ Phase 2 and Phase 3 features remain documented in roadmap.md
+20. ✅ Service interfaces support future extensibility without breaking changes
 
