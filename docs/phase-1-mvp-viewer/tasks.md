@@ -148,7 +148,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Verify only supported formats included, correct sorting, correct index (100+ iterations)
 
 - [ ] 7. Implement NavigationService
-  - [ ] 7.1 Create INavigationService interface and implementation
+  - [x] 7.1 Create INavigationService interface and implementation
     - Implement NavigateToIndexAsync() method
     - Validate target index is within playlist bounds
     - Get ImageItem at target index
@@ -157,7 +157,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Handle boundary conditions (stay on first/last image)
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 16.1, 16.2, 16.3_
 
-  - [ ]* 7.2 Write unit tests for NavigationService
+  - [x]* 7.2 Write unit tests for NavigationService
     - Test navigation to valid indices
     - Test navigation past last image (boundary)
     - Test navigation before first image (boundary)
