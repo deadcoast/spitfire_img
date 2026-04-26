@@ -191,6 +191,31 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public async Task SaveWindowStateAsync(
+        int width,
+        int height,
+        int x,
+        int y,
+        CancellationToken cancellationToken = default)
+    {
+        var nextSettings = Settings with
+        {
+            WindowWidth = width,
+            WindowHeight = height,
+            WindowX = x,
+            WindowY = y
+        };
+
+        Settings = nextSettings.Normalize();
+        var saveResult = await _settingsService.SaveSettingsAsync(Settings, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (saveResult.IsFailure)
+        {
+            await HandleErrorAsync(saveResult.Error, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     private async Task NavigateToIndexAsync(int targetIndex, CancellationToken cancellationToken)
     {
         if (PlaylistState.TotalCount == 0)

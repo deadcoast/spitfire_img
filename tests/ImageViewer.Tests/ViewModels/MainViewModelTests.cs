@@ -139,6 +139,21 @@ public sealed class MainViewModelTests
         Assert.Equal(settings, viewModel.Settings);
     }
 
+    [Fact]
+    public async Task SaveWindowStateAsync_PersistsWindowBounds()
+    {
+        var services = TestServices.WithSettings(ViewerSettings.Default);
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.SaveWindowStateAsync(1600, 900, 40, 50);
+
+        var saved = services.SettingsService.SavedSettings.Single();
+        Assert.Equal(1600, saved.WindowWidth);
+        Assert.Equal(900, saved.WindowHeight);
+        Assert.Equal(40, saved.WindowX);
+        Assert.Equal(50, saved.WindowY);
+    }
+
     private static Playlist CreateTwoItemPlaylist()
     {
         return new Playlist(

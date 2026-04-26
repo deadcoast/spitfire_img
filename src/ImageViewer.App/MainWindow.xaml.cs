@@ -32,7 +32,7 @@ public sealed partial class MainWindow : Window
         viewModel.ViewerState.PropertyChanged += OnViewerStatePropertyChanged;
         Activated += OnActivated;
         Closed += OnClosed;
-        _ = viewModel.InitializeAsync();
+        _ = InitializeWindowAsync();
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
@@ -40,10 +40,40 @@ public sealed partial class MainWindow : Window
         RootGrid.Focus(FocusState.Programmatic);
     }
 
-    private void OnClosed(object sender, WindowEventArgs args)
+    private async void OnClosed(object sender, WindowEventArgs args)
     {
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.ViewerState.PropertyChanged -= OnViewerStatePropertyChanged;
+        await _viewModel.SaveWindowStateAsync(
+            _appWindow.Size.Width,
+            _appWindow.Size.Height,
+            _appWindow.Position.X,
+            _appWindow.Position.Y);
+    }
+
+    public Task OpenInitialFileAsync(string filePath)
+    {
+        return _viewModel.OpenFileAsync(filePath);
+    }
+
+    private async Task InitializeWindowAsync()
+    {
+        await _viewModel.InitializeAsync();
+        ApplyTheme();
+
+        if (_viewModel.Settings.WindowWidth > 0 && _viewModel.Settings.WindowHeight > 0)
+        {
+            _appWindow.Resize(new Windows.Graphics.SizeInt32(
+                _viewModel.Settings.WindowWidth,
+                _viewModel.Settings.WindowHeight));
+        }
+
+        if (_viewModel.Settings.WindowX >= 0 && _viewModel.Settings.WindowY >= 0)
+        {
+            _appWindow.Move(new Windows.Graphics.PointInt32(
+                _viewModel.Settings.WindowX,
+                _viewModel.Settings.WindowY));
+        }
     }
 
     private async Task OpenFileFromPickerAsync()

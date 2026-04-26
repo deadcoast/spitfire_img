@@ -22,6 +22,15 @@ public partial class App : Application
     {
         var window = _services.GetRequiredService<MainWindow>();
         window.Activate();
+
+        if (!string.IsNullOrWhiteSpace(args.Arguments))
+        {
+            var filePath = args.Arguments.Trim().Trim('"');
+            if (File.Exists(filePath))
+            {
+                _ = window.OpenInitialFileAsync(filePath);
+            }
+        }
     }
 
     private static void ConfigureServices(IServiceCollection services)
