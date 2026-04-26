@@ -258,13 +258,13 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - _Requirements: 3.1-3.6, 4.1-4.6, 5.1-5.7, 6.1-6.5, 16.1-16.3_
 
 - [ ] 12. Implement MainViewModel
-  - [ ] 12.1 Create MainViewModel class with service dependencies
+  - [x] 12.1 Create MainViewModel class with service dependencies
     - Inject all services via constructor: IFileOpenService, IImageDecodeService, IFolderPlaylistService, INavigationService, ISettingsService, IErrorLogService
     - Create properties: ViewerState, PlaylistState, Settings, IsChromeVisible, IsLoading, ErrorMessage
     - Implement INotifyPropertyChanged
     - _Requirements: All (coordinates entire application)_
 
-  - [ ] 12.2 Implement file opening workflow
+  - [x] 12.2 Implement file opening workflow
     - Create OpenFileCommand
     - Implement OpenFileAsync() method
     - Validate file with FileOpenService
@@ -302,6 +302,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Apply theme preference
     - Handle command-line file argument if present
     - Show empty state if no file provided
+    - Settings loading is implemented; command-line file argument and empty-state UI remain for later UI wiring
     - _Requirements: 9.1, 9.2, 9.3, 14.2, 14.3, 14.4, 15.2, 15.3, 20.1, 20.2, 20.3, 20.4_
 
   - [ ]* 12.7 Write unit tests for MainViewModel
@@ -310,6 +311,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test error handling
     - Test initialization flow
     - Mock all service dependencies
+    - Open-file success and validation-error paths are implemented; navigation, zoom, theme, and initialization tests remain open
     - _Requirements: All (MainViewModel coordinates entire application)_
 
 - [ ] 13. Checkpoint - Ensure all ViewModel tests pass

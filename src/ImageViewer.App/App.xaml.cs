@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using ImageViewer.Core.Services;
+using ImageViewer.Core.ViewModels;
 
 namespace ImageViewer.App;
 
@@ -24,6 +26,17 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        var localDataFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "spitfire.img");
+
+        services.AddSingleton<IFileOpenService, FileOpenService>();
+        services.AddSingleton<IImageDecodeService, ImageDecodeService>();
+        services.AddSingleton<IFolderPlaylistService, FolderPlaylistService>();
+        services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<ISettingsService>(_ => new SettingsService(localDataFolder));
+        services.AddSingleton<IErrorLogService>(_ => new ErrorLogService(localDataFolder));
+        services.AddTransient<MainViewModel>();
         services.AddTransient<MainWindow>();
     }
 }
