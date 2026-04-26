@@ -18,35 +18,35 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
   - Configure dependency injection in App.xaml.cs
   - _Requirements: All (foundation for entire application)_
 
-- [ ] 2. Implement core data models
-  - [ ] 2.1 Create ImageItem model
+- [x] 2. Implement core data models
+  - [x] 2.1 Create ImageItem model
     - Implement properties: FilePath, Filename, Extension
     - Implement value equality based on FilePath (case-insensitive)
     - _Requirements: 3.1, 3.2, 3.3_
 
-  - [ ] 2.2 Create ImageMetadata model
+  - [x] 2.2 Create ImageMetadata model
     - Implement properties: PixelWidth, PixelHeight, FileSizeBytes
     - Implement computed properties: FormattedDimensions, FormattedFileSize
     - _Requirements: 2.5, 8.1, 8.3_
 
-  - [ ] 2.3 Create ViewerSettings model
+  - [x] 2.3 Create ViewerSettings model
     - Implement properties: Theme, DefaultDisplayMode, WindowWidth, WindowHeight, WindowX, WindowY, FadeDelayMs, FadeDurationMs
     - Implement validation logic for all properties
     - Implement default values
     - _Requirements: 9.1, 9.2, 9.3, 14.1, 14.2, 14.4, 15.1, 15.2, 15.3_
 
-  - [ ] 2.4 Create ViewerError model and error categories
+  - [x] 2.4 Create ViewerError model and error categories
     - Implement ErrorCategory enum: FileAccessError, UnsupportedFormatError, DecodeError, PlaylistScanError, NavigationError, SettingsPersistenceError, UnexpectedViewerError
     - Implement ViewerError properties: Timestamp, Severity, Category, UserMessage, Operation, FilePath, ExceptionType, StackTrace
     - Implement factory methods for each error category with user-friendly messages
     - _Requirements: 10.1-10.8, 11.1-11.6_
 
-  - [ ] 2.5 Create Result types
+  - [x] 2.5 Create Result types
     - Implement generic Result<T> with Success/Failure factory methods
     - Implement non-generic Result for operations without return values
     - _Requirements: All (used throughout service layer)_
 
-  - [ ]* 2.6 Write unit tests for all models
+  - [x]* 2.6 Write unit tests for all models
     - Test ImageItem equality and property initialization
     - Test ImageMetadata formatting with specific values
     - Test ViewerSettings validation and defaults
