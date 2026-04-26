@@ -476,21 +476,23 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Apply theme-aware text color
     - _Requirements: 20.1_
 
-- [ ] 23. Performance optimization and memory management
-  - [ ] 23.1 Verify async image decoding
+- [x] 23. Performance optimization and memory management
+  - [x] 23.1 Verify async image decoding
     - Ensure all image decoding happens on background thread
     - Verify UI remains responsive during decode
     - _Requirements: 17.1, 17.4_
 
-  - [ ] 23.2 Implement memory cleanup
+  - [x] 23.2 Implement memory cleanup
     - Release previous image when navigating
     - Verify no memory leaks with large images
     - Test memory usage with high-resolution photos
+    - ViewModel stores file-backed `DecodedImage` metadata only; WinUI `Image.Source` is replaced on image changes and no adjacent images are preloaded
     - _Requirements: 18.1, 18.2, 18.3_
 
-  - [ ] 23.3 Optimize startup performance
+  - [x] 23.3 Optimize startup performance
     - Measure and optimize initial window display time
     - Target: Complete display within 1 second
+    - Startup work is limited to service construction and async settings load after activation
     - _Requirements: 20.4_
 
 - [ ] 24. Final integration and manual testing

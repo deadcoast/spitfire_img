@@ -18,7 +18,8 @@ public sealed class ImageDecodeService : IImageDecodeService
         try
         {
             var bytes = await File.ReadAllBytesAsync(filePath, cancellationToken).ConfigureAwait(false);
-            var (width, height) = ReadDimensions(extension, bytes);
+            var (width, height) = await Task.Run(() => ReadDimensions(extension, bytes), cancellationToken)
+                .ConfigureAwait(false);
             var metadata = new ImageMetadata(width, height, new FileInfo(filePath).Length);
             return Result<DecodedImage>.Success(new DecodedImage(filePath, metadata));
         }
