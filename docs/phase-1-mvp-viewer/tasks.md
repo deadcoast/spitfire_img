@@ -64,9 +64,10 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Implement ValidateFilePath() method
     - Check file exists, is readable, and has supported extension
     - Return appropriate Result with FileAccessError or UnsupportedFormatError
+    - Core validation is implemented and tested; WinUI file picker wiring remains for the UI phase
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [ ]* 4.2 Write unit tests for FileOpenService
+  - [x]* 4.2 Write unit tests for FileOpenService
     - Test file validation with existing files
     - Test file validation with non-existent files
     - Test file validation with unsupported extensions
