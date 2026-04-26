@@ -317,79 +317,79 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
 - [x] 13. Checkpoint - Ensure all ViewModel tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Implement MainWindow and basic layout
-  - [ ] 14.1 Create MainWindow.xaml with basic structure
+- [x] 14. Implement MainWindow and basic layout
+  - [x] 14.1 Create MainWindow.xaml with basic structure
     - Create Grid layout with ImageCanvas and FadingChrome
     - Set up data binding to MainViewModel
     - Configure window properties: Title, MinWidth, MinHeight
     - _Requirements: All (main application window)_
 
-  - [ ] 14.2 Implement window state management
+  - [x] 14.2 Implement window state management
     - Implement window size and position restoration from settings
     - Implement window size and position saving on close
     - Handle off-screen window position (reset to center)
     - Implement fullscreen toggle logic
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 14.1, 14.2, 14.3, 14.4_
 
-  - [ ] 14.3 Implement keyboard shortcut routing
+  - [x] 14.3 Implement keyboard shortcut routing
     - Handle OnKeyDown event in MainWindow
     - Route keyboard shortcuts to MainViewModel commands
     - Implement: Left/Right/Home/End (navigation), F11 (fullscreen), Ctrl+0/1/+/- (zoom), Esc (exit fullscreen)
     - Ensure shortcuts work in both windowed and fullscreen modes
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 5.2, 5.3, 5.4, 5.5, 6.3, 19.1, 19.2, 19.3, 19.4_
 
-- [ ] 15. Implement ImageCanvas control
-  - [ ] 15.1 Create ImageCanvas.xaml with Image control
+- [x] 15. Implement ImageCanvas control
+  - [x] 15.1 Create ImageCanvas.xaml with Image control
     - Create custom UserControl for image display
     - Add Image control with data binding to ViewerState.CurrentImage
     - Implement background canvas with theme-aware color
     - _Requirements: 5.1, 5.7, 15.5, 15.6_
 
-  - [ ] 15.2 Implement fit-to-window display mode
+  - [x] 15.2 Implement fit-to-window display mode
     - Calculate scale to fit image within canvas bounds
     - Preserve aspect ratio
     - Center image horizontally and vertically
     - Update on window resize
     - _Requirements: 5.1, 5.2, 5.7_
 
-  - [ ] 15.3 Implement actual size display mode
+  - [x] 15.3 Implement actual size display mode
     - Display image at 100% scale (1:1 pixel mapping)
     - Center image within canvas
     - _Requirements: 5.3, 5.7_
 
-  - [ ] 15.4 Implement zoom functionality
+  - [x] 15.4 Implement zoom functionality
     - Apply zoom level percentage from ViewerState
     - Maintain center point during zoom
     - Switch to fit mode when zooming out below 100%
     - _Requirements: 5.4, 5.5, 5.6, 13.4, 13.5_
 
-  - [ ] 15.5 Implement pan functionality
+  - [x] 15.5 Implement pan functionality
     - Enable mouse drag panning when zoomed beyond fit
     - Handle OnPointerMoved event for pan dragging
     - Apply PanOffset from ViewerState
     - Disable panning when image fits within window
     - _Requirements: 5.6, 13.1, 13.2, 13.3_
 
-  - [ ] 15.6 Implement double-click fullscreen toggle
+  - [x] 15.6 Implement double-click fullscreen toggle
     - Handle double-click event on ImageCanvas
     - Trigger ToggleFullscreenCommand
     - _Requirements: 6.2_
 
-- [ ] 16. Implement FadingChrome control
-  - [ ] 16.1 Create FadingChrome.xaml with top and bottom bars
+- [x] 16. Implement FadingChrome control
+  - [x] 16.1 Create FadingChrome.xaml with top and bottom bars
     - Create Grid with top MenuBar and bottom BottomInfoBar
     - Apply semi-transparent background with theme-aware color
     - Set up opacity animation infrastructure
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
-  - [ ] 16.2 Implement fade timer and animation logic
+  - [x] 16.2 Implement fade timer and animation logic
     - Create DispatcherTimer with 2-second delay
     - Implement ShowChrome() method: set opacity to 1.0, reset timer
     - Implement FadeOutChrome() method: animate opacity to 0.1 over 300ms
     - Handle timer expiration
     - _Requirements: 7.2, 7.3_
 
-  - [ ] 16.3 Implement activity detection
+  - [x] 16.3 Implement activity detection
     - Detect mouse movement anywhere in window
     - Detect keyboard input
     - Detect image navigation
@@ -397,28 +397,28 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Call ShowChrome() on any activity
     - _Requirements: 7.1, 7.2, 7.6_
 
-  - [ ] 16.4 Wire up chrome visibility to MainViewModel
+  - [x] 16.4 Wire up chrome visibility to MainViewModel
     - Bind IsChromeVisible property
     - Trigger ShowChrome() from MainViewModel on image change
     - Ensure chrome remains interactive when faded
     - _Requirements: 7.1, 7.4, 7.5_
 
-- [ ] 17. Implement BottomInfoBar control
-  - [ ] 17.1 Create BottomInfoBar.xaml with metadata display
+- [x] 17. Implement BottomInfoBar control
+  - [x] 17.1 Create BottomInfoBar.xaml with metadata display
     - Create horizontal layout with TextBlocks
     - Display: Filename, PlaylistPosition ("N / Total"), Dimensions ("Width × Height"), FolderName
     - Apply theme-aware text colors
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-  - [ ] 17.2 Wire up data binding to ViewerState and PlaylistState
+  - [x] 17.2 Wire up data binding to ViewerState and PlaylistState
     - Bind Filename to ViewerState.Metadata
     - Bind PlaylistPosition to PlaylistState
     - Bind Dimensions to ViewerState.Metadata.FormattedDimensions
     - Bind FolderName to PlaylistState.FolderPath
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 18. Implement menu bar
-  - [ ] 18.1 Create MenuBar with File, View, and Help menus
+- [x] 18. Implement menu bar
+  - [x] 18.1 Create MenuBar with File, View, and Help menus
     - File menu: Open File, Exit
     - View menu: Zoom In, Zoom Out, Actual Size, Fit to Window, Toggle Fullscreen
     - Help menu: About
