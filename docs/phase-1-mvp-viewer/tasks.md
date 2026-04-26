@@ -238,19 +238,19 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 11. Implement ViewerState and PlaylistState
-  - [ ] 11.1 Create ViewerState class
+  - [x] 11.1 Create ViewerState class
     - Implement properties: CurrentImage, Metadata, ZoomLevel, DisplayMode, PanOffset, IsFullscreen
     - Implement methods: SetImage(), SetZoom(), SetDisplayMode(), ResetPan()
     - Implement INotifyPropertyChanged for data binding
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 6.1, 6.2, 6.3, 6.4, 6.5_
 
-  - [ ] 11.2 Create PlaylistState class
+  - [x] 11.2 Create PlaylistState class
     - Implement properties: Items (ObservableCollection<ImageItem>), CurrentIndex, TotalCount, CurrentItem, CanNavigateNext, CanNavigatePrevious, FolderPath
     - Implement methods: SetPlaylist(), MoveNext(), MovePrevious(), MoveFirst(), MoveLast()
     - Implement INotifyPropertyChanged for data binding
     - _Requirements: 3.1, 3.2, 3.3, 3.6, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 8.2, 8.5, 16.1, 16.2, 16.3_
 
-  - [ ]* 11.3 Write unit tests for ViewerState and PlaylistState
+  - [x]* 11.3 Write unit tests for ViewerState and PlaylistState
     - Test state transitions
     - Test property change notifications
     - Test collection management in PlaylistState
