@@ -257,7 +257,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test navigation boundary logic
     - _Requirements: 3.1-3.6, 4.1-4.6, 5.1-5.7, 6.1-6.5, 16.1-16.3_
 
-- [ ] 12. Implement MainViewModel
+- [x] 12. Implement MainViewModel
   - [x] 12.1 Create MainViewModel class with service dependencies
     - Inject all services via constructor: IFileOpenService, IImageDecodeService, IFolderPlaylistService, INavigationService, ISettingsService, IErrorLogService
     - Create properties: ViewerState, PlaylistState, Settings, IsChromeVisible, IsLoading, ErrorMessage
@@ -314,7 +314,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Open-file success and validation-error paths are implemented; navigation, zoom, theme, and initialization tests remain open
     - _Requirements: All (MainViewModel coordinates entire application)_
 
-- [ ] 13. Checkpoint - Ensure all ViewModel tests pass
+- [x] 13. Checkpoint - Ensure all ViewModel tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 14. Implement MainWindow and basic layout
