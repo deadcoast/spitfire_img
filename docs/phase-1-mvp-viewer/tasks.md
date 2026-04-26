@@ -172,7 +172,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Verify navigation respects boundaries and index calculations (100+ iterations)
 
 - [ ] 8. Implement SettingsService
-  - [ ] 8.1 Create ISettingsService interface and implementation
+  - [x] 8.1 Create ISettingsService interface and implementation
     - Implement LoadSettingsAsync() method
     - Read settings.json from ApplicationData.Current.LocalFolder
     - Deserialize using System.Text.Json
@@ -184,12 +184,12 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Return SettingsPersistenceError on write failure
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-  - [ ]* 8.2 Write unit tests for SettingsService
+  - [x]* 8.2 Write unit tests for SettingsService
     - Test default settings when file doesn't exist
     - Test settings validation
     - _Requirements: 9.1-9.6_
 
-  - [ ]* 8.3 Write integration tests for settings persistence
+  - [x]* 8.3 Write integration tests for settings persistence
     - Test saving and loading settings with real files
     - Test handling of corrupted JSON files
     - Test handling of write permission errors
