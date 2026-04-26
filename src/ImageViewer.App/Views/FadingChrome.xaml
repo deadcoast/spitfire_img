@@ -8,8 +8,7 @@
             VerticalAlignment="Top"
             Margin="12"
             Padding="8,4"
-            Background="#AA202020"
-            CornerRadius="8">
+            Style="{StaticResource ChromePanelBorderStyle}">
             <MenuBar>
                 <MenuBarItem Title="File">
                     <MenuFlyoutItem Text="Open File" Click="OnOpenFileClicked" />

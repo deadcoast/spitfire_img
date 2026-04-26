@@ -8,7 +8,7 @@
     <Grid
         x:Name="RootGrid"
         IsTabStop="True"
-        Background="#151515"
+        Background="{ThemeResource CanvasBackgroundBrush}"
         KeyDown="OnRootKeyDown"
         PointerMoved="OnRootPointerMoved">
         <views:ImageCanvas x:Name="ImageCanvas" />

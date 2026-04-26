@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
@@ -140,9 +141,15 @@ public sealed partial class MainWindow : Window
         {
             DispatcherQueue.TryEnqueue(() =>
             {
+                ErrorInfoBar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error;
                 ErrorInfoBar.Message = _viewModel.ErrorMessage ?? string.Empty;
                 ErrorInfoBar.IsOpen = !string.IsNullOrWhiteSpace(_viewModel.ErrorMessage);
             });
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.Settings))
+        {
+            DispatcherQueue.TryEnqueue(ApplyTheme);
         }
     }
 
@@ -164,6 +171,16 @@ public sealed partial class MainWindow : Window
         {
             _appWindow.SetPresenter(AppWindowPresenterKind.Default);
         }
+    }
+
+    private void ApplyTheme()
+    {
+        RootGrid.RequestedTheme = _viewModel.Settings.Theme switch
+        {
+            ViewerTheme.Dark => ElementTheme.Dark,
+            ViewerTheme.Light => ElementTheme.Light,
+            _ => ElementTheme.Default
+        };
     }
 
     private AppWindow GetAppWindow()

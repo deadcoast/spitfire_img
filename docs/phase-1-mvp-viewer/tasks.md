@@ -425,29 +425,29 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Wire up menu items to MainViewModel commands
     - _Requirements: 4.1-4.6, 5.2-5.5, 6.1_
 
-- [ ] 19. Checkpoint - Test basic viewer functionality
+- [x] 19. Checkpoint - Test basic viewer functionality
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 20. Implement theme support and visual polish
-  - [ ] 20.1 Create theme resource dictionaries
+- [x] 20. Implement theme support and visual polish
+  - [x] 20.1 Create theme resource dictionaries
     - Create DarkTheme.xaml with dark color palette
     - Create LightTheme.xaml with light color palette
     - Define: ChromeBackgroundBrush, CanvasBackgroundBrush, TextBrush, AccentBrush
     - _Requirements: 15.1, 15.5, 15.6_
 
-  - [ ] 20.2 Implement theme switching logic
+  - [x] 20.2 Implement theme switching logic
     - Apply theme resources based on ViewerSettings.Theme
     - Support "Light", "Dark", and "System" theme options
     - Apply theme immediately on change without restart
     - _Requirements: 15.1, 15.2, 15.3, 15.4_
 
-  - [ ] 20.3 Create rounded corner styles
+  - [x] 20.3 Create rounded corner styles
     - Create ButtonStyles.xaml with 6-8px corner radius
     - Create PanelStyles.xaml with 8-10px corner radius
     - Apply styles to all UI elements
     - _Requirements: Visual polish (design document)_
 
-  - [ ] 20.4 Implement error display UI
+  - [x] 20.4 Implement error display UI
     - Create lightweight InfoBar at top of window
     - Show user-friendly error messages
     - Include dismiss button
@@ -456,21 +456,21 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Smooth slide-in animation
     - _Requirements: 11.1-11.6_
 
-- [ ] 21. Implement loading indicator
-  - [ ] 21.1 Create loading indicator UI
+- [x] 21. Implement loading indicator
+  - [x] 21.1 Create loading indicator UI
     - Create ProgressRing control
     - Show after 200ms delay when IsLoading is true
     - Center over ImageCanvas
     - _Requirements: 17.2_
 
-  - [ ] 21.2 Wire up loading state
+  - [x] 21.2 Wire up loading state
     - Bind to MainViewModel.IsLoading
     - Show during file opening and navigation
     - Hide when image loads or error occurs
     - _Requirements: 17.1, 17.2_
 
-- [ ] 22. Implement empty state UI
-  - [ ] 22.1 Create empty state display
+- [x] 22. Implement empty state UI
+  - [x] 22.1 Create empty state display
     - Show "Open an image to begin" message when no image loaded
     - Center message in ImageCanvas
     - Apply theme-aware text color

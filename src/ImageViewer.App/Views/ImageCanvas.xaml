@@ -2,12 +2,12 @@
     x:Class="ImageViewer.App.Views.ImageCanvas"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid x:Name="CanvasRoot" Background="#151515">
+    <Grid x:Name="CanvasRoot" Background="{ThemeResource CanvasBackgroundBrush}">
         <TextBlock
             x:Name="EmptyStateText"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            Foreground="#AAFFFFFF"
+            Foreground="{ThemeResource MutedTextBrush}"
             FontSize="18"
             Text="Open an image to begin" />
 
