@@ -114,7 +114,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Verify formatted strings match expected patterns (100+ iterations)
 
 - [ ] 6. Implement FolderPlaylistService
-  - [ ] 6.1 Create IFolderPlaylistService interface and implementation
+  - [x] 6.1 Create IFolderPlaylistService interface and implementation
     - Implement BuildPlaylistAsync() method
     - Extract parent folder from opened file path
     - Scan folder for files with supported extensions
@@ -125,7 +125,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Handle folder access errors with PlaylistScanError
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-  - [ ]* 6.2 Write unit tests for FolderPlaylistService
+  - [x]* 6.2 Write unit tests for FolderPlaylistService
     - Test playlist building with single-image folder
     - Test playlist building with multiple images
     - Test alphabetical sorting
