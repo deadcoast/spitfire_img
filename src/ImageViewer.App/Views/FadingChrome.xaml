@@ -10,8 +10,9 @@
             Padding="8,4"
             Style="{StaticResource ChromePanelBorderStyle}">
             <MenuBar>
-                <MenuBarItem Title="File">
+                <MenuBarItem x:Name="FileMenu" Title="File">
                     <MenuFlyoutItem Text="Open File" Click="OnOpenFileClicked" />
+                    <MenuFlyoutSeparator />
                     <MenuFlyoutItem Text="Exit" Click="OnExitClicked" />
                 </MenuBarItem>
                 <MenuBarItem Title="View">

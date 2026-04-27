@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
 
@@ -12,6 +13,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ISettingsService _settingsService;
     private readonly IErrorLogService _errorLogService;
     private readonly IRecentFilesService _recentFilesService;
+    private readonly IExportService _exportService;
     private readonly ITransformService _transformService;
     private readonly IMetadataService _metadataService;
     private ViewerSettings _settings = ViewerSettings.Default;
@@ -66,6 +68,7 @@ public sealed class MainViewModel : ObservableObject
         _settingsService = settingsService;
         _errorLogService = errorLogService;
         _recentFilesService = recentFilesService;
+        _exportService = exportService;
         _transformService = transformService;
         _metadataService = metadataService;
         SearchState = new SearchState(searchService);
@@ -77,6 +80,8 @@ public sealed class MainViewModel : ObservableObject
     public ViewerState ViewerState { get; } = new();
 
     public PlaylistState PlaylistState { get; } = new();
+
+    public ObservableCollection<RecentFile> RecentFiles { get; } = [];
 
     public SearchState SearchState { get; }
 
@@ -128,7 +133,12 @@ public sealed class MainViewModel : ObservableObject
         if (settingsResult.IsSuccess)
         {
             Settings = settingsResult.Value;
-            await _recentFilesService.LoadRecentFilesAsync(cancellationToken).ConfigureAwait(false);
+            var recentFilesResult = await _recentFilesService.LoadRecentFilesAsync(cancellationToken).ConfigureAwait(false);
+            if (recentFilesResult.IsSuccess)
+            {
+                SetRecentFiles(recentFilesResult.Value);
+            }
+
             return;
         }
 
@@ -174,7 +184,12 @@ public sealed class MainViewModel : ObservableObject
 
             ViewerState.SetImage(decodeResult.Value);
             SearchState.SetPlaylist(PlaylistState.Items);
-            await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken).ConfigureAwait(false);
+            var recentResult = await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken).ConfigureAwait(false);
+            if (recentResult.IsSuccess)
+            {
+                SetRecentFiles(recentResult.Value);
+            }
+
             ShowChrome();
         }
         finally
@@ -312,6 +327,81 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public void UndoTransform()
+    {
+        TransformState.Undo();
+        ShowChrome();
+    }
+
+    public void RedoTransform()
+    {
+        TransformState.Redo();
+        ShowChrome();
+    }
+
+    public void ToggleThumbnailStrip()
+    {
+        ThumbnailState.ToggleVisibility();
+        Settings = Settings with { ThumbnailStripVisible = ThumbnailState.IsStripVisible };
+        ShowChrome();
+    }
+
+    public void SetThumbnailPosition(ThumbnailPosition position)
+    {
+        ThumbnailState.SetStripPosition(position);
+        Settings = Settings with { ThumbnailStripPosition = position };
+        ShowChrome();
+    }
+
+    public async Task ExportCurrentImageAsync(
+        string destinationFilePath,
+        ImageExportFormat targetFormat,
+        CancellationToken cancellationToken = default)
+    {
+        if (ViewerState.CurrentImage is null)
+        {
+            return;
+        }
+
+        var result = await _exportService.ExportImageAsync(
+                ViewerState.CurrentImage.FilePath,
+                destinationFilePath,
+                new ExportOptions(
+                    targetFormat,
+                    Settings.DefaultJpegQuality,
+                    Settings.PreserveExifOnExport,
+                    OverwriteExisting: true),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            await HandleErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        ShowChrome();
+    }
+
+    public async Task OpenRecentFileAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(filePath))
+        {
+            var recentResult = await _recentFilesService.RemoveRecentFileAsync(filePath, cancellationToken)
+                .ConfigureAwait(false);
+            if (recentResult.IsSuccess)
+            {
+                SetRecentFiles(recentResult.Value);
+            }
+
+            await HandleErrorAsync(ViewerError.FileAccessError("OpenRecentFile", filePath), cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        await OpenFileAsync(filePath, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task ToggleThemeAsync(CancellationToken cancellationToken = default)
     {
         var nextTheme = Settings.Theme == ViewerTheme.Dark
@@ -392,6 +482,15 @@ public sealed class MainViewModel : ObservableObject
         CurrentErrorSeverity = error.Severity;
         ErrorMessage = error.UserMessage;
         await _errorLogService.LogErrorAsync(error, cancellationToken).ConfigureAwait(false);
+    }
+
+    private void SetRecentFiles(IEnumerable<RecentFile> recentFiles)
+    {
+        RecentFiles.Clear();
+        foreach (var recentFile in recentFiles)
+        {
+            RecentFiles.Add(recentFile);
+        }
     }
 
     private CancellationTokenSource BeginOperation(CancellationToken cancellationToken)

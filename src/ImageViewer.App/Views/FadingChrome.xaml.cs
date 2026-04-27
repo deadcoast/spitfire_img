@@ -2,6 +2,7 @@ using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
+using System.Collections.Specialized;
 
 namespace ImageViewer.App.Views;
 
@@ -21,6 +22,8 @@ public sealed partial class FadingChrome : UserControl
 
     public event EventHandler? OpenFileRequested;
 
+    public event EventHandler<string>? RecentFileRequested;
+
     public event EventHandler? ExitRequested;
 
     public event EventHandler? AboutRequested;
@@ -29,6 +32,8 @@ public sealed partial class FadingChrome : UserControl
     {
         _viewModel = viewModel;
         InfoBar.Attach(viewModel);
+        viewModel.RecentFiles.CollectionChanged += OnRecentFilesChanged;
+        RebuildRecentFilesMenu();
         ShowChrome();
     }
 
@@ -65,6 +70,34 @@ public sealed partial class FadingChrome : UserControl
     private void OnOpenFileClicked(object sender, RoutedEventArgs e)
     {
         OpenFileRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnRecentFilesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RebuildRecentFilesMenu();
+    }
+
+    private void RebuildRecentFilesMenu()
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        while (FileMenu.Items.Count > 3)
+        {
+            FileMenu.Items.RemoveAt(2);
+        }
+
+        foreach (var recentFile in _viewModel.RecentFiles.Reverse())
+        {
+            var item = new MenuFlyoutItem
+            {
+                Text = recentFile.Filename
+            };
+            item.Click += (_, _) => RecentFileRequested?.Invoke(this, recentFile.FilePath);
+            FileMenu.Items.Insert(2, item);
+        }
     }
 
     private void OnExitClicked(object sender, RoutedEventArgs e)

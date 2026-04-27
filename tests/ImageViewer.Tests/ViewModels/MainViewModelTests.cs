@@ -192,6 +192,34 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task InitializeAsync_LoadsRecentFilesIntoViewModel()
+    {
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist());
+        services.RecentFilesService.RecentFiles.Add(new RecentFile(@"C:\Photos\a.png", DateTimeOffset.UtcNow));
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.InitializeAsync();
+
+        Assert.Single(viewModel.RecentFiles);
+        Assert.Equal(@"C:\Photos\a.png", viewModel.RecentFiles[0].FilePath);
+    }
+
+    [Fact]
+    public async Task OpenRecentFileAsync_MissingFile_RemovesRecentAndShowsFileAccessError()
+    {
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist());
+        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".png");
+        services.RecentFilesService.RecentFiles.Add(new RecentFile(missing, DateTimeOffset.UtcNow));
+        var viewModel = services.CreateViewModel();
+        await viewModel.InitializeAsync();
+
+        await viewModel.OpenRecentFileAsync(missing);
+
+        Assert.Empty(viewModel.RecentFiles);
+        Assert.Equal(ErrorCategory.FileAccessError, services.ErrorLogService.LoggedErrors.Single().Category);
+    }
+
+    [Fact]
     public void SearchCommands_FilterAndClearSearchState()
     {
         var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
@@ -221,6 +249,46 @@ public sealed class MainViewModelTests
         Assert.False(viewModel.MetadataState.IsVisible);
     }
 
+    [Fact]
+    public async Task TransformCommands_ApplyUndoAndRedoTransforms()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 200, 10)));
+
+        await viewModel.ApplyTransformAsync(TransformOperation.RotateRight);
+        viewModel.UndoTransform();
+        viewModel.RedoTransform();
+
+        Assert.True(viewModel.TransformState.HasUnsavedChanges);
+        Assert.Equal([TransformOperation.RotateRight], viewModel.TransformState.PendingTransforms);
+    }
+
+    [Fact]
+    public void ThumbnailCommands_ToggleAndPersistPositionInState()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+
+        viewModel.ToggleThumbnailStrip();
+        viewModel.SetThumbnailPosition(ThumbnailPosition.Top);
+
+        Assert.True(viewModel.ThumbnailState.IsStripVisible);
+        Assert.Equal(ThumbnailPosition.Top, viewModel.ThumbnailState.StripPosition);
+    }
+
+    [Fact]
+    public async Task ExportCurrentImageAsync_UsesCurrentImageAndExportService()
+    {
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist());
+        var viewModel = services.CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 100, 10)));
+
+        await viewModel.ExportCurrentImageAsync(@"C:\Export\a.jpg", ImageExportFormat.Jpeg);
+
+        Assert.Equal(@"C:\Photos\a.png", services.ExportService.SourcePath);
+        Assert.Equal(@"C:\Export\a.jpg", services.ExportService.DestinationPath);
+        Assert.Equal(ImageExportFormat.Jpeg, services.ExportService.Options?.TargetFormat);
+    }
+
     private static Playlist CreateTwoItemPlaylist()
     {
         return new Playlist(
@@ -239,7 +307,8 @@ public sealed class MainViewModelTests
             StubSettingsService settingsService,
             RecordingErrorLogService errorLogService,
             RecordingRecentFilesService? recentFilesService = null,
-            RecordingMetadataService? metadataService = null)
+            RecordingMetadataService? metadataService = null,
+            RecordingExportService? exportService = null)
         {
             FileOpenService = fileOpenService;
             ImageDecodeService = imageDecodeService;
@@ -249,6 +318,7 @@ public sealed class MainViewModelTests
             ErrorLogService = errorLogService;
             RecentFilesService = recentFilesService ?? new RecordingRecentFilesService();
             MetadataService = metadataService ?? new RecordingMetadataService();
+            ExportService = exportService ?? new RecordingExportService();
         }
 
         public IFileOpenService FileOpenService { get; }
@@ -266,6 +336,8 @@ public sealed class MainViewModelTests
         public RecordingRecentFilesService RecentFilesService { get; }
 
         public RecordingMetadataService MetadataService { get; }
+
+        public RecordingExportService ExportService { get; }
 
         public static TestServices Success(DecodedImage image, Playlist playlist)
         {
@@ -339,7 +411,7 @@ public sealed class MainViewModelTests
                 new SearchService(),
                 new ThumbnailService(ImageDecodeService),
                 RecentFilesService,
-                new ExportService(),
+                ExportService,
                 new TransformService(),
                 MetadataService);
         }
@@ -536,6 +608,27 @@ public sealed class MainViewModelTests
         public Task<Result<ExifMetadata>> ExtractExifAsync(string filePath, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(Result<ExifMetadata>.Success(new ExifMetadata(CameraMake: "Test")));
+        }
+    }
+
+    private sealed class RecordingExportService : IExportService
+    {
+        public string? SourcePath { get; private set; }
+
+        public string? DestinationPath { get; private set; }
+
+        public ExportOptions? Options { get; private set; }
+
+        public Task<Result> ExportImageAsync(
+            string sourceFilePath,
+            string destinationFilePath,
+            ExportOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            SourcePath = sourceFilePath;
+            DestinationPath = destinationFilePath;
+            Options = options;
+            return Task.FromResult(Result.Success());
         }
     }
 }

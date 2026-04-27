@@ -394,7 +394,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Implement result selection and navigation
     - _Requirements: 1.1, 1.5, 1.6, 1.7, 10.1, 10.2, 10.3, 10.4_
 
-  - [ ] 13.3 Implement thumbnail commands
+  - [x] 13.3 Implement thumbnail commands
     - Create ToggleThumbnailStripCommand (Ctrl+T)
     - Create SetThumbnailPositionCommand
     - Implement thumbnail generation coordination
@@ -406,7 +406,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Handle invalid recent file paths
     - _Requirements: 3.1, 3.4, 3.5, 3.6, 3.8_
 
-  - [ ] 13.5 Implement export commands
+  - [x] 13.5 Implement export commands
     - Create ExportImageCommand (Ctrl+Shift+S)
     - Implement save file dialog
     - Implement format selection
@@ -496,7 +496,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Bind Position to ThumbnailState.StripPosition
     - _Requirements: 2.1, 2.5, 2.6, 11.1, 11.3, 11.4_
 
-  - [ ] 16.4 Implement thumbnail strip positioning
+  - [x] 16.4 Implement thumbnail strip positioning
     - Add context menu with Top/Bottom options
     - Handle position change events
     - Update layout based on position
@@ -568,20 +568,20 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Handle multiple dropped files (open first supported)
     - _Requirements: 4.2, 4.4, 4.6, 4.7_
 
-- [ ] 20. Update File menu with recent files
-  - [ ] 20.1 Add recent files section to File menu
+- [x] 20. Update File menu with recent files
+  - [x] 20.1 Add recent files section to File menu
     - Display last 20 opened files
     - Show most recent first
     - Add separator between Open and recent files
     - _Requirements: 3.4, 3.10_
 
-  - [ ] 20.2 Implement recent file selection
+  - [x] 20.2 Implement recent file selection
     - Handle recent file menu item click
     - Open file using standard file opening flow
     - Handle invalid file paths (display error, remove from list)
     - _Requirements: 3.4, 3.5, 3.6_
 
-  - [ ] 20.3 Update recent files on file open
+  - [x] 20.3 Update recent files on file open
     - Add file to recent files list on successful open
     - Save updated list to persistent storage
     - _Requirements: 3.1, 3.7, 3.10_
@@ -591,18 +591,18 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
 
 
 - [ ] 22. Implement keyboard shortcuts for Phase 2 features
-  - [ ] 22.1 Add search shortcuts
+  - [x] 22.1 Add search shortcuts
     - Ctrl+F: Show search overlay
     - Escape: Hide search overlay (when search is active)
     - Up/Down: Navigate search results
     - Enter: Select search result
     - _Requirements: 1.1, 1.6, 10.1, 10.2_
 
-  - [ ] 22.2 Add thumbnail shortcuts
+  - [x] 22.2 Add thumbnail shortcuts
     - Ctrl+T: Toggle thumbnail strip
     - _Requirements: 2.1_
 
-  - [ ] 22.3 Add export shortcuts
+  - [x] 22.3 Add export shortcuts
     - Ctrl+Shift+S: Export image
     - _Requirements: 5.1_
 
@@ -616,7 +616,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Ctrl+S: Save transforms (when transforms pending)
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 15.3, 15.4_
 
-  - [ ] 22.5 Add metadata shortcuts
+  - [x] 22.5 Add metadata shortcuts
     - Ctrl+I: Toggle metadata panel
     - Escape: Hide metadata panel (when panel is open)
     - _Requirements: 7.6, 7.8_

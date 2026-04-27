@@ -12,6 +12,7 @@ public sealed partial class ThumbnailStrip : UserControl
     public ThumbnailStrip()
     {
         InitializeComponent();
+        RightTapped += OnRightTapped;
     }
 
     public void Attach(MainViewModel viewModel)
@@ -19,12 +20,6 @@ public sealed partial class ThumbnailStrip : UserControl
         _viewModel = viewModel;
         viewModel.ThumbnailState.PropertyChanged += OnStateChanged;
         viewModel.PlaylistState.PropertyChanged += OnStateChanged;
-        Refresh();
-    }
-
-    public void Toggle()
-    {
-        _viewModel?.ThumbnailState.ToggleVisibility();
         Refresh();
     }
 
@@ -45,5 +40,22 @@ public sealed partial class ThumbnailStrip : UserControl
             ? VerticalAlignment.Top
             : VerticalAlignment.Bottom;
         Items.ItemsSource = _viewModel.PlaylistState.Items.Select(item => item.Filename).ToList();
+    }
+
+    private void OnRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        var flyout = new MenuFlyout();
+        var top = new MenuFlyoutItem { Text = "Top" };
+        top.Click += (_, _) => _viewModel.SetThumbnailPosition(Core.Models.ThumbnailPosition.Top);
+        var bottom = new MenuFlyoutItem { Text = "Bottom" };
+        bottom.Click += (_, _) => _viewModel.SetThumbnailPosition(Core.Models.ThumbnailPosition.Bottom);
+        flyout.Items.Add(top);
+        flyout.Items.Add(bottom);
+        flyout.ShowAt(this, e.GetPosition(this));
     }
 }

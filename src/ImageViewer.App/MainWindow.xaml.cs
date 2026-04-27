@@ -36,6 +36,7 @@ public sealed partial class MainWindow : Window
         MetadataPanel.Attach(viewModel);
         Chrome.Attach(viewModel);
         Chrome.OpenFileRequested += async (_, _) => await OpenFileFromPickerAsync();
+        Chrome.RecentFileRequested += async (_, path) => await _viewModel.OpenRecentFileAsync(path);
         Chrome.ExitRequested += (_, _) => Close();
         Chrome.AboutRequested += (_, _) => ShowInfo("spitfire.img Phase 1 MVP Viewer");
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -114,6 +115,8 @@ public sealed partial class MainWindow : Window
 
         var isControlPressed = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) &
                                 Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+        var isShiftPressed = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) &
+                              Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
 
         switch (e.Key)
         {
@@ -138,7 +141,12 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.Escape:
-                if (_viewModel.ViewerState.IsFullscreen)
+                if (_viewModel.MetadataState.IsVisible)
+                {
+                    _viewModel.MetadataState.HidePanel();
+                    e.Handled = true;
+                }
+                else if (_viewModel.ViewerState.IsFullscreen)
                 {
                     _viewModel.ToggleFullscreen();
                     e.Handled = true;
@@ -170,7 +178,11 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.T when isControlPressed:
-                ThumbnailStrip.Toggle();
+                _viewModel.ToggleThumbnailStrip();
+                e.Handled = true;
+                break;
+            case VirtualKey.S when isControlPressed && isShiftPressed:
+                await ExportCurrentImageAsync();
                 e.Handled = true;
                 break;
             case VirtualKey.I when isControlPressed:
@@ -191,6 +203,14 @@ public sealed partial class MainWindow : Window
                 break;
             case VirtualKey.V when isControlPressed:
                 await _viewModel.ApplyTransformAsync(TransformOperation.FlipVertical);
+                e.Handled = true;
+                break;
+            case VirtualKey.Z when isControlPressed && isShiftPressed:
+                _viewModel.RedoTransform();
+                e.Handled = true;
+                break;
+            case VirtualKey.Z when isControlPressed:
+                _viewModel.UndoTransform();
                 e.Handled = true;
                 break;
         }
@@ -379,5 +399,43 @@ public sealed partial class MainWindow : Window
 
         var items = await e.DataView.GetStorageItemsAsync();
         return items.OfType<Windows.Storage.StorageFile>().FirstOrDefault()?.Path;
+    }
+
+    private async Task ExportCurrentImageAsync()
+    {
+        if (_viewModel.ViewerState.CurrentImage is null)
+        {
+            return;
+        }
+
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+            SuggestedFileName = Path.GetFileNameWithoutExtension(_viewModel.ViewerState.CurrentImage.FilePath)
+        };
+        picker.FileTypeChoices.Add("PNG image", [".png"]);
+        picker.FileTypeChoices.Add("JPEG image", [".jpg"]);
+        picker.FileTypeChoices.Add("BMP image", [".bmp"]);
+        picker.FileTypeChoices.Add("WEBP image", [".webp"]);
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        await _viewModel.ExportCurrentImageAsync(file.Path, GetExportFormat(file.Path));
+    }
+
+    private static ImageExportFormat GetExportFormat(string path)
+    {
+        return Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => ImageExportFormat.Jpeg,
+            ".bmp" => ImageExportFormat.Bmp,
+            ".webp" => ImageExportFormat.Webp,
+            _ => ImageExportFormat.Png
+        };
     }
 }
