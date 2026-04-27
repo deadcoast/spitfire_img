@@ -8,7 +8,12 @@ public enum ErrorCategory
     PlaylistScanError,
     NavigationError,
     SettingsPersistenceError,
-    UnexpectedViewerError
+    UnexpectedViewerError,
+    ThumbnailGenerationError,
+    ExportError,
+    TransformError,
+    TransformSaveError,
+    MetadataExtractionError
 }
 
 public enum ErrorSeverity
@@ -96,9 +101,34 @@ public sealed record ViewerError(
         return Create(ErrorCategory.UnexpectedViewerError, operation, filePath, exception);
     }
 
+    public static ViewerError ThumbnailGenerationError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.ThumbnailGenerationError, operation, filePath, exception);
+    }
+
+    public static ViewerError ExportError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.ExportError, operation, filePath, exception);
+    }
+
+    public static ViewerError TransformError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.TransformError, operation, filePath, exception);
+    }
+
+    public static ViewerError TransformSaveError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.TransformSaveError, operation, filePath, exception);
+    }
+
+    public static ViewerError MetadataExtractionError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.MetadataExtractionError, operation, filePath, exception);
+    }
+
     private static ErrorSeverity GetSeverity(ErrorCategory category)
     {
-        return category is ErrorCategory.PlaylistScanError or ErrorCategory.SettingsPersistenceError
+        return category is ErrorCategory.PlaylistScanError or ErrorCategory.SettingsPersistenceError or ErrorCategory.ThumbnailGenerationError
             ? ErrorSeverity.Warning
             : ErrorSeverity.Error;
     }
@@ -114,6 +144,11 @@ public sealed record ViewerError(
             ErrorCategory.NavigationError => "Unable to load the requested image.",
             ErrorCategory.SettingsPersistenceError => "Unable to save settings. Your preferences may not persist.",
             ErrorCategory.UnexpectedViewerError => "An unexpected error occurred. The application will attempt to continue.",
+            ErrorCategory.ThumbnailGenerationError => "Unable to generate a thumbnail for this image.",
+            ErrorCategory.ExportError => "Unable to save a copy of this image to the selected location.",
+            ErrorCategory.TransformError => "Unable to apply the requested image change.",
+            ErrorCategory.TransformSaveError => "Unable to save changes to this image.",
+            ErrorCategory.MetadataExtractionError => "Unable to read detailed metadata for this image.",
             _ => "An unexpected error occurred. The application will attempt to continue."
         };
     }

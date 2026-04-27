@@ -174,6 +174,53 @@ public sealed class MainViewModelTests
         Assert.False(viewModel.IsCancelAvailable);
     }
 
+    [Fact]
+    public async Task OpenFileAsync_Success_AddsFileToRecentFilesAndSearchPlaylist()
+    {
+        var image = new DecodedImage(@"C:\Photos\b.png", new ImageMetadata(320, 240, 100));
+        var playlist = new Playlist(
+            [new ImageItem(@"C:\Photos\a.png"), new ImageItem(@"C:\Photos\b.png")],
+            1,
+            @"C:\Photos");
+        var services = TestServices.Success(image, playlist);
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.OpenFileAsync(@"C:\Photos\b.png");
+
+        Assert.Equal(@"C:\Photos\b.png", services.RecentFilesService.RecentFiles[0].FilePath);
+        Assert.Equal(2, viewModel.SearchState.ResultCount);
+    }
+
+    [Fact]
+    public void SearchCommands_FilterAndClearSearchState()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+        viewModel.SearchState.SetPlaylist(CreateTwoItemPlaylist().Items);
+
+        viewModel.ShowSearch();
+        viewModel.SetSearchQuery("b");
+
+        Assert.True(viewModel.SearchState.IsSearchActive);
+        Assert.Single(viewModel.SearchState.FilteredPlaylist);
+
+        viewModel.HideSearch();
+        Assert.False(viewModel.SearchState.IsSearchActive);
+    }
+
+    [Fact]
+    public async Task ToggleMetadataPanelAsync_ExtractsMetadataAndTogglesVisibility()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 100, 10)));
+
+        await viewModel.ToggleMetadataPanelAsync();
+
+        Assert.True(viewModel.MetadataState.IsVisible);
+
+        await viewModel.ToggleMetadataPanelAsync();
+        Assert.False(viewModel.MetadataState.IsVisible);
+    }
+
     private static Playlist CreateTwoItemPlaylist()
     {
         return new Playlist(
@@ -190,7 +237,9 @@ public sealed class MainViewModelTests
             IFolderPlaylistService folderPlaylistService,
             INavigationService navigationService,
             StubSettingsService settingsService,
-            RecordingErrorLogService errorLogService)
+            RecordingErrorLogService errorLogService,
+            RecordingRecentFilesService? recentFilesService = null,
+            RecordingMetadataService? metadataService = null)
         {
             FileOpenService = fileOpenService;
             ImageDecodeService = imageDecodeService;
@@ -198,6 +247,8 @@ public sealed class MainViewModelTests
             NavigationService = navigationService;
             SettingsService = settingsService;
             ErrorLogService = errorLogService;
+            RecentFilesService = recentFilesService ?? new RecordingRecentFilesService();
+            MetadataService = metadataService ?? new RecordingMetadataService();
         }
 
         public IFileOpenService FileOpenService { get; }
@@ -211,6 +262,10 @@ public sealed class MainViewModelTests
         public StubSettingsService SettingsService { get; }
 
         public RecordingErrorLogService ErrorLogService { get; }
+
+        public RecordingRecentFilesService RecentFilesService { get; }
+
+        public RecordingMetadataService MetadataService { get; }
 
         public static TestServices Success(DecodedImage image, Playlist playlist)
         {
@@ -280,7 +335,13 @@ public sealed class MainViewModelTests
                 FolderPlaylistService,
                 NavigationService,
                 SettingsService,
-                ErrorLogService);
+                ErrorLogService,
+                new SearchService(),
+                new ThumbnailService(ImageDecodeService),
+                RecentFilesService,
+                new ExportService(),
+                new TransformService(),
+                MetadataService);
         }
     }
 
@@ -313,6 +374,11 @@ public sealed class MainViewModelTests
         public bool IsSupportedFormat(string extension) => true;
 
         public bool IsDeferredFormat(string extension) => false;
+
+        public Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<int>.Success(1));
+        }
     }
 
     private sealed class StubFolderPlaylistService : IFolderPlaylistService
@@ -381,6 +447,11 @@ public sealed class MainViewModelTests
         public bool IsSupportedFormat(string extension) => true;
 
         public bool IsDeferredFormat(string extension) => false;
+
+        public Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<int>.Success(1));
+        }
     }
 
     private sealed class BlockingImageDecodeService : IImageDecodeService
@@ -409,6 +480,11 @@ public sealed class MainViewModelTests
         public bool IsSupportedFormat(string extension) => true;
 
         public bool IsDeferredFormat(string extension) => false;
+
+        public Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<int>.Success(1));
+        }
     }
 
     private sealed class RecordingErrorLogService : IErrorLogService
@@ -424,6 +500,42 @@ public sealed class MainViewModelTests
         public Task<Result> CleanupOldLogsAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(Result.Success());
+        }
+    }
+
+    private sealed class RecordingRecentFilesService : IRecentFilesService
+    {
+        public List<RecentFile> RecentFiles { get; } = [];
+
+        public Task<Result<IReadOnlyList<RecentFile>>> LoadRecentFilesAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<IReadOnlyList<RecentFile>>.Success(RecentFiles));
+        }
+
+        public Task<Result<IReadOnlyList<RecentFile>>> AddRecentFileAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            RecentFiles.Insert(0, new RecentFile(filePath, DateTimeOffset.UtcNow));
+            return Task.FromResult(Result<IReadOnlyList<RecentFile>>.Success(RecentFiles));
+        }
+
+        public Task<Result<IReadOnlyList<RecentFile>>> RemoveRecentFileAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            RecentFiles.RemoveAll(file => string.Equals(file.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+            return Task.FromResult(Result<IReadOnlyList<RecentFile>>.Success(RecentFiles));
+        }
+
+        public Task<Result> ClearRecentFilesAsync(CancellationToken cancellationToken = default)
+        {
+            RecentFiles.Clear();
+            return Task.FromResult(Result.Success());
+        }
+    }
+
+    private sealed class RecordingMetadataService : IMetadataService
+    {
+        public Task<Result<ExifMetadata>> ExtractExifAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<ExifMetadata>.Success(new ExifMetadata(CameraMake: "Test")));
         }
     }
 }

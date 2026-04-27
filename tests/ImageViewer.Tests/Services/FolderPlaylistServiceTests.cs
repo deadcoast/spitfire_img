@@ -34,7 +34,7 @@ public sealed class FolderPlaylistServiceTests : IDisposable
         var opened = CreateFile("b.jpg");
         CreateFile("a.png");
         CreateFile("notes.txt");
-        CreateFile("future.gif");
+        CreateFile("future.avif");
 
         var result = await _service.BuildPlaylistAsync(opened);
 

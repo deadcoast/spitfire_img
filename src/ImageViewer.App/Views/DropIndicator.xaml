@@ -1,0 +1,21 @@
+<UserControl
+    x:Class="ImageViewer.App.Views.DropIndicator"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Visibility="Collapsed">
+    <Grid Background="#66000000">
+        <Border
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Padding="28"
+            CornerRadius="16"
+            Background="{ThemeResource ChromeBackgroundBrush}">
+            <TextBlock
+                x:Name="MessageText"
+                FontSize="24"
+                FontWeight="SemiBold"
+                Foreground="{ThemeResource TextBrush}"
+                Text="Drop image to open" />
+        </Border>
+    </Grid>
+</UserControl>

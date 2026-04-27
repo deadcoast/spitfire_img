@@ -11,6 +11,9 @@ public sealed class MainViewModel : ObservableObject
     private readonly INavigationService _navigationService;
     private readonly ISettingsService _settingsService;
     private readonly IErrorLogService _errorLogService;
+    private readonly IRecentFilesService _recentFilesService;
+    private readonly ITransformService _transformService;
+    private readonly IMetadataService _metadataService;
     private ViewerSettings _settings = ViewerSettings.Default;
     private bool _isChromeVisible = true;
     private bool _isLoading;
@@ -26,6 +29,35 @@ public sealed class MainViewModel : ObservableObject
         INavigationService navigationService,
         ISettingsService settingsService,
         IErrorLogService errorLogService)
+        : this(
+            fileOpenService,
+            imageDecodeService,
+            folderPlaylistService,
+            navigationService,
+            settingsService,
+            errorLogService,
+            new SearchService(),
+            new ThumbnailService(imageDecodeService),
+            new RecentFilesService(Path.Combine(Path.GetTempPath(), "spitfire.img")),
+            new ExportService(),
+            new TransformService(),
+            new MetadataService())
+    {
+    }
+
+    public MainViewModel(
+        IFileOpenService fileOpenService,
+        IImageDecodeService imageDecodeService,
+        IFolderPlaylistService folderPlaylistService,
+        INavigationService navigationService,
+        ISettingsService settingsService,
+        IErrorLogService errorLogService,
+        ISearchService searchService,
+        IThumbnailService thumbnailService,
+        IRecentFilesService recentFilesService,
+        IExportService exportService,
+        ITransformService transformService,
+        IMetadataService metadataService)
     {
         _fileOpenService = fileOpenService;
         _imageDecodeService = imageDecodeService;
@@ -33,11 +65,26 @@ public sealed class MainViewModel : ObservableObject
         _navigationService = navigationService;
         _settingsService = settingsService;
         _errorLogService = errorLogService;
+        _recentFilesService = recentFilesService;
+        _transformService = transformService;
+        _metadataService = metadataService;
+        SearchState = new SearchState(searchService);
+        ThumbnailState = new ThumbnailState();
+        TransformState = new TransformState();
+        MetadataState = new MetadataState();
     }
 
     public ViewerState ViewerState { get; } = new();
 
     public PlaylistState PlaylistState { get; } = new();
+
+    public SearchState SearchState { get; }
+
+    public ThumbnailState ThumbnailState { get; }
+
+    public TransformState TransformState { get; }
+
+    public MetadataState MetadataState { get; }
 
     public ViewerSettings Settings
     {
@@ -81,6 +128,7 @@ public sealed class MainViewModel : ObservableObject
         if (settingsResult.IsSuccess)
         {
             Settings = settingsResult.Value;
+            await _recentFilesService.LoadRecentFilesAsync(cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -125,6 +173,8 @@ public sealed class MainViewModel : ObservableObject
             }
 
             ViewerState.SetImage(decodeResult.Value);
+            SearchState.SetPlaylist(PlaylistState.Items);
+            await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken).ConfigureAwait(false);
             ShowChrome();
         }
         finally
@@ -194,6 +244,72 @@ public sealed class MainViewModel : ObservableObject
     {
         _operationCancellation?.Cancel();
         IsCancelAvailable = false;
+    }
+
+    public void ShowSearch()
+    {
+        SearchState.SetSearchQuery(SearchState.SearchQuery);
+        ShowChrome();
+    }
+
+    public void HideSearch()
+    {
+        SearchState.ClearSearch();
+        ShowChrome();
+    }
+
+    public void SetSearchQuery(string query)
+    {
+        SearchState.SetSearchQuery(query);
+        ShowChrome();
+    }
+
+    public async Task ToggleMetadataPanelAsync(CancellationToken cancellationToken = default)
+    {
+        if (MetadataState.IsVisible)
+        {
+            MetadataState.HidePanel();
+            ShowChrome();
+            return;
+        }
+
+        if (ViewerState.CurrentImage is null)
+        {
+            MetadataState.ShowPanel(ExifMetadata.Empty);
+            ShowChrome();
+            return;
+        }
+
+        var metadataResult = await _metadataService.ExtractExifAsync(ViewerState.CurrentImage.FilePath, cancellationToken)
+            .ConfigureAwait(false);
+        if (metadataResult.IsFailure)
+        {
+            await HandleErrorAsync(metadataResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        MetadataState.ShowPanel(metadataResult.Value);
+        ShowChrome();
+    }
+
+    public async Task ApplyTransformAsync(TransformOperation operation, CancellationToken cancellationToken = default)
+    {
+        if (ViewerState.CurrentImage is null)
+        {
+            return;
+        }
+
+        TransformState.ApplyTransform(operation);
+        var transformResult = await _transformService.ApplyTransformAsync(
+                ViewerState.CurrentImage,
+                TransformState.PendingTransforms.ToArray(),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (transformResult.IsFailure)
+        {
+            await HandleErrorAsync(transformResult.Error, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     public async Task ToggleThemeAsync(CancellationToken cancellationToken = default)

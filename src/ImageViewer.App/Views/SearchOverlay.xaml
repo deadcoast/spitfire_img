@@ -1,0 +1,29 @@
+<UserControl
+    x:Class="ImageViewer.App.Views.SearchOverlay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Visibility="Collapsed">
+    <Grid Background="#66000000">
+        <Border
+            Width="560"
+            MaxHeight="520"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Margin="24,72,24,0"
+            Padding="16"
+            Style="{StaticResource ChromePanelBorderStyle}">
+            <StackPanel Spacing="10">
+                <TextBox
+                    x:Name="SearchInput"
+                    PlaceholderText="Search by filename..."
+                    TextChanged="OnSearchTextChanged"
+                    KeyDown="OnSearchKeyDown" />
+                <TextBlock x:Name="ResultCountText" Foreground="{ThemeResource TextBrush}" />
+                <ListView
+                    x:Name="ResultsList"
+                    MaxHeight="360"
+                    SelectionChanged="OnResultSelected" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

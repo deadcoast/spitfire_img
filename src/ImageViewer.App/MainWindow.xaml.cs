@@ -5,6 +5,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage.Pickers;
 using Windows.System;
 using WinRT.Interop;
@@ -30,6 +31,9 @@ public sealed partial class MainWindow : Window
 
         RootGrid.DataContext = viewModel;
         ImageCanvas.Attach(viewModel);
+        ThumbnailStrip.Attach(viewModel);
+        SearchOverlay.Attach(viewModel);
+        MetadataPanel.Attach(viewModel);
         Chrome.Attach(viewModel);
         Chrome.OpenFileRequested += async (_, _) => await OpenFileFromPickerAsync();
         Chrome.ExitRequested += (_, _) => Close();
@@ -158,6 +162,35 @@ public sealed partial class MainWindow : Window
                 break;
             case VirtualKey.O when isControlPressed:
                 await OpenFileFromPickerAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.F when isControlPressed:
+                _viewModel.ShowSearch();
+                SearchOverlay.Show();
+                e.Handled = true;
+                break;
+            case VirtualKey.T when isControlPressed:
+                ThumbnailStrip.Toggle();
+                e.Handled = true;
+                break;
+            case VirtualKey.I when isControlPressed:
+                await _viewModel.ToggleMetadataPanelAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.L when isControlPressed:
+                await _viewModel.ApplyTransformAsync(TransformOperation.RotateLeft);
+                e.Handled = true;
+                break;
+            case VirtualKey.R when isControlPressed:
+                await _viewModel.ApplyTransformAsync(TransformOperation.RotateRight);
+                e.Handled = true;
+                break;
+            case VirtualKey.H when isControlPressed:
+                await _viewModel.ApplyTransformAsync(TransformOperation.FlipHorizontal);
+                e.Handled = true;
+                break;
+            case VirtualKey.V when isControlPressed:
+                await _viewModel.ApplyTransformAsync(TransformOperation.FlipVertical);
                 e.Handled = true;
                 break;
         }
@@ -304,5 +337,47 @@ public sealed partial class MainWindow : Window
     {
         _warningDismissTimer.Stop();
         ErrorInfoBar.IsOpen = false;
+    }
+
+    private async void OnRootDragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        var path = await TryGetFirstDroppedFilePathAsync(e);
+        var isValid = path is not null && _viewModel.ViewerState.CurrentImage is not null
+            ? Path.GetExtension(path).Length > 0
+            : path is not null;
+
+        if (path is not null)
+        {
+            isValid = new ImageViewer.Core.Services.ImageDecodeService().IsSupportedFormat(Path.GetExtension(path));
+        }
+
+        DropIndicator.Show(isValid);
+    }
+
+    private void OnRootDragLeave(object sender, DragEventArgs e)
+    {
+        DropIndicator.Hide();
+    }
+
+    private async void OnRootDrop(object sender, DragEventArgs e)
+    {
+        DropIndicator.Hide();
+        var path = await TryGetFirstDroppedFilePathAsync(e);
+        if (path is not null)
+        {
+            await _viewModel.OpenFileAsync(path);
+        }
+    }
+
+    private static async Task<string?> TryGetFirstDroppedFilePathAsync(DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            return null;
+        }
+
+        var items = await e.DataView.GetStorageItemsAsync();
+        return items.OfType<Windows.Storage.StorageFile>().FirstOrDefault()?.Path;
     }
 }

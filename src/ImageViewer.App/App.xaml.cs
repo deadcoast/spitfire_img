@@ -42,6 +42,12 @@ public partial class App : Application
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<ISettingsService>(_ => new SettingsService(localDataFolder));
         services.AddSingleton<IErrorLogService>(_ => new ErrorLogService(localDataFolder));
+        services.AddSingleton<ISearchService, SearchService>();
+        services.AddSingleton<IThumbnailService, ThumbnailService>();
+        services.AddSingleton<IRecentFilesService>(_ => new RecentFilesService(localDataFolder));
+        services.AddSingleton<IExportService, ExportService>();
+        services.AddSingleton<ITransformService, TransformService>();
+        services.AddSingleton<IMetadataService, MetadataService>();
         services.AddTransient<MainViewModel>();
         services.AddTransient<MainWindow>();
     }

@@ -20,6 +20,9 @@ public sealed class FileOpenServiceTests : IDisposable
     [InlineData("photo.jpeg")]
     [InlineData("photo.bmp")]
     [InlineData("photo.WEBP")]
+    [InlineData("animated.gif")]
+    [InlineData("scan.tiff")]
+    [InlineData("scan.tif")]
     public void ValidateFilePath_ExistingSupportedFile_ReturnsSuccess(string filename)
     {
         var path = CreateFile(filename);
@@ -42,9 +45,6 @@ public sealed class FileOpenServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData("animated.gif")]
-    [InlineData("scan.tiff")]
-    [InlineData("scan.tif")]
     [InlineData("phone.heic")]
     [InlineData("modern.avif")]
     public void ValidateFilePath_DeferredFormat_ReturnsUnsupportedFormatError(string filename)

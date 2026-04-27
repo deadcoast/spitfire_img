@@ -10,19 +10,19 @@ public sealed class ImageFormatCatalogTests
     [InlineData(".jpeg")]
     [InlineData(".BMP")]
     [InlineData(".webp")]
-    public void IsSupportedFormat_RecognizesPhaseOneFormatsCaseInsensitively(string extension)
+    [InlineData(".gif")]
+    [InlineData(".TIFF")]
+    [InlineData(".tif")]
+    public void IsSupportedFormat_RecognizesCurrentFormatsCaseInsensitively(string extension)
     {
         Assert.True(ImageFormatCatalog.IsSupportedFormat(extension));
         Assert.False(ImageFormatCatalog.IsDeferredFormat(extension));
     }
 
     [Theory]
-    [InlineData(".gif")]
-    [InlineData(".TIFF")]
-    [InlineData(".tif")]
     [InlineData(".HEIC")]
     [InlineData(".avif")]
-    public void IsDeferredFormat_RecognizesFutureFormatsCaseInsensitively(string extension)
+    public void IsDeferredFormat_RecognizesPhaseThreeFormatsCaseInsensitively(string extension)
     {
         Assert.True(ImageFormatCatalog.IsDeferredFormat(extension));
         Assert.False(ImageFormatCatalog.IsSupportedFormat(extension));
