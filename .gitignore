@@ -4,5 +4,6 @@ bin/
 obj/
 .vs/
 .notes/
+TestResults/
 *.user
 *.suo

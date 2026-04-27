@@ -36,6 +36,7 @@ public sealed class MainViewModelTests
         await viewModel.OpenFileAsync(@"C:\missing.png");
 
         Assert.Equal(error.UserMessage, viewModel.ErrorMessage);
+        Assert.Equal(error.Severity, viewModel.CurrentErrorSeverity);
         Assert.False(viewModel.IsLoading);
         Assert.Single(services.ErrorLogService.LoggedErrors);
         Assert.Equal(error, services.ErrorLogService.LoggedErrors[0]);
@@ -154,6 +155,25 @@ public sealed class MainViewModelTests
         Assert.Equal(50, saved.WindowY);
     }
 
+    [Fact]
+    public async Task CancelLoading_CancelsLongRunningOpenOperation()
+    {
+        var filePath = @"C:\Photos\slow.png";
+        var decoder = new BlockingImageDecodeService();
+        var services = TestServices.WithDecoder(filePath, decoder);
+        var viewModel = services.CreateViewModel();
+
+        var openTask = viewModel.OpenFileAsync(filePath);
+        await decoder.Started.Task;
+
+        viewModel.CancelLoading();
+        await openTask;
+
+        Assert.True(decoder.WasCanceled);
+        Assert.False(viewModel.IsLoading);
+        Assert.False(viewModel.IsCancelAvailable);
+    }
+
     private static Playlist CreateTwoItemPlaylist()
     {
         return new Playlist(
@@ -235,6 +255,18 @@ public sealed class MainViewModelTests
                 new StubFileOpenService(Result<string>.Failure(error)),
                 decoder,
                 new StubFolderPlaylistService(Result<Playlist>.Failure(ViewerError.PlaylistScanError("BuildPlaylist", null))),
+                new NavigationService(decoder),
+                new StubSettingsService(),
+                new RecordingErrorLogService());
+        }
+
+        public static TestServices WithDecoder(string filePath, IImageDecodeService decoder)
+        {
+            var playlist = new Playlist([new ImageItem(filePath)], 0, Path.GetDirectoryName(filePath) ?? string.Empty);
+            return new TestServices(
+                new StubFileOpenService(Result<string>.Success(filePath)),
+                decoder,
+                new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
                 new NavigationService(decoder),
                 new StubSettingsService(),
                 new RecordingErrorLogService());
@@ -344,6 +376,34 @@ public sealed class MainViewModelTests
 
             return Task.FromResult(Result<DecodedImage>.Success(
                 new DecodedImage(filePath, new ImageMetadata(100, 100, 10))));
+        }
+
+        public bool IsSupportedFormat(string extension) => true;
+
+        public bool IsDeferredFormat(string extension) => false;
+    }
+
+    private sealed class BlockingImageDecodeService : IImageDecodeService
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool WasCanceled { get; private set; }
+
+        public async Task<Result<DecodedImage>> DecodeImageAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                WasCanceled = true;
+                return Result<DecodedImage>.Failure(ViewerError.DecodeError("DecodeImage", filePath));
+            }
+
+            return Result<DecodedImage>.Success(new DecodedImage(filePath, new ImageMetadata(100, 100, 10)));
         }
 
         public bool IsSupportedFormat(string extension) => true;

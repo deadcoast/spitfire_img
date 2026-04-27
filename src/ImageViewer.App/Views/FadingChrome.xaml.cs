@@ -15,6 +15,8 @@ public sealed partial class FadingChrome : UserControl
         InitializeComponent();
         _fadeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _fadeTimer.Tick += (_, _) => FadeOutChrome();
+        PointerEntered += (_, _) => _fadeTimer.Stop();
+        PointerExited += (_, _) => ShowChrome();
     }
 
     public event EventHandler? OpenFileRequested;

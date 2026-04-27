@@ -91,6 +91,20 @@ public sealed class ImageDecodeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DecodeImageAsync_WebpVp8Header_ReturnsMetadata()
+    {
+        var path = Path.Combine(_tempDirectory, "lossy.webp");
+        await File.WriteAllBytesAsync(path, Convert.FromBase64String(
+            "UklGRmIAAABXRUJQVlA4IFYAAABwBgCdASqgAFoAPpFIoUylpCMiIIgAsBIJaW7hdJlwAAE9tiLxBUc9sReIKjntiLxBUc9sReIKjntiLYAA/v6YFf/9XbtZnj3//8Q50OdDmSQAAAAAAA=="));
+
+        var result = await _service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(160, result.Value.Metadata.PixelWidth);
+        Assert.Equal(90, result.Value.Metadata.PixelHeight);
+    }
+
+    [Fact]
     public async Task DecodeImageAsync_CorruptSupportedFile_ReturnsDecodeError()
     {
         var path = Path.Combine(_tempDirectory, "corrupt.png");

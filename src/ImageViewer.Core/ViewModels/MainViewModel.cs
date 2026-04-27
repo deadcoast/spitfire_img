@@ -14,7 +14,10 @@ public sealed class MainViewModel : ObservableObject
     private ViewerSettings _settings = ViewerSettings.Default;
     private bool _isChromeVisible = true;
     private bool _isLoading;
+    private bool _isCancelAvailable;
     private string? _errorMessage;
+    private ErrorSeverity _currentErrorSeverity = ErrorSeverity.Error;
+    private CancellationTokenSource? _operationCancellation;
 
     public MainViewModel(
         IFileOpenService fileOpenService,
@@ -54,10 +57,22 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _isLoading, value);
     }
 
+    public bool IsCancelAvailable
+    {
+        get => _isCancelAvailable;
+        private set => SetProperty(ref _isCancelAvailable, value);
+    }
+
     public string? ErrorMessage
     {
         get => _errorMessage;
         private set => SetProperty(ref _errorMessage, value);
+    }
+
+    public ErrorSeverity CurrentErrorSeverity
+    {
+        get => _currentErrorSeverity;
+        private set => SetProperty(ref _currentErrorSeverity, value);
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -75,7 +90,8 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        IsLoading = true;
+        using var operation = BeginOperation(cancellationToken);
+        var operationToken = operation.Token;
         ErrorMessage = null;
 
         try
@@ -83,23 +99,23 @@ public sealed class MainViewModel : ObservableObject
             var validationResult = _fileOpenService.ValidateFilePath(filePath);
             if (validationResult.IsFailure)
             {
-                await HandleErrorAsync(validationResult.Error, cancellationToken).ConfigureAwait(false);
+                await HandleErrorAsync(validationResult.Error, operationToken).ConfigureAwait(false);
                 return;
             }
 
-            var decodeResult = await _imageDecodeService.DecodeImageAsync(validationResult.Value, cancellationToken)
+            var decodeResult = await _imageDecodeService.DecodeImageAsync(validationResult.Value, operationToken)
                 .ConfigureAwait(false);
             if (decodeResult.IsFailure)
             {
-                await HandleErrorAsync(decodeResult.Error, cancellationToken).ConfigureAwait(false);
+                await HandleErrorAsync(decodeResult.Error, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
 
-            var playlistResult = await _folderPlaylistService.BuildPlaylistAsync(validationResult.Value, cancellationToken)
+            var playlistResult = await _folderPlaylistService.BuildPlaylistAsync(validationResult.Value, operationToken)
                 .ConfigureAwait(false);
             if (playlistResult.IsFailure)
             {
-                await HandleErrorAsync(playlistResult.Error, cancellationToken).ConfigureAwait(false);
+                await HandleErrorAsync(playlistResult.Error, operationToken).ConfigureAwait(false);
                 var fallback = new Playlist([new ImageItem(validationResult.Value)], 0, Path.GetDirectoryName(validationResult.Value) ?? string.Empty);
                 PlaylistState.SetPlaylist(fallback);
             }
@@ -113,7 +129,7 @@ public sealed class MainViewModel : ObservableObject
         }
         finally
         {
-            IsLoading = false;
+            EndOperation(operation);
         }
     }
 
@@ -174,6 +190,12 @@ public sealed class MainViewModel : ObservableObject
         ShowChrome();
     }
 
+    public void CancelLoading()
+    {
+        _operationCancellation?.Cancel();
+        IsCancelAvailable = false;
+    }
+
     public async Task ToggleThemeAsync(CancellationToken cancellationToken = default)
     {
         var nextTheme = Settings.Theme == ViewerTheme.Dark
@@ -223,18 +245,19 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        IsLoading = true;
+        using var operation = BeginOperation(cancellationToken);
+        var operationToken = operation.Token;
         ErrorMessage = null;
 
         try
         {
             var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
-            var navigationResult = await _navigationService.NavigateToIndexAsync(playlist, targetIndex, cancellationToken)
+            var navigationResult = await _navigationService.NavigateToIndexAsync(playlist, targetIndex, operationToken)
                 .ConfigureAwait(false);
 
             if (navigationResult.IsFailure)
             {
-                await HandleErrorAsync(navigationResult.Error, cancellationToken).ConfigureAwait(false);
+                await HandleErrorAsync(navigationResult.Error, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
 
@@ -244,13 +267,50 @@ public sealed class MainViewModel : ObservableObject
         }
         finally
         {
-            IsLoading = false;
+            EndOperation(operation);
         }
     }
 
     private async Task HandleErrorAsync(ViewerError error, CancellationToken cancellationToken)
     {
+        CurrentErrorSeverity = error.Severity;
         ErrorMessage = error.UserMessage;
         await _errorLogService.LogErrorAsync(error, cancellationToken).ConfigureAwait(false);
+    }
+
+    private CancellationTokenSource BeginOperation(CancellationToken cancellationToken)
+    {
+        _operationCancellation?.Cancel();
+        _operationCancellation?.Dispose();
+        _operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        IsLoading = true;
+        IsCancelAvailable = false;
+        _ = ShowCancelAvailabilityAfterDelayAsync(_operationCancellation);
+        return _operationCancellation;
+    }
+
+    private void EndOperation(CancellationTokenSource operation)
+    {
+        if (ReferenceEquals(_operationCancellation, operation))
+        {
+            IsLoading = false;
+            IsCancelAvailable = false;
+            _operationCancellation = null;
+        }
+    }
+
+    private async Task ShowCancelAvailabilityAfterDelayAsync(CancellationTokenSource operation)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2), operation.Token).ConfigureAwait(false);
+            if (ReferenceEquals(_operationCancellation, operation) && IsLoading)
+            {
+                IsCancelAvailable = true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 }

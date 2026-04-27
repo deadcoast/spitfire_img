@@ -26,10 +26,7 @@ public partial class App : Application
         if (!string.IsNullOrWhiteSpace(args.Arguments))
         {
             var filePath = args.Arguments.Trim().Trim('"');
-            if (File.Exists(filePath))
-            {
-                _ = window.OpenInitialFileAsync(filePath);
-            }
+            _ = window.OpenInitialFileAsync(filePath);
         }
     }
 

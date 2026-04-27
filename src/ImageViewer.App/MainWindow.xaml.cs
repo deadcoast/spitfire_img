@@ -15,12 +15,18 @@ public sealed partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly AppWindow _appWindow;
+    private readonly DispatcherTimer _loadingDelayTimer;
+    private readonly DispatcherTimer _warningDismissTimer;
 
     public MainWindow(MainViewModel viewModel)
     {
         _viewModel = viewModel;
         InitializeComponent();
         _appWindow = GetAppWindow();
+        _loadingDelayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        _loadingDelayTimer.Tick += OnLoadingDelayElapsed;
+        _warningDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _warningDismissTimer.Tick += OnWarningDismissElapsed;
 
         RootGrid.DataContext = viewModel;
         ImageCanvas.Attach(viewModel);
@@ -68,7 +74,9 @@ public sealed partial class MainWindow : Window
                 _viewModel.Settings.WindowHeight));
         }
 
-        if (_viewModel.Settings.WindowX >= 0 && _viewModel.Settings.WindowY >= 0)
+        if (_viewModel.Settings.WindowX >= 0 &&
+            _viewModel.Settings.WindowY >= 0 &&
+            IsSavedWindowPositionVisible(_viewModel.Settings.WindowX, _viewModel.Settings.WindowY))
         {
             _appWindow.Move(new Windows.Graphics.PointInt32(
                 _viewModel.Settings.WindowX,
@@ -164,17 +172,17 @@ public sealed partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainViewModel.IsLoading))
         {
-            DispatcherQueue.TryEnqueue(() => LoadingRing.IsActive = _viewModel.IsLoading);
+            DispatcherQueue.TryEnqueue(UpdateLoadingState);
         }
 
-        if (e.PropertyName == nameof(MainViewModel.ErrorMessage))
+        if (e.PropertyName == nameof(MainViewModel.IsCancelAvailable))
         {
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                ErrorInfoBar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error;
-                ErrorInfoBar.Message = _viewModel.ErrorMessage ?? string.Empty;
-                ErrorInfoBar.IsOpen = !string.IsNullOrWhiteSpace(_viewModel.ErrorMessage);
-            });
+            DispatcherQueue.TryEnqueue(UpdateCancelState);
+        }
+
+        if (e.PropertyName is nameof(MainViewModel.ErrorMessage) or nameof(MainViewModel.CurrentErrorSeverity))
+        {
+            DispatcherQueue.TryEnqueue(UpdateErrorState);
         }
 
         if (e.PropertyName == nameof(MainViewModel.Settings))
@@ -220,10 +228,81 @@ public sealed partial class MainWindow : Window
         return AppWindow.GetFromWindowId(windowId);
     }
 
+    private bool IsSavedWindowPositionVisible(int x, int y)
+    {
+        var displayArea = DisplayArea.GetFromWindowId(_appWindow.Id, DisplayAreaFallback.Nearest);
+        var workArea = displayArea.WorkArea;
+        return x >= workArea.X &&
+               y >= workArea.Y &&
+               x < workArea.X + workArea.Width &&
+               y < workArea.Y + workArea.Height;
+    }
+
     private void ShowInfo(string message)
     {
         ErrorInfoBar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Informational;
         ErrorInfoBar.Message = message;
         ErrorInfoBar.IsOpen = true;
+    }
+
+    private void OnCancelLoadingClicked(object sender, RoutedEventArgs e)
+    {
+        _viewModel.CancelLoading();
+    }
+
+    private void UpdateLoadingState()
+    {
+        if (_viewModel.IsLoading)
+        {
+            _loadingDelayTimer.Stop();
+            _loadingDelayTimer.Start();
+            return;
+        }
+
+        _loadingDelayTimer.Stop();
+        LoadingRing.IsActive = false;
+        LoadingOverlay.Visibility = Visibility.Collapsed;
+        CancelLoadingButton.Visibility = Visibility.Collapsed;
+    }
+
+    private void UpdateCancelState()
+    {
+        CancelLoadingButton.Visibility = _viewModel.IsCancelAvailable
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void UpdateErrorState()
+    {
+        _warningDismissTimer.Stop();
+        ErrorInfoBar.Severity = _viewModel.CurrentErrorSeverity == ErrorSeverity.Warning
+            ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning
+            : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error;
+        ErrorInfoBar.Message = _viewModel.ErrorMessage ?? string.Empty;
+        ErrorInfoBar.IsOpen = !string.IsNullOrWhiteSpace(_viewModel.ErrorMessage);
+
+        if (ErrorInfoBar.IsOpen && _viewModel.CurrentErrorSeverity == ErrorSeverity.Warning)
+        {
+            _warningDismissTimer.Start();
+        }
+    }
+
+    private void OnLoadingDelayElapsed(object? sender, object e)
+    {
+        _loadingDelayTimer.Stop();
+        if (!_viewModel.IsLoading)
+        {
+            return;
+        }
+
+        LoadingOverlay.Visibility = Visibility.Visible;
+        LoadingRing.IsActive = true;
+        UpdateCancelState();
+    }
+
+    private void OnWarningDismissElapsed(object? sender, object e)
+    {
+        _warningDismissTimer.Stop();
+        ErrorInfoBar.IsOpen = false;
     }
 }

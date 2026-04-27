@@ -95,6 +95,18 @@ public sealed class ImageDecodeService : IImageDecodeService
             return (width, height);
         }
 
+        if (IsAscii(bytes, 12, "VP8 "))
+        {
+            if (bytes.Length < 30 || bytes[23] != 0x9D || bytes[24] != 0x01 || bytes[25] != 0x2A)
+            {
+                throw new InvalidDataException("Invalid WEBP VP8 header.");
+            }
+
+            var width = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(26, 2)) & 0x3FFF;
+            var height = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(28, 2)) & 0x3FFF;
+            return (width, height);
+        }
+
         throw new InvalidDataException("Unsupported WEBP header variant.");
     }
 

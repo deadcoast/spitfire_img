@@ -59,6 +59,28 @@ public sealed class FolderPlaylistServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task BuildPlaylistAsync_SpecialCharactersAndLargeFolder_ReturnsSupportedFilesOnly()
+    {
+        var opened = CreateFile("vacation 050.png");
+        CreateFile("résumé-001.jpg");
+        CreateFile("family photo (2).bmp");
+
+        for (var index = 0; index < 1000; index++)
+        {
+            CreateFile($"bulk-{index:0000}.png");
+            CreateFile($"bulk-{index:0000}.txt");
+        }
+
+        var result = await _service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1003, result.Value.TotalCount);
+        Assert.Contains(result.Value.Items, item => item.Filename == "résumé-001.jpg");
+        Assert.Contains(result.Value.Items, item => item.Filename == "family photo (2).bmp");
+        Assert.All(result.Value.Items, item => Assert.True(ImageFormatCatalog.IsSupportedFormat(item.Extension)));
+    }
+
+    [Fact]
     public async Task BuildPlaylistAsync_MissingFolder_ReturnsPlaylistScanError()
     {
         var missing = Path.Combine(_tempDirectory, "missing", "image.png");

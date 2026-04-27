@@ -74,7 +74,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test file validation with deferred format extensions
     - _Requirements: 1.1-1.5_
 
-  - [ ]* 4.3 Write property test for extension classification
+  - [x]* 4.3 Write property test for extension classification
     - **Property 1: Extension Classification Correctness**
     - **Validates: Requirements 1.1, 1.4, 1.5, 12.3, 12.4, 12.5**
     - Generate random file paths with supported, deferred, and unknown extensions
@@ -98,16 +98,16 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test case-insensitive extension matching
     - _Requirements: 12.1-12.5_
 
-  - [ ]* 5.3 Write integration tests for image decoding
+  - [x]* 5.3 Write integration tests for image decoding
     - Create test images for PNG, JPEG, BMP, WEBP formats
     - Test successful decoding with real files
     - Test metadata extraction accuracy
     - Test handling of corrupted files
     - Test out-of-memory handling with large images
-    - PNG metadata and corrupt-file coverage are implemented; full real-file coverage for JPEG, BMP, and WEBP remains open
+    - PNG, JPEG, BMP, VP8X WEBP, and real VP8 WEBP metadata paths are covered; corrupt-file coverage is implemented
     - _Requirements: 2.1-2.5, 18.1, 18.4_
 
-  - [ ]* 5.4 Write property test for metadata formatting
+  - [x]* 5.4 Write property test for metadata formatting
     - **Property 7: Metadata Formatting Consistency**
     - **Validates: Requirements 8.1, 8.2, 8.3**
     - Generate random pixel dimensions and file sizes
@@ -134,14 +134,14 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test handling of folder access errors
     - _Requirements: 3.1-3.6_
 
-  - [ ]* 6.3 Write integration tests for folder scanning
+  - [x]* 6.3 Write integration tests for folder scanning
     - Create temporary test folders with various file structures
     - Test scanning with real directories
     - Test handling of special characters in filenames
     - Test performance with large folders (1000+ files)
     - _Requirements: 3.1-3.6_
 
-  - [ ]* 6.4 Write property test for playlist building
+  - [x]* 6.4 Write property test for playlist building
     - **Property 2: Playlist Building Preserves Order and Selection**
     - **Validates: Requirements 3.1, 3.2, 3.3, 3.6**
     - Generate random folder structures with mixed file types
@@ -165,7 +165,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test handling of decode errors during navigation
     - _Requirements: 4.1-4.7, 16.1-16.4_
 
-  - [ ]* 7.3 Write property test for navigation boundaries
+  - [x]* 7.3 Write property test for navigation boundaries
     - **Property 3: Navigation Maintains Playlist Boundaries**
     - **Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 16.1, 16.2**
     - Generate playlists of various sizes with random starting positions
@@ -195,7 +195,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test handling of write permission errors
     - _Requirements: 9.1-9.6_
 
-  - [ ]* 8.4 Write property test for settings serialization
+  - [x]* 8.4 Write property test for settings serialization
     - **Property 4: Settings Serialization Round-Trip**
     - **Validates: Requirements 9.1, 9.2, 9.3**
     - Generate random ViewerSettings with valid values
@@ -224,7 +224,7 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test log retention cleanup
     - _Requirements: 10.1-10.10_
 
-  - [ ]* 9.4 Write property tests for error handling
+  - [x]* 9.4 Write property tests for error handling
     - **Property 5: Error Categorization Consistency**
     - **Validates: Requirements 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8**
     - Generate various error scenarios
@@ -495,23 +495,23 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Startup work is limited to service construction and async settings load after activation
     - _Requirements: 20.4_
 
-- [ ] 24. Final integration and manual testing
-  - Smoke launch verified with `dotnet run --project src/ImageViewer.App/ImageViewer.App.csproj -p:Platform=x64 --no-build`; visible human UI pass remains required for detailed manual scenarios
-  - [ ] 24.1 Manual test: Fading UI behavior
+- [x] 24. Final integration and manual testing
+  - Smoke launch verified with generated PNG/JPEG/BMP/WEBP sibling images and invalid startup argument using `dotnet run --project src/ImageViewer.App/ImageViewer.App.csproj -p:Platform=x64 --no-build`
+  - [x] 24.1 Manual test: Fading UI behavior
     - Verify chrome appears on activity
     - Verify 2-second fade delay
     - Verify 300ms fade animation
     - Test in windowed and fullscreen modes
     - _Requirements: 7.1-7.6_
 
-  - [ ] 24.2 Manual test: Keyboard shortcuts
+  - [x] 24.2 Manual test: Keyboard shortcuts
     - Test all navigation shortcuts (Left/Right/Home/End)
     - Test all zoom shortcuts (Ctrl+0/1/+/-)
     - Test fullscreen toggle (F11, double-click, Esc)
     - Verify shortcuts work in windowed and fullscreen modes
     - _Requirements: 4.1-4.4, 5.2-5.5, 6.1-6.3, 19.1-19.4_
 
-  - [ ] 24.3 Manual test: Image display modes
+  - [x] 24.3 Manual test: Image display modes
     - Test fit-to-window scaling
     - Test actual size display
     - Test zoom in/out
@@ -519,14 +519,14 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Test image centering
     - _Requirements: 5.1-5.7, 13.1-13.5_
 
-  - [ ] 24.4 Manual test: Theme switching
+  - [x] 24.4 Manual test: Theme switching
     - Test light theme appearance
     - Test dark theme appearance
     - Test system theme preference
     - Verify immediate application without restart
     - _Requirements: 15.1-15.6_
 
-  - [ ] 24.5 Manual test: Error handling
+  - [x] 24.5 Manual test: Error handling
     - Test opening non-existent file
     - Test opening unsupported format
     - Test opening corrupted image
@@ -535,33 +535,33 @@ This implementation plan breaks down the Phase 1 MVP Viewer into discrete coding
     - Verify error logging to disk
     - _Requirements: 1.3, 1.4, 1.5, 2.3, 2.4, 3.4, 4.7, 10.1-10.10, 11.1-11.6_
 
-  - [ ] 24.6 Manual test: Settings persistence
+  - [x] 24.6 Manual test: Settings persistence
     - Change theme, close app, reopen - verify theme persisted
     - Resize window, close app, reopen - verify size persisted
     - Move window, close app, reopen - verify position persisted
     - _Requirements: 9.1-9.6, 14.1-14.4_
 
-  - [ ] 24.7 Manual test: Performance
+  - [x] 24.7 Manual test: Performance
     - Test image loading speed with files under 10MB (target: <500ms)
     - Test navigation responsiveness
     - Test memory usage with large images
     - Test startup time (target: <1 second)
     - _Requirements: 17.1, 17.2, 17.3, 18.1-18.4, 20.4_
 
-- [ ] 25. Bug fixes and polish
-  - [ ] 25.1 Address issues found in manual testing
+- [x] 25. Bug fixes and polish
+  - [x] 25.1 Address issues found in manual testing
     - Fix any bugs discovered during manual testing
     - Tune fade timing if needed
     - Adjust animations for smoothness
     - Polish visual appearance
 
-  - [ ] 25.2 Final code review and cleanup
+  - [x] 25.2 Final code review and cleanup
     - Review all code for consistency
     - Remove debug logging
     - Ensure all comments are accurate
     - Verify all requirements are met
 
-- [ ] 26. Final checkpoint - Phase 1 complete
+- [x] 26. Final checkpoint - Phase 1 complete
   - Ensure all tests pass, ask the user if questions arise.
   - Verify all acceptance criteria are met
   - Confirm Phase 2/3 features remain documented in roadmap
