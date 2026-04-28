@@ -28,6 +28,7 @@ public sealed partial class ImageCanvas : UserControl
         _viewModel = viewModel;
         _viewerState = viewModel.ViewerState;
         _viewerState.PropertyChanged += OnViewerStateChanged;
+        viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
         UpdateImage();
         UpdateDisplayMode();
     }
@@ -43,6 +44,11 @@ public sealed partial class ImageCanvas : UserControl
         {
             DispatcherQueue.TryEnqueue(UpdateDisplayMode);
         }
+    }
+
+    private void OnTransformStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(UpdateDisplayMode);
     }
 
     private void UpdateImage()
@@ -74,10 +80,45 @@ public sealed partial class ImageCanvas : UserControl
             ? _viewerState.ZoomLevel / 100d
             : 1d;
 
-        ImageTransform.ScaleX = scale;
-        ImageTransform.ScaleY = scale;
+        var transformPreview = CalculateTransformPreview();
+        ImageTransform.ScaleX = scale * transformPreview.ScaleX;
+        ImageTransform.ScaleY = scale * transformPreview.ScaleY;
+        ImageTransform.Rotation = transformPreview.RotationDegrees;
         ImageTransform.TranslateX = _viewerState.PanOffset.X;
         ImageTransform.TranslateY = _viewerState.PanOffset.Y;
+    }
+
+    private (double RotationDegrees, double ScaleX, double ScaleY) CalculateTransformPreview()
+    {
+        var rotation = 0d;
+        var scaleX = 1d;
+        var scaleY = 1d;
+
+        if (_viewModel is null)
+        {
+            return (rotation, scaleX, scaleY);
+        }
+
+        foreach (var operation in _viewModel.TransformState.PendingTransforms)
+        {
+            switch (operation)
+            {
+                case TransformOperation.RotateLeft:
+                    rotation -= 90;
+                    break;
+                case TransformOperation.RotateRight:
+                    rotation += 90;
+                    break;
+                case TransformOperation.FlipHorizontal:
+                    scaleX *= -1;
+                    break;
+                case TransformOperation.FlipVertical:
+                    scaleY *= -1;
+                    break;
+            }
+        }
+
+        return (rotation % 360, scaleX, scaleY);
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)

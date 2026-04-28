@@ -41,6 +41,11 @@ public sealed class ThumbnailState : ObservableObject
         IsStripVisible = !IsStripVisible;
     }
 
+    public void SetVisibility(bool isVisible)
+    {
+        IsStripVisible = isVisible;
+    }
+
     public void SetStripPosition(ThumbnailPosition position)
     {
         StripPosition = position;

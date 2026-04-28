@@ -205,6 +205,23 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task InitializeAsync_AppliesPhase2ThumbnailSettings()
+    {
+        var settings = ViewerSettings.Default with
+        {
+            ThumbnailStripVisible = true,
+            ThumbnailStripPosition = ThumbnailPosition.Top
+        };
+        var services = TestServices.WithSettings(settings);
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.InitializeAsync();
+
+        Assert.True(viewModel.ThumbnailState.IsStripVisible);
+        Assert.Equal(ThumbnailPosition.Top, viewModel.ThumbnailState.StripPosition);
+    }
+
+    [Fact]
     public async Task OpenRecentFileAsync_MissingFile_RemovesRecentAndShowsFileAccessError()
     {
         var services = TestServices.WithPlaylist(CreateTwoItemPlaylist());
@@ -264,15 +281,77 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
-    public void ThumbnailCommands_ToggleAndPersistPositionInState()
+    public async Task ApplyTransformAsync_UpdatesDisplayedMetadataFromTransformResult()
+    {
+        var transformService = new RecordingTransformService();
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist(), transformService: transformService);
+        var viewModel = services.CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 200, 10)));
+
+        await viewModel.ApplyTransformAsync(TransformOperation.RotateRight);
+
+        Assert.Equal("200 × 100", viewModel.ViewerState.Metadata?.FormattedDimensions);
+    }
+
+    [Fact]
+    public async Task SaveTransformsAsync_WithPendingTransforms_SavesAndClearsPendingState()
+    {
+        var transformService = new RecordingTransformService();
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist(), transformService: transformService);
+        var viewModel = services.CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 200, 10)));
+        await viewModel.ApplyTransformAsync(TransformOperation.RotateRight);
+
+        await viewModel.SaveTransformsAsync();
+
+        Assert.Equal(@"C:\Photos\a.png", transformService.SavedFilePath);
+        Assert.Equal([TransformOperation.RotateRight], transformService.SavedOperations);
+        Assert.False(viewModel.TransformState.HasUnsavedChanges);
+    }
+
+    [Fact]
+    public async Task SaveTransformsAsync_Failure_LogsErrorAndKeepsPendingState()
+    {
+        var error = ViewerError.TransformSaveError("SaveTransforms", @"C:\Photos\a.png");
+        var transformService = new RecordingTransformService(saveResult: Result.Failure(error));
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist(), transformService: transformService);
+        var viewModel = services.CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 200, 10)));
+        await viewModel.ApplyTransformAsync(TransformOperation.RotateRight);
+
+        await viewModel.SaveTransformsAsync();
+
+        Assert.True(viewModel.TransformState.HasUnsavedChanges);
+        Assert.Equal(error.UserMessage, viewModel.ErrorMessage);
+        Assert.Equal(error, services.ErrorLogService.LoggedErrors.Single());
+    }
+
+    [Fact]
+    public async Task NavigateNextAsync_DiscardsUnsavedTransformsWhenImageChanges()
     {
         var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(CreateTwoItemPlaylist());
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 200, 10)));
+        await viewModel.ApplyTransformAsync(TransformOperation.RotateRight);
 
-        viewModel.ToggleThumbnailStrip();
-        viewModel.SetThumbnailPosition(ThumbnailPosition.Top);
+        await viewModel.NavigateNextAsync();
+
+        Assert.False(viewModel.TransformState.HasUnsavedChanges);
+    }
+
+    [Fact]
+    public async Task ThumbnailCommands_ToggleAndPersistPositionInStateAndSettings()
+    {
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist());
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.ToggleThumbnailStrip();
+        await viewModel.SetThumbnailPosition(ThumbnailPosition.Top);
 
         Assert.True(viewModel.ThumbnailState.IsStripVisible);
         Assert.Equal(ThumbnailPosition.Top, viewModel.ThumbnailState.StripPosition);
+        Assert.Equal(ThumbnailPosition.Top, services.SettingsService.SavedSettings.Last().ThumbnailStripPosition);
+        Assert.True(services.SettingsService.SavedSettings.Last().ThumbnailStripVisible);
     }
 
     [Fact]
@@ -308,7 +387,8 @@ public sealed class MainViewModelTests
             RecordingErrorLogService errorLogService,
             RecordingRecentFilesService? recentFilesService = null,
             RecordingMetadataService? metadataService = null,
-            RecordingExportService? exportService = null)
+            RecordingExportService? exportService = null,
+            RecordingTransformService? transformService = null)
         {
             FileOpenService = fileOpenService;
             ImageDecodeService = imageDecodeService;
@@ -319,6 +399,7 @@ public sealed class MainViewModelTests
             RecentFilesService = recentFilesService ?? new RecordingRecentFilesService();
             MetadataService = metadataService ?? new RecordingMetadataService();
             ExportService = exportService ?? new RecordingExportService();
+            TransformService = transformService ?? new RecordingTransformService();
         }
 
         public IFileOpenService FileOpenService { get; }
@@ -339,6 +420,8 @@ public sealed class MainViewModelTests
 
         public RecordingExportService ExportService { get; }
 
+        public RecordingTransformService TransformService { get; }
+
         public static TestServices Success(DecodedImage image, Playlist playlist)
         {
             var decoder = new StubImageDecodeService(Result<DecodedImage>.Success(image));
@@ -351,7 +434,10 @@ public sealed class MainViewModelTests
                 new RecordingErrorLogService());
         }
 
-        public static TestServices WithPlaylist(Playlist playlist, string? failDecodePath = null)
+        public static TestServices WithPlaylist(
+            Playlist playlist,
+            string? failDecodePath = null,
+            RecordingTransformService? transformService = null)
         {
             var decoder = new PathImageDecodeService(failDecodePath);
             return new TestServices(
@@ -360,7 +446,8 @@ public sealed class MainViewModelTests
                 new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
                 new NavigationService(decoder),
                 new StubSettingsService(),
-                new RecordingErrorLogService());
+                new RecordingErrorLogService(),
+                transformService: transformService);
         }
 
         public static TestServices WithSettings(ViewerSettings settings)
@@ -412,7 +499,7 @@ public sealed class MainViewModelTests
                 new ThumbnailService(ImageDecodeService),
                 RecentFilesService,
                 ExportService,
-                new TransformService(),
+                TransformService,
                 MetadataService);
         }
     }
@@ -629,6 +716,52 @@ public sealed class MainViewModelTests
             DestinationPath = destinationFilePath;
             Options = options;
             return Task.FromResult(Result.Success());
+        }
+    }
+
+    private sealed class RecordingTransformService : ITransformService
+    {
+        private readonly Result _saveResult;
+
+        public RecordingTransformService(Result? saveResult = null)
+        {
+            _saveResult = saveResult ?? Result.Success();
+        }
+
+        public string? SavedFilePath { get; private set; }
+
+        public IReadOnlyList<TransformOperation>? SavedOperations { get; private set; }
+
+        public Task<Result<TransformedImage>> ApplyTransformAsync(
+            DecodedImage sourceImage,
+            IReadOnlyList<TransformOperation> operations,
+            CancellationToken cancellationToken = default)
+        {
+            var width = sourceImage.Metadata.PixelWidth;
+            var height = sourceImage.Metadata.PixelHeight;
+
+            foreach (var operation in operations)
+            {
+                if (operation is TransformOperation.RotateLeft or TransformOperation.RotateRight)
+                {
+                    (width, height) = (height, width);
+                }
+            }
+
+            return Task.FromResult(Result<TransformedImage>.Success(new TransformedImage(
+                sourceImage,
+                sourceImage.Metadata with { PixelWidth = width, PixelHeight = height },
+                operations.ToArray())));
+        }
+
+        public Task<Result> SaveTransformsAsync(
+            string filePath,
+            IReadOnlyList<TransformOperation> operations,
+            CancellationToken cancellationToken = default)
+        {
+            SavedFilePath = filePath;
+            SavedOperations = operations.ToArray();
+            return Task.FromResult(_saveResult);
         }
     }
 }

@@ -12,6 +12,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly INavigationService _navigationService;
     private readonly ISettingsService _settingsService;
     private readonly IErrorLogService _errorLogService;
+    private readonly IThumbnailService _thumbnailService;
     private readonly IRecentFilesService _recentFilesService;
     private readonly IExportService _exportService;
     private readonly ITransformService _transformService;
@@ -67,6 +68,7 @@ public sealed class MainViewModel : ObservableObject
         _navigationService = navigationService;
         _settingsService = settingsService;
         _errorLogService = errorLogService;
+        _thumbnailService = thumbnailService;
         _recentFilesService = recentFilesService;
         _exportService = exportService;
         _transformService = transformService;
@@ -133,6 +135,8 @@ public sealed class MainViewModel : ObservableObject
         if (settingsResult.IsSuccess)
         {
             Settings = settingsResult.Value;
+            ThumbnailState.SetVisibility(Settings.ThumbnailStripVisible);
+            ThumbnailState.SetStripPosition(Settings.ThumbnailStripPosition);
             var recentFilesResult = await _recentFilesService.LoadRecentFilesAsync(cancellationToken).ConfigureAwait(false);
             if (recentFilesResult.IsSuccess)
             {
@@ -324,7 +328,11 @@ public sealed class MainViewModel : ObservableObject
         if (transformResult.IsFailure)
         {
             await HandleErrorAsync(transformResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
         }
+
+        ViewerState.SetMetadata(transformResult.Value.Metadata);
+        ShowChrome();
     }
 
     public void UndoTransform()
@@ -339,17 +347,50 @@ public sealed class MainViewModel : ObservableObject
         ShowChrome();
     }
 
-    public void ToggleThumbnailStrip()
+    public async Task SaveTransformsAsync(CancellationToken cancellationToken = default)
     {
-        ThumbnailState.ToggleVisibility();
-        Settings = Settings with { ThumbnailStripVisible = ThumbnailState.IsStripVisible };
+        if (ViewerState.CurrentImage is null || !TransformState.HasUnsavedChanges)
+        {
+            return;
+        }
+
+        var operations = TransformState.PendingTransforms.ToArray();
+        var result = await _transformService.SaveTransformsAsync(
+                ViewerState.CurrentImage.FilePath,
+                operations,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            await HandleErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        TransformState.DiscardTransforms();
         ShowChrome();
     }
 
-    public void SetThumbnailPosition(ThumbnailPosition position)
+    public async Task<Result<Thumbnail>> GetThumbnailAsync(
+        ImageItem item,
+        CancellationToken cancellationToken = default)
+    {
+        return await _thumbnailService.GetThumbnailAsync(item, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task ToggleThumbnailStrip(CancellationToken cancellationToken = default)
+    {
+        ThumbnailState.ToggleVisibility();
+        Settings = Settings with { ThumbnailStripVisible = ThumbnailState.IsStripVisible };
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    public async Task SetThumbnailPosition(ThumbnailPosition position, CancellationToken cancellationToken = default)
     {
         ThumbnailState.SetStripPosition(position);
         Settings = Settings with { ThumbnailStripPosition = position };
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
         ShowChrome();
     }
 
@@ -469,6 +510,7 @@ public sealed class MainViewModel : ObservableObject
 
             PlaylistState.SetCurrentIndex(navigationResult.Value.Index);
             ViewerState.SetImage(navigationResult.Value.Image);
+            TransformState.DiscardTransforms();
             ShowChrome();
         }
         finally
@@ -482,6 +524,15 @@ public sealed class MainViewModel : ObservableObject
         CurrentErrorSeverity = error.Severity;
         ErrorMessage = error.UserMessage;
         await _errorLogService.LogErrorAsync(error, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SaveSettingsOrReportErrorAsync(CancellationToken cancellationToken)
+    {
+        var saveResult = await _settingsService.SaveSettingsAsync(Settings, cancellationToken).ConfigureAwait(false);
+        if (saveResult.IsFailure)
+        {
+            await HandleErrorAsync(saveResult.Error, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private void SetRecentFiles(IEnumerable<RecentFile> recentFiles)

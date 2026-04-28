@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using ImageViewer.App.Services;
 using Microsoft.UI.Xaml;
 using ImageViewer.Core.Services;
 using ImageViewer.Core.ViewModels;
@@ -43,11 +44,12 @@ public partial class App : Application
         services.AddSingleton<ISettingsService>(_ => new SettingsService(localDataFolder));
         services.AddSingleton<IErrorLogService>(_ => new ErrorLogService(localDataFolder));
         services.AddSingleton<ISearchService, SearchService>();
-        services.AddSingleton<IThumbnailService, ThumbnailService>();
+        services.AddSingleton<IThumbnailService, WindowsThumbnailService>();
         services.AddSingleton<IRecentFilesService>(_ => new RecentFilesService(localDataFolder));
-        services.AddSingleton<IExportService, ExportService>();
-        services.AddSingleton<ITransformService, TransformService>();
-        services.AddSingleton<IMetadataService, MetadataService>();
+        services.AddSingleton<WindowsImageProcessingService>();
+        services.AddSingleton<IExportService>(provider => provider.GetRequiredService<WindowsImageProcessingService>());
+        services.AddSingleton<ITransformService>(provider => provider.GetRequiredService<WindowsImageProcessingService>());
+        services.AddSingleton<IMetadataService, WindowsMetadataService>();
         services.AddTransient<MainViewModel>();
         services.AddTransient<MainWindow>();
     }

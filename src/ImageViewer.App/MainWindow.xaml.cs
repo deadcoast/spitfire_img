@@ -178,11 +178,15 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.T when isControlPressed:
-                _viewModel.ToggleThumbnailStrip();
+                await _viewModel.ToggleThumbnailStrip();
                 e.Handled = true;
                 break;
             case VirtualKey.S when isControlPressed && isShiftPressed:
                 await ExportCurrentImageAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.S when isControlPressed:
+                await SaveTransformsWithConfirmationAsync();
                 e.Handled = true;
                 break;
             case VirtualKey.I when isControlPressed:
@@ -426,6 +430,31 @@ public sealed partial class MainWindow : Window
         }
 
         await _viewModel.ExportCurrentImageAsync(file.Path, GetExportFormat(file.Path));
+    }
+
+    private async Task SaveTransformsWithConfirmationAsync()
+    {
+        if (_viewModel.ViewerState.CurrentImage is null || !_viewModel.TransformState.HasUnsavedChanges)
+        {
+            return;
+        }
+
+        var fileName = Path.GetFileName(_viewModel.ViewerState.CurrentImage.FilePath);
+        var dialog = new Microsoft.UI.Xaml.Controls.ContentDialog
+        {
+            XamlRoot = RootGrid.XamlRoot,
+            Title = "Save changes",
+            Content = $"Save changes to {fileName}? This will overwrite the original file.",
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Close
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary)
+        {
+            await _viewModel.SaveTransformsAsync();
+        }
     }
 
     private static ImageExportFormat GetExportFormat(string path)

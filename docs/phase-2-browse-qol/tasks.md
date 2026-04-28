@@ -102,7 +102,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Use background thread for generation
     - _Requirements: 2.2, 2.3, 2.4, 2.8, 13.1, 13.2, 13.3, 13.4_
 
-  - [ ] 4.2 Implement thumbnail generation algorithm
+  - [x] 4.2 Implement thumbnail generation algorithm
     - Load source image using WIC BitmapDecoder
     - Calculate scale factor for 120px longest dimension
     - Create scaled bitmap using BitmapTransform
@@ -264,7 +264,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Verify Undo → Redo restores state (100+ iterations)
 
 - [ ] 9. Implement MetadataService
-  - [ ] 9.1 Create IMetadataService interface and implementation
+  - [x] 9.1 Create IMetadataService interface and implementation
     - Implement ExtractExifAsync() using Windows.Graphics.Imaging
     - Extract camera info: Make, Model, Software
     - Extract capture settings: DateTime, ISO, Aperture, ShutterSpeed, FocalLength, Flash
@@ -413,7 +413,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Implement overwrite confirmation
     - _Requirements: 5.1, 5.2, 5.4, 5.9, 14.1_
 
-  - [ ] 13.6 Implement transform commands
+  - [x] 13.6 Implement transform commands
     - Create RotateLeftCommand (Ctrl+L)
     - Create RotateRightCommand (Ctrl+R)
     - Create FlipHorizontalCommand (Ctrl+H)
@@ -503,7 +503,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Save position preference to settings
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
 
-  - [ ] 16.5 Implement thumbnail placeholder for generation failures
+  - [x] 16.5 Implement thumbnail placeholder for generation failures
     - Display placeholder icon when thumbnail generation fails
     - Continue with other thumbnails
     - Don't block image viewing
@@ -606,7 +606,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Ctrl+Shift+S: Export image
     - _Requirements: 5.1_
 
-  - [ ] 22.4 Add transform shortcuts
+  - [x] 22.4 Add transform shortcuts
     - Ctrl+L: Rotate left
     - Ctrl+R: Rotate right
     - Ctrl+H: Flip horizontal
@@ -621,7 +621,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Escape: Hide metadata panel (when panel is open)
     - _Requirements: 7.6, 7.8_
 
-  - [ ] 22.6 Update keyboard shortcut routing in MainWindow
+  - [x] 22.6 Update keyboard shortcut routing in MainWindow
     - Route all Phase 2 shortcuts to MainViewModel commands
     - Handle shortcut conflicts (e.g., Escape for search vs metadata)
     - Ensure shortcuts work in windowed and fullscreen modes
@@ -659,14 +659,14 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - _Requirements: 5.4, 5.9, 19.1, 19.2, 19.3, 19.4_
 
 - [ ] 24. Update settings persistence for Phase 2
-  - [ ] 24.1 Extend SettingsService for Phase 2 settings
+  - [x] 24.1 Extend SettingsService for Phase 2 settings
     - Save/load ThumbnailStripVisible
     - Save/load ThumbnailStripPosition
     - Save/load DefaultJpegQuality
     - Save/load PreserveExifOnExport
     - _Requirements: 11.5, 11.6_
 
-  - [ ] 24.2 Apply Phase 2 settings on startup
+  - [x] 24.2 Apply Phase 2 settings on startup
     - Restore thumbnail strip visibility and position
     - Apply default JPEG quality for exports
     - Apply EXIF preservation preference

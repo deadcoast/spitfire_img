@@ -1,13 +1,20 @@
 using System.ComponentModel;
+using System.Collections.ObjectModel;
+using System.Runtime.InteropServices.WindowsRuntime;
+using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage.Streams;
 
 namespace ImageViewer.App.Views;
 
 public sealed partial class ThumbnailStrip : UserControl
 {
     private MainViewModel? _viewModel;
+    private int _generationVersion;
+    private readonly ObservableCollection<ThumbnailStripItem> _items = [];
 
     public ThumbnailStrip()
     {
@@ -39,7 +46,62 @@ public sealed partial class ThumbnailStrip : UserControl
         StripBorder.VerticalAlignment = _viewModel.ThumbnailState.StripPosition == Core.Models.ThumbnailPosition.Top
             ? VerticalAlignment.Top
             : VerticalAlignment.Bottom;
-        Items.ItemsSource = _viewModel.PlaylistState.Items.Select(item => item.Filename).ToList();
+        if (!_viewModel.ThumbnailState.IsStripVisible)
+        {
+            return;
+        }
+
+        _ = LoadThumbnailsAsync(++_generationVersion);
+    }
+
+    private async Task LoadThumbnailsAsync(int generationVersion)
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        var playlistItems = _viewModel.PlaylistState.Items.ToArray();
+        _items.Clear();
+        Items.ItemsSource = _items;
+
+        foreach (var item in playlistItems)
+        {
+            if (generationVersion != _generationVersion)
+            {
+                return;
+            }
+
+            var thumbnailResult = await _viewModel.GetThumbnailAsync(item);
+            var imageSource = thumbnailResult.IsSuccess
+                ? await CreateBitmapImageAsync(thumbnailResult.Value.EncodedBytes)
+                : null;
+            var borderThickness = item.FilePath == _viewModel.PlaylistState.CurrentItem?.FilePath
+                ? new Thickness(2)
+                : new Thickness(0);
+
+            _items.Add(new ThumbnailStripItem(
+                item.Filename,
+                imageSource,
+                imageSource is null ? "No preview" : string.Empty,
+                borderThickness));
+        }
+    }
+
+    private static async Task<BitmapImage?> CreateBitmapImageAsync(byte[] encodedBytes)
+    {
+        if (encodedBytes.Length == 0)
+        {
+            return null;
+        }
+
+        using var stream = new InMemoryRandomAccessStream();
+        await stream.WriteAsync(encodedBytes.AsBuffer());
+        stream.Seek(0);
+
+        var image = new BitmapImage();
+        await image.SetSourceAsync(stream);
+        return image;
     }
 
     private void OnRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
@@ -51,11 +113,17 @@ public sealed partial class ThumbnailStrip : UserControl
 
         var flyout = new MenuFlyout();
         var top = new MenuFlyoutItem { Text = "Top" };
-        top.Click += (_, _) => _viewModel.SetThumbnailPosition(Core.Models.ThumbnailPosition.Top);
+        top.Click += async (_, _) => await _viewModel.SetThumbnailPosition(Core.Models.ThumbnailPosition.Top);
         var bottom = new MenuFlyoutItem { Text = "Bottom" };
-        bottom.Click += (_, _) => _viewModel.SetThumbnailPosition(Core.Models.ThumbnailPosition.Bottom);
+        bottom.Click += async (_, _) => await _viewModel.SetThumbnailPosition(Core.Models.ThumbnailPosition.Bottom);
         flyout.Items.Add(top);
         flyout.Items.Add(bottom);
         flyout.ShowAt(this, e.GetPosition(this));
     }
+
+    public sealed record ThumbnailStripItem(
+        string FileName,
+        BitmapImage? ImageSource,
+        string PlaceholderText,
+        Thickness BorderThickness);
 }

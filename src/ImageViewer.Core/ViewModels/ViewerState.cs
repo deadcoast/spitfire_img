@@ -57,6 +57,11 @@ public sealed class ViewerState : ObservableObject
         ResetPan();
     }
 
+    public void SetMetadata(ImageMetadata metadata)
+    {
+        Metadata = metadata;
+    }
+
     public void SetZoom(double zoomLevel)
     {
         ZoomLevel = Math.Max(10, zoomLevel);
