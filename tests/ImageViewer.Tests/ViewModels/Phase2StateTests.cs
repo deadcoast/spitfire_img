@@ -39,6 +39,19 @@ public sealed class Phase2StateTests
     }
 
     [Fact]
+    public void SearchState_NoMatches_UsesRequiredEmptyResultMessage()
+    {
+        var searchState = new SearchState(new SearchService());
+        searchState.SetPlaylist(CreatePlaylist("a.png", "b.png"));
+
+        searchState.SetSearchQuery("missing");
+
+        Assert.Equal(0, searchState.ResultCount);
+        Assert.Equal("No matching images found", searchState.ResultCountText);
+        Assert.Equal(-1, searchState.SelectedResultIndex);
+    }
+
+    [Fact]
     public void TransformState_TracksUndoRedoAndUnsavedChanges()
     {
         var state = new TransformState();

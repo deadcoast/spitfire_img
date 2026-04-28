@@ -394,14 +394,14 @@ public sealed class MainViewModel : ObservableObject
         ShowChrome();
     }
 
-    public async Task ExportCurrentImageAsync(
+    public async Task<bool> ExportCurrentImageAsync(
         string destinationFilePath,
         ImageExportFormat targetFormat,
         CancellationToken cancellationToken = default)
     {
         if (ViewerState.CurrentImage is null)
         {
-            return;
+            return false;
         }
 
         var result = await _exportService.ExportImageAsync(
@@ -418,10 +418,11 @@ public sealed class MainViewModel : ObservableObject
         if (result.IsFailure)
         {
             await HandleErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
-            return;
+            return false;
         }
 
         ShowChrome();
+        return true;
     }
 
     public async Task OpenRecentFileAsync(string filePath, CancellationToken cancellationToken = default)

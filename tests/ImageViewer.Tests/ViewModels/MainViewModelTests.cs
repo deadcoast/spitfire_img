@@ -361,11 +361,28 @@ public sealed class MainViewModelTests
         var viewModel = services.CreateViewModel();
         viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 100, 10)));
 
-        await viewModel.ExportCurrentImageAsync(@"C:\Export\a.jpg", ImageExportFormat.Jpeg);
+        var exported = await viewModel.ExportCurrentImageAsync(@"C:\Export\a.jpg", ImageExportFormat.Jpeg);
 
+        Assert.True(exported);
         Assert.Equal(@"C:\Photos\a.png", services.ExportService.SourcePath);
         Assert.Equal(@"C:\Export\a.jpg", services.ExportService.DestinationPath);
         Assert.Equal(ImageExportFormat.Jpeg, services.ExportService.Options?.TargetFormat);
+    }
+
+    [Fact]
+    public async Task ExportCurrentImageAsync_Failure_ReturnsFalseAndLogsError()
+    {
+        var error = ViewerError.ExportError("ExportImage", @"C:\Export\a.jpg");
+        var exportService = new RecordingExportService(Result.Failure(error));
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist(), exportService: exportService);
+        var viewModel = services.CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 100, 10)));
+
+        var exported = await viewModel.ExportCurrentImageAsync(@"C:\Export\a.jpg", ImageExportFormat.Jpeg);
+
+        Assert.False(exported);
+        Assert.Equal(error.UserMessage, viewModel.ErrorMessage);
+        Assert.Equal(error, services.ErrorLogService.LoggedErrors.Single());
     }
 
     private static Playlist CreateTwoItemPlaylist()
@@ -437,7 +454,8 @@ public sealed class MainViewModelTests
         public static TestServices WithPlaylist(
             Playlist playlist,
             string? failDecodePath = null,
-            RecordingTransformService? transformService = null)
+            RecordingTransformService? transformService = null,
+            RecordingExportService? exportService = null)
         {
             var decoder = new PathImageDecodeService(failDecodePath);
             return new TestServices(
@@ -447,6 +465,7 @@ public sealed class MainViewModelTests
                 new NavigationService(decoder),
                 new StubSettingsService(),
                 new RecordingErrorLogService(),
+                exportService: exportService,
                 transformService: transformService);
         }
 
@@ -700,6 +719,13 @@ public sealed class MainViewModelTests
 
     private sealed class RecordingExportService : IExportService
     {
+        private readonly Result _result;
+
+        public RecordingExportService(Result? result = null)
+        {
+            _result = result ?? Result.Success();
+        }
+
         public string? SourcePath { get; private set; }
 
         public string? DestinationPath { get; private set; }
@@ -715,7 +741,7 @@ public sealed class MainViewModelTests
             SourcePath = sourceFilePath;
             DestinationPath = destinationFilePath;
             Options = options;
-            return Task.FromResult(Result.Success());
+            return Task.FromResult(_result);
         }
     }
 

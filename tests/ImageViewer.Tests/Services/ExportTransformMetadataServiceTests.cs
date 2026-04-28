@@ -52,6 +52,39 @@ public sealed class ExportTransformMetadataServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ApplyTransformAsync_MultipleRotations_UpdatesDimensionsInSequence()
+    {
+        var service = new TransformService();
+        var image = new DecodedImage(@"C:\Images\a.png", new ImageMetadata(100, 200, 10));
+
+        var result = await service.ApplyTransformAsync(
+            image,
+            [TransformOperation.RotateRight, TransformOperation.RotateRight, TransformOperation.FlipHorizontal]);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(100, result.Value.Metadata.PixelWidth);
+        Assert.Equal(200, result.Value.Metadata.PixelHeight);
+        Assert.Equal(
+            [TransformOperation.RotateRight, TransformOperation.RotateRight, TransformOperation.FlipHorizontal],
+            result.Value.Operations);
+    }
+
+    [Fact]
+    public async Task ApplyTransformAsync_DoesNotModifySourceFileBeforeSave()
+    {
+        var source = CreateFile("source.png", "image-before-transform");
+        var beforeHash = await File.ReadAllTextAsync(source);
+        var service = new TransformService();
+        var image = new DecodedImage(source, new ImageMetadata(100, 200, 10));
+
+        var result = await service.ApplyTransformAsync(image, [TransformOperation.RotateRight]);
+
+        var afterHash = await File.ReadAllTextAsync(source);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(beforeHash, afterHash);
+    }
+
+    [Fact]
     public async Task SaveTransformsAsync_MissingFile_ReturnsTransformSaveError()
     {
         var result = await new TransformService().SaveTransformsAsync(

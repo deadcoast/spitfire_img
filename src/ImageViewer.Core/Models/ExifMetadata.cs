@@ -1,5 +1,7 @@
 namespace ImageViewer.Core.Models;
 
+using System.Globalization;
+
 public sealed record ExifMetadata(
     string? CameraMake = null,
     string? CameraModel = null,
@@ -50,6 +52,20 @@ public sealed record ExifMetadata(
     }
 
     public string? FormattedFocalLength => FocalLength.HasValue ? $"{FocalLength.Value:0.#} mm" : null;
+
+    public string? FormattedCaptureDate =>
+        CaptureDate.HasValue
+            ? CaptureDate.Value.DateTime.ToString("MMM d, yyyy, h:mm tt", CultureInfo.CurrentCulture)
+            : null;
+
+    public string? FormattedAltitude => Altitude.HasValue ? $"{Altitude.Value:0.#} m" : null;
+
+    public string? FormattedFlashStatus => FlashFired switch
+    {
+        true => "Flash fired",
+        false => "No flash",
+        _ => null
+    };
 
     public string? FormattedGpsCoordinates
     {

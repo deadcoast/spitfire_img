@@ -429,7 +429,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        await _viewModel.ExportCurrentImageAsync(file.Path, GetExportFormat(file.Path));
+        if (await _viewModel.ExportCurrentImageAsync(file.Path, GetExportFormat(file.Path)))
+        {
+            ShowInfo("Image exported.");
+        }
     }
 
     private async Task SaveTransformsWithConfirmationAsync()

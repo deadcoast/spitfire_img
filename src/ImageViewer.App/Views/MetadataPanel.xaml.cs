@@ -46,6 +46,6 @@ public sealed partial class MetadataPanel : UserControl
             ? "Image\nNo image metadata"
             : $"Image\n{metadata.FormattedDimensions}\nColor space: {exif.ColorSpace ?? "Unknown"}";
         CameraText.Text =
-            $"Camera\nMake: {exif.CameraMake ?? "Unknown"}\nModel: {exif.CameraModel ?? "Unknown"}\nISO: {exif.Iso?.ToString() ?? "Unknown"}\nAperture: {exif.FormattedAperture ?? "Unknown"}\nShutter: {exif.FormattedShutterSpeed ?? "Unknown"}\nFocal length: {exif.FormattedFocalLength ?? "Unknown"}\nGPS: {exif.FormattedGpsCoordinates ?? "Unknown"}";
+            $"Camera\nMake: {exif.CameraMake ?? "Unknown"}\nModel: {exif.CameraModel ?? "Unknown"}\nCaptured: {exif.FormattedCaptureDate ?? "Unknown"}\nISO: {exif.Iso?.ToString() ?? "Unknown"}\nAperture: {exif.FormattedAperture ?? "Unknown"}\nShutter: {exif.FormattedShutterSpeed ?? "Unknown"}\nFocal length: {exif.FormattedFocalLength ?? "Unknown"}\nFlash: {exif.FormattedFlashStatus ?? "Unknown"}\nGPS: {exif.FormattedGpsCoordinates ?? "Unknown"}\nAltitude: {exif.FormattedAltitude ?? "Unknown"}";
     }
 }

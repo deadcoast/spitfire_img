@@ -232,7 +232,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Return Result with TransformError or TransformSaveError on failure
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.8, 6.9, 15.1, 15.2_
 
-  - [ ]* 8.2 Write unit tests for TransformService
+  - [x]* 8.2 Write unit tests for TransformService
     - Test each transform operation
     - Test transform combinations
     - Test save behavior
@@ -245,19 +245,19 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test EXIF orientation updates
     - _Requirements: 6.5, 6.6, 6.8, 6.11_
 
-  - [ ]* 8.4 Write property test for transform non-destructive
+  - [x]* 8.4 Write property test for transform non-destructive
     - **Property 7: Transform Non-Destructive Until Save**
     - **Validates: Requirements 6.6**
     - Generate random images and transform sequences
     - Verify file hash unchanged after applying transforms (before save) (100+ iterations)
 
-  - [ ]* 8.5 Write property test for transform dimensions
+  - [x]* 8.5 Write property test for transform dimensions
     - **Property 8: Transform Dimension Updates**
     - **Validates: Requirements 6.11**
     - Generate random dimensions and transform operations
     - Verify rotations swap dimensions, flips preserve dimensions (100+ iterations)
 
-  - [ ]* 8.6 Write property test for transform undo/redo
+  - [x]* 8.6 Write property test for transform undo/redo
     - **Property 13: Transform Undo/Redo Round-Trip**
     - **Validates: Requirements 15.3, 15.4**
     - Generate random transform sequences and undo/redo counts
@@ -327,7 +327,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test case-insensitive matching
     - _Requirements: 8.4, 9.4, 20.4_
 
-  - [ ]* 10.6 Write integration tests for GIF/TIFF decoding
+  - [x]* 10.6 Write integration tests for GIF/TIFF decoding
     - Decode real GIF files (animated and static)
     - Decode real TIFF files (single and multi-page)
     - Verify first frame/page extraction
@@ -381,7 +381,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test MetadataState panel visibility and data updates
     - _Requirements: All ViewModel state requirements_
 
-- [ ] 13. Extend MainViewModel with Phase 2 commands
+- [x] 13. Extend MainViewModel with Phase 2 commands
   - [x] 13.1 Add Phase 2 service dependencies
     - Inject ISearchService, IThumbnailService, IRecentFilesService, IExportService, ITransformService, IMetadataService
     - Create instances of SearchState, ThumbnailState, TransformState, MetadataState
@@ -473,7 +473,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Implement wrapping (Down on last → first, Up on first → last)
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-- [ ] 16. Implement ThumbnailStrip UI
+- [x] 16. Implement ThumbnailStrip UI
   - [x] 16.1 Create ThumbnailStrip.xaml with scrollable thumbnail list
     - Create horizontal ScrollViewer
     - Add ItemsControl with thumbnail items
@@ -509,7 +509,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Don't block image viewing
     - _Requirements: 13.5_
 
-- [ ] 17. Implement MetadataPanel UI
+- [x] 17. Implement MetadataPanel UI
   - [x] 17.1 Create MetadataPanel.xaml with grouped metadata sections
     - Create slide-in panel from right side
     - Add File Information section: Filename, Size, Format
@@ -531,7 +531,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Bind IsVisible to MetadataState.IsVisible
     - _Requirements: 7.6, 7.9_
 
-  - [ ] 17.4 Implement metadata formatting
+  - [x] 17.4 Implement metadata formatting
     - Format dates in user's locale format
     - Format file sizes in human-readable units (KB, MB, GB)
     - Format GPS coordinates with N/S/E/W
@@ -590,7 +590,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
   - Ensure all tests pass, ask the user if questions arise.
 
 
-- [ ] 22. Implement keyboard shortcuts for Phase 2 features
+- [x] 22. Implement keyboard shortcuts for Phase 2 features
   - [x] 22.1 Add search shortcuts
     - Ctrl+F: Show search overlay
     - Escape: Hide search overlay (when search is active)
@@ -658,7 +658,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Success confirmation message
     - _Requirements: 5.4, 5.9, 19.1, 19.2, 19.3, 19.4_
 
-- [ ] 24. Update settings persistence for Phase 2
+- [x] 24. Update settings persistence for Phase 2
   - [x] 24.1 Extend SettingsService for Phase 2 settings
     - Save/load ThumbnailStripVisible
     - Save/load ThumbnailStripPosition

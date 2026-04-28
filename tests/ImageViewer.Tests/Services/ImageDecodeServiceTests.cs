@@ -145,6 +145,35 @@ public sealed class ImageDecodeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetFrameCountAsync_AnimatedGif_ReturnsImageDescriptorCount()
+    {
+        var path = Path.Combine(_tempDirectory, "animated.gif");
+        await File.WriteAllBytesAsync(path, CreateGifWithFrameDescriptors(width: 120, height: 80, frameCount: 3));
+
+        var result = await _service.GetFrameCountAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, result.Value);
+    }
+
+    [Fact]
+    public async Task DecodeImageAsync_MultiPageTiffHeader_UsesFirstPageDimensions()
+    {
+        var path = Path.Combine(_tempDirectory, "multipage.tiff");
+        await File.WriteAllBytesAsync(path, CreateMultiPageTiffHeader(
+            firstWidth: 300,
+            firstHeight: 200,
+            secondWidth: 900,
+            secondHeight: 800));
+
+        var result = await _service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(300, result.Value.Metadata.PixelWidth);
+        Assert.Equal(200, result.Value.Metadata.PixelHeight);
+    }
+
+    [Fact]
     public async Task DecodeImageAsync_CorruptSupportedFile_ReturnsDecodeError()
     {
         var path = Path.Combine(_tempDirectory, "corrupt.png");
@@ -264,6 +293,18 @@ public sealed class ImageDecodeServiceTests : IDisposable
         return bytes;
     }
 
+    private static byte[] CreateGifWithFrameDescriptors(int width, int height, int frameCount)
+    {
+        var bytes = new byte[10 + frameCount];
+        CreateGifHeader(width, height).CopyTo(bytes, 0);
+        for (var index = 0; index < frameCount; index++)
+        {
+            bytes[10 + index] = 0x2C;
+        }
+
+        return bytes;
+    }
+
     private static byte[] CreateTiffHeader(int width, int height)
     {
         var bytes = new byte[38];
@@ -281,6 +322,29 @@ public sealed class ImageDecodeServiceTests : IDisposable
         WriteLittleEndian(bytes, 26, 1);
         WriteLittleEndian(bytes, 30, height);
         WriteLittleEndian(bytes, 34, 0);
+        return bytes;
+    }
+
+    private static byte[] CreateMultiPageTiffHeader(
+        int firstWidth,
+        int firstHeight,
+        int secondWidth,
+        int secondHeight)
+    {
+        var bytes = new byte[68];
+        var firstPage = CreateTiffHeader(firstWidth, firstHeight);
+        firstPage.CopyTo(bytes, 0);
+        WriteLittleEndian(bytes, 34, 38);
+        WriteUInt16LittleEndian(bytes, 38, 2);
+        WriteUInt16LittleEndian(bytes, 40, 256);
+        WriteUInt16LittleEndian(bytes, 42, 4);
+        WriteLittleEndian(bytes, 44, 1);
+        WriteLittleEndian(bytes, 48, secondWidth);
+        WriteUInt16LittleEndian(bytes, 52, 257);
+        WriteUInt16LittleEndian(bytes, 54, 4);
+        WriteLittleEndian(bytes, 56, 1);
+        WriteLittleEndian(bytes, 60, secondHeight);
+        WriteLittleEndian(bytes, 64, 0);
         return bytes;
     }
 

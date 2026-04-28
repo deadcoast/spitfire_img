@@ -38,6 +38,22 @@ public sealed class Phase2ModelTests
         Assert.Equal("1/125 s", metadata.FormattedShutterSpeed);
         Assert.Equal("50 mm", metadata.FormattedFocalLength);
         Assert.Equal("49.282700 N, 123.120700 W", metadata.FormattedGpsCoordinates);
+        Assert.Equal("Apr 27, 2026, 12:00 PM", metadata.FormattedCaptureDate);
+        Assert.Equal("No flash", metadata.FormattedFlashStatus);
+    }
+
+    [Fact]
+    public void ExifMetadata_FormatsAltitudeAndFlash()
+    {
+        var metadata = new ExifMetadata(
+            FlashFired: true,
+            Latitude: -33.8688,
+            Longitude: 151.2093,
+            Altitude: 42.25);
+
+        Assert.Equal("33.868800 S, 151.209300 E", metadata.FormattedGpsCoordinates);
+        Assert.Equal("42.3 m", metadata.FormattedAltitude);
+        Assert.Equal("Flash fired", metadata.FormattedFlashStatus);
     }
 
     [Fact]

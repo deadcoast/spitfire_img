@@ -33,7 +33,12 @@ public sealed class SearchState : ObservableObject
 
     public int ResultCount => FilteredPlaylist.Count;
 
-    public string ResultCountText => ResultCount == 1 ? "1 match" : $"{ResultCount} matches";
+    public string ResultCountText => ResultCount switch
+    {
+        0 when IsSearchActive => "No matching images found",
+        1 => "1 match",
+        _ => $"{ResultCount} matches"
+    };
 
     public int SelectedResultIndex
     {
