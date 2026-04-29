@@ -267,6 +267,21 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task ToggleMetadataPanelAsync_ReusesCachedMetadataForSameImage()
+    {
+        var metadataService = new RecordingMetadataService();
+        var services = TestServices.WithPlaylist(CreateTwoItemPlaylist(), metadataService: metadataService);
+        var viewModel = services.CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 100, 10)));
+
+        await viewModel.ToggleMetadataPanelAsync();
+        await viewModel.ToggleMetadataPanelAsync();
+        await viewModel.ToggleMetadataPanelAsync();
+
+        Assert.Equal(1, metadataService.ExtractCount);
+    }
+
+    [Fact]
     public async Task TransformCommands_ApplyUndoAndRedoTransforms()
     {
         var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
@@ -455,7 +470,8 @@ public sealed class MainViewModelTests
             Playlist playlist,
             string? failDecodePath = null,
             RecordingTransformService? transformService = null,
-            RecordingExportService? exportService = null)
+            RecordingExportService? exportService = null,
+            RecordingMetadataService? metadataService = null)
         {
             var decoder = new PathImageDecodeService(failDecodePath);
             return new TestServices(
@@ -465,6 +481,7 @@ public sealed class MainViewModelTests
                 new NavigationService(decoder),
                 new StubSettingsService(),
                 new RecordingErrorLogService(),
+                metadataService: metadataService,
                 exportService: exportService,
                 transformService: transformService);
         }
@@ -711,8 +728,11 @@ public sealed class MainViewModelTests
 
     private sealed class RecordingMetadataService : IMetadataService
     {
+        public int ExtractCount { get; private set; }
+
         public Task<Result<ExifMetadata>> ExtractExifAsync(string filePath, CancellationToken cancellationToken = default)
         {
+            ExtractCount++;
             return Task.FromResult(Result<ExifMetadata>.Success(new ExifMetadata(CameraMake: "Test")));
         }
     }

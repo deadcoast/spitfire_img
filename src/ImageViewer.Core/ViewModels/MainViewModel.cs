@@ -18,6 +18,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ITransformService _transformService;
     private readonly IMetadataService _metadataService;
     private ViewerSettings _settings = ViewerSettings.Default;
+    private readonly Dictionary<string, ExifMetadata> _metadataCache = new(StringComparer.OrdinalIgnoreCase);
     private bool _isChromeVisible = true;
     private bool _isLoading;
     private bool _isCancelAvailable;
@@ -299,15 +300,21 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        var metadataResult = await _metadataService.ExtractExifAsync(ViewerState.CurrentImage.FilePath, cancellationToken)
-            .ConfigureAwait(false);
-        if (metadataResult.IsFailure)
+        if (!_metadataCache.TryGetValue(ViewerState.CurrentImage.FilePath, out var metadata))
         {
-            await HandleErrorAsync(metadataResult.Error, cancellationToken).ConfigureAwait(false);
-            return;
+            var metadataResult = await _metadataService.ExtractExifAsync(ViewerState.CurrentImage.FilePath, cancellationToken)
+                .ConfigureAwait(false);
+            if (metadataResult.IsFailure)
+            {
+                await HandleErrorAsync(metadataResult.Error, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            metadata = metadataResult.Value;
+            _metadataCache[ViewerState.CurrentImage.FilePath] = metadata;
         }
 
-        MetadataState.ShowPanel(metadataResult.Value);
+        MetadataState.ShowPanel(metadata);
         ShowChrome();
     }
 

@@ -3,6 +3,7 @@ using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace ImageViewer.App.Views;
@@ -49,6 +50,7 @@ public sealed partial class ImageCanvas : UserControl
     private void OnTransformStateChanged(object? sender, PropertyChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(UpdateDisplayMode);
+        DispatcherQueue.TryEnqueue(PulseTransformPreview);
     }
 
     private void UpdateImage()
@@ -119,6 +121,24 @@ public sealed partial class ImageCanvas : UserControl
         }
 
         return (rotation % 360, scaleX, scaleY);
+    }
+
+    private void PulseTransformPreview()
+    {
+        var animation = new DoubleAnimation
+        {
+            From = 0.82,
+            To = 1,
+            Duration = TimeSpan.FromMilliseconds(160),
+            EnableDependentAnimation = true
+        };
+
+        Storyboard.SetTarget(animation, DisplayedImage);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        storyboard.Begin();
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)

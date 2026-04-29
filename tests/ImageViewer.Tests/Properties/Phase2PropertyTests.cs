@@ -65,11 +65,44 @@ public sealed class Phase2PropertyTests
         }
     }
 
+    [Fact]
+    public async Task MetadataExtraction_GracefullyDegrades_ForReadableFilesWithoutExif()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "spitfire-metadata-property-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var service = new MetadataService();
+            for (var iteration = 0; iteration < 120; iteration++)
+            {
+                var path = Path.Combine(tempDirectory, $"plain-{iteration}.jpg");
+                await File.WriteAllBytesAsync(path, RandomBytes(_random.Next(1, 256)));
+
+                var result = await service.ExtractExifAsync(path);
+
+                Assert.True(result.IsSuccess);
+                Assert.Equal(ExifMetadata.Empty, result.Value);
+            }
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
     private TransformOperation[] RandomOperations(int count)
     {
         var values = Enum.GetValues<TransformOperation>();
         return Enumerable.Range(0, count)
             .Select(_ => values[_random.Next(values.Length)])
             .ToArray();
+    }
+
+    private byte[] RandomBytes(int count)
+    {
+        var bytes = new byte[count];
+        _random.NextBytes(bytes);
+        return bytes;
     }
 }

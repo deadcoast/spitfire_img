@@ -274,7 +274,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Return MetadataExtractionError only for file read failures
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.9, 7.10_
 
-  - [ ]* 9.2 Write unit tests for MetadataService
+  - [x]* 9.2 Write unit tests for MetadataService
     - Test EXIF extraction with mock data
     - Test graceful handling of missing EXIF
     - Test graceful handling of malformed EXIF
@@ -287,7 +287,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test with malformed EXIF
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.10_
 
-  - [ ]* 9.4 Write property test for EXIF graceful degradation
+  - [x]* 9.4 Write property test for EXIF graceful degradation
     - **Property 9: EXIF Extraction Graceful Degradation**
     - **Validates: Requirements 7.10**
     - Generate images with no EXIF, partial EXIF, malformed EXIF
@@ -627,32 +627,32 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Ensure shortcuts work in windowed and fullscreen modes
     - _Requirements: All keyboard shortcut requirements_
 
-- [ ] 23. Implement visual polish and animations
-  - [ ] 23.1 Add search overlay animations
+- [x] 23. Implement visual polish and animations
+  - [x] 23.1 Add search overlay animations
     - Smooth fade in/out for overlay
     - Focus search input on show
     - _Requirements: 1.1, 1.6_
 
-  - [ ] 23.2 Add thumbnail strip animations
+  - [x] 23.2 Add thumbnail strip animations
     - Smooth scroll to current thumbnail
     - Highlight animation for current thumbnail
     - _Requirements: 2.6, 2.7_
 
-  - [ ] 23.3 Add metadata panel animations
+  - [x] 23.3 Add metadata panel animations
     - Slide-in animation from right (300ms)
     - Slide-out animation to right (300ms)
     - _Requirements: 7.6, 18.6_
 
-  - [ ] 23.4 Add drop indicator animations
+  - [x] 23.4 Add drop indicator animations
     - Smooth fade in/out (100ms)
     - _Requirements: 17.3_
 
-  - [ ] 23.5 Add transform preview feedback
+  - [x] 23.5 Add transform preview feedback
     - Immediate display update (< 200ms)
     - Unsaved changes indicator in chrome
     - _Requirements: 6.5, 15.1, 15.5_
 
-  - [ ] 23.6 Add export and save confirmation dialogs
+  - [x] 23.6 Add export and save confirmation dialogs
     - Overwrite confirmation for export
     - Transform save confirmation with filename
     - Success confirmation message
@@ -673,7 +673,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - _Requirements: 11.6_
 
 - [ ] 25. Performance optimization
-  - [ ] 25.1 Optimize search performance
+  - [x] 25.1 Optimize search performance
     - Implement search input debouncing (100ms)
     - Cache lowercase filenames for large playlists
     - Target: < 100ms for 1000 items, < 500ms for 1000+ items
@@ -692,7 +692,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Target: < 200ms for transform preview
     - _Requirements: 15.1, 15.2_
 
-  - [ ] 25.4 Optimize EXIF extraction
+  - [x] 25.4 Optimize EXIF extraction
     - Extract EXIF on background thread
     - Cache EXIF data per image
     - Only extract when metadata panel is opened

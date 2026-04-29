@@ -9,6 +9,11 @@
         Padding="8"
         VerticalAlignment="Bottom"
         Style="{StaticResource ChromePanelBorderStyle}">
+        <Border.Transitions>
+            <TransitionCollection>
+                <EntranceThemeTransition />
+            </TransitionCollection>
+        </Border.Transitions>
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <ItemsControl x:Name="Items">
                 <ItemsControl.ItemsPanel>

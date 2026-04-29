@@ -4,6 +4,7 @@ using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Windows.System;
 
 namespace ImageViewer.App.Views;
@@ -12,10 +13,13 @@ public sealed partial class SearchOverlay : UserControl
 {
     private MainViewModel? _viewModel;
     private bool _isUpdating;
+    private readonly DispatcherTimer _searchDebounceTimer;
 
     public SearchOverlay()
     {
         InitializeComponent();
+        _searchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _searchDebounceTimer.Tick += OnSearchDebounceElapsed;
     }
 
     public void Attach(MainViewModel viewModel)
@@ -28,12 +32,31 @@ public sealed partial class SearchOverlay : UserControl
     public void Show()
     {
         Visibility = Visibility.Visible;
+        AnimateOpacity(1, 120);
         SearchInput.Focus(FocusState.Programmatic);
     }
 
     public void Hide()
     {
+        AnimateOpacity(0, 80);
         Visibility = Visibility.Collapsed;
+    }
+
+    private void AnimateOpacity(double opacity, int durationMs)
+    {
+        var animation = new DoubleAnimation
+        {
+            To = opacity,
+            Duration = TimeSpan.FromMilliseconds(durationMs),
+            EnableDependentAnimation = true
+        };
+
+        Storyboard.SetTarget(animation, this);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        storyboard.Begin();
     }
 
     private void OnSearchStateChanged(object? sender, PropertyChangedEventArgs e)
@@ -64,6 +87,13 @@ public sealed partial class SearchOverlay : UserControl
             return;
         }
 
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
+    }
+
+    private void OnSearchDebounceElapsed(object? sender, object e)
+    {
+        _searchDebounceTimer.Stop();
         _viewModel?.SetSearchQuery(SearchInput.Text);
     }
 

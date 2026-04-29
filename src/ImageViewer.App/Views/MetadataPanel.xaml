@@ -2,15 +2,20 @@
     x:Class="ImageViewer.App.Views.MetadataPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Opacity="0"
     Visibility="Collapsed">
     <Grid HorizontalAlignment="Stretch">
         <Border
+            x:Name="PanelBorder"
             Width="340"
             HorizontalAlignment="Right"
             VerticalAlignment="Stretch"
             Margin="0,72,16,72"
             Padding="16"
             Style="{StaticResource ChromePanelBorderStyle}">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="PanelTransform" X="360" />
+            </Border.RenderTransform>
             <ScrollViewer>
                 <StackPanel Spacing="12">
                     <TextBlock Text="Metadata" FontSize="20" FontWeight="SemiBold" />

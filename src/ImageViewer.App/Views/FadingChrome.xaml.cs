@@ -1,4 +1,5 @@
 using ImageViewer.Core.ViewModels;
+using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -33,8 +34,22 @@ public sealed partial class FadingChrome : UserControl
         _viewModel = viewModel;
         InfoBar.Attach(viewModel);
         viewModel.RecentFiles.CollectionChanged += OnRecentFilesChanged;
+        viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
         RebuildRecentFilesMenu();
+        UpdateUnsavedChangesBadge();
         ShowChrome();
+    }
+
+    private void OnTransformStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(UpdateUnsavedChangesBadge);
+    }
+
+    private void UpdateUnsavedChangesBadge()
+    {
+        UnsavedChangesBadge.Visibility = _viewModel?.TransformState.HasUnsavedChanges == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     public void ShowChrome()

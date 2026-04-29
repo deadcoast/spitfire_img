@@ -59,6 +59,19 @@ public sealed class SearchServiceTests
         }
     }
 
+    [Fact]
+    public void FilterPlaylist_RepeatedQueriesAgainstSamePlaylist_ReuseCachedFilenames()
+    {
+        var playlist = CreatePlaylist("Alpha.png", "beta.jpg", "alphabet.webp");
+        var service = new SearchService();
+
+        service.FilterPlaylist(playlist, "alpha");
+        service.FilterPlaylist(playlist, "ALPHA");
+
+        Assert.Equal(1, service.CacheMissCount);
+        Assert.Equal(1, service.CachedPlaylistCount);
+    }
+
     private static List<ImageItem> CreatePlaylist(params string[] filenames)
     {
         return filenames.Select(filename => new ImageItem($@"C:\Images\{filename}")).ToList();

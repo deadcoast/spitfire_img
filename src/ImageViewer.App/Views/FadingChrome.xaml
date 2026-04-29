@@ -29,6 +29,21 @@
             </MenuBar>
         </Border>
 
+        <Border
+            x:Name="UnsavedChangesBadge"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="12"
+            Padding="10,6"
+            CornerRadius="12"
+            Background="{ThemeResource AccentFillColorDefaultBrush}"
+            Visibility="Collapsed">
+            <TextBlock
+                FontSize="12"
+                FontWeight="SemiBold"
+                Text="Unsaved changes" />
+        </Border>
+
         <views:BottomInfoBar x:Name="InfoBar" VerticalAlignment="Bottom" Margin="12" />
     </Grid>
 </UserControl>
