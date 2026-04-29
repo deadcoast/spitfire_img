@@ -28,7 +28,14 @@
                 <ListView
                     x:Name="ResultsList"
                     MaxHeight="360"
-                    SelectionChanged="OnResultSelected" />
+                    IsItemClickEnabled="True"
+                    ItemClick="OnResultClicked">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Filename}" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
             </StackPanel>
         </Border>
     </Grid>

@@ -73,6 +73,7 @@ public sealed partial class ThumbnailStrip : UserControl
                 : new Thickness(0);
 
             _items.Add(new ThumbnailStripItem(
+                item.FilePath,
                 item.Filename,
                 imageSource: null,
                 placeholderText: "Loading",
@@ -130,22 +131,36 @@ public sealed partial class ThumbnailStrip : UserControl
         flyout.ShowAt(this, e.GetPosition(this));
     }
 
+    private async void OnThumbnailClicked(object sender, ItemClickEventArgs e)
+    {
+        if (_viewModel is null || e.ClickedItem is not ThumbnailStripItem item)
+        {
+            return;
+        }
+
+        await _viewModel.OpenFileAsync(item.FilePath);
+    }
+
     public sealed class ThumbnailStripItem : ObservableObject
     {
         private BitmapImage? _imageSource;
         private string _placeholderText;
 
         public ThumbnailStripItem(
+            string filePath,
             string fileName,
             BitmapImage? imageSource,
             string placeholderText,
             Thickness borderThickness)
         {
+            FilePath = filePath;
             FileName = fileName;
             _imageSource = imageSource;
             _placeholderText = placeholderText;
             BorderThickness = borderThickness;
         }
+
+        public string FilePath { get; }
 
         public string FileName { get; }
 

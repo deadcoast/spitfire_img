@@ -23,4 +23,12 @@ public sealed class ImageItemTests
         Assert.Equal(first, second);
         Assert.Equal(first.GetHashCode(), second.GetHashCode());
     }
+
+    [Fact]
+    public void ToString_ReturnsFilenameForUiFallbackRendering()
+    {
+        var item = new ImageItem(@"C:\Photos\Event\IMG_0042.PNG");
+
+        Assert.Equal("IMG_0042.PNG", item.ToString());
+    }
 }

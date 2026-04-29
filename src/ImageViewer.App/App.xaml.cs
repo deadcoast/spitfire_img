@@ -24,11 +24,23 @@ public partial class App : Application
         var window = _services.GetRequiredService<MainWindow>();
         window.Activate();
 
-        if (!string.IsNullOrWhiteSpace(args.Arguments))
+        var filePath = ParseInitialFilePath(args.Arguments, Environment.GetCommandLineArgs());
+        if (!string.IsNullOrWhiteSpace(filePath))
         {
-            var filePath = args.Arguments.Trim().Trim('"');
             _ = window.OpenInitialFileAsync(filePath);
         }
+    }
+
+    public static string? ParseInitialFilePath(string? activationArguments, IReadOnlyList<string> commandLineArguments)
+    {
+        if (!string.IsNullOrWhiteSpace(activationArguments))
+        {
+            return activationArguments.Trim().Trim('"');
+        }
+
+        return commandLineArguments.Count > 1
+            ? commandLineArguments[1].Trim().Trim('"')
+            : null;
     }
 
     private static void ConfigureServices(IServiceCollection services)

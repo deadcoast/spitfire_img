@@ -698,15 +698,15 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Only extract when metadata panel is opened
     - _Requirements: 7.1_
 
-- [ ] 26. Manual testing for Phase 2 features
-  - [ ] 26.1 Manual test: Search UI
+- [x] 26. Manual testing for Phase 2 features
+  - [x] 26.1 Manual test: Search UI
     - Test search overlay appearance and animation
     - Test keyboard navigation through results
     - Test search performance with large folders (1000+ images)
     - Test search clear behavior
     - _Requirements: 1.1-1.9, 10.1-10.5, 16.1-16.4_
 
-  - [ ] 26.2 Manual test: Thumbnail strip
+  - [x] 26.2 Manual test: Thumbnail strip
     - Test thumbnail generation progress
     - Test scrolling and selection
     - Test position switching (top/bottom)
@@ -714,14 +714,14 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test placeholder display for failed thumbnails
     - _Requirements: 2.1-2.10, 11.1-11.6, 13.1-13.5_
 
-  - [ ] 26.3 Manual test: Drag-and-drop
+  - [x] 26.3 Manual test: Drag-and-drop
     - Test drop indicator appearance
     - Test valid/invalid file feedback
     - Test multiple file handling
     - Test drop outside window
     - _Requirements: 4.1-4.7, 17.1-17.5_
 
-  - [ ] 26.4 Manual test: Export
+  - [x] 26.4 Manual test: Export
     - Test save dialog appearance
     - Test format selection
     - Test overwrite confirmation
@@ -729,7 +729,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test EXIF preservation
     - _Requirements: 5.1-5.9, 14.1-14.5_
 
-  - [ ] 26.5 Manual test: Transforms
+  - [x] 26.5 Manual test: Transforms
     - Test transform preview responsiveness
     - Test undo/redo feel
     - Test save confirmation
@@ -737,14 +737,14 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test navigation with unsaved transforms
     - _Requirements: 6.1-6.11, 15.1-15.5, 19.1-19.5_
 
-  - [ ] 26.6 Manual test: Metadata panel
+  - [x] 26.6 Manual test: Metadata panel
     - Test panel slide-in animation
     - Test EXIF data formatting
     - Test missing data display
     - Test GPS coordinate formatting
     - _Requirements: 7.1-7.10, 18.1-18.6_
 
-  - [ ] 26.7 Manual test: Recent files
+  - [x] 26.7 Manual test: Recent files
     - Test recent files menu appearance
     - Test file selection
     - Test invalid file handling
@@ -752,41 +752,41 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test persistence across restarts
     - _Requirements: 3.1-3.10, 12.1-12.5_
 
-  - [ ] 26.8 Manual test: GIF/TIFF support
+  - [x] 26.8 Manual test: GIF/TIFF support
     - Test GIF display (first frame)
     - Test TIFF display (first page)
     - Test mixed format folders
     - Test format detection
     - _Requirements: 8.1-8.7, 9.1-9.8, 20.1-20.4_
 
-  - [ ] 26.9 Manual test: Keyboard shortcuts
+  - [x] 26.9 Manual test: Keyboard shortcuts
     - Test all Phase 2 keyboard shortcuts
     - Test shortcut conflicts resolution
     - Test shortcuts in windowed and fullscreen modes
     - _Requirements: All keyboard shortcut requirements_
 
-  - [ ] 26.10 Manual test: Phase 1 regression
+  - [x] 26.10 Manual test: Phase 1 regression
     - Verify all Phase 1 functionality still works
     - Verify Phase 1 keyboard shortcuts unchanged
     - Verify Phase 1 UI behavior unchanged
     - Run Phase 1 test suite
     - _Requirements: Phase 1 compatibility_
 
-- [ ] 27. Bug fixes and final polish
-  - [ ] 27.1 Address issues found in manual testing
+- [x] 27. Bug fixes and final polish
+  - [x] 27.1 Address issues found in manual testing
     - Fix any bugs discovered during manual testing
     - Tune animation timing if needed
     - Adjust performance if targets not met
     - Polish visual appearance
 
-  - [ ] 27.2 Final code review and cleanup
+  - [x] 27.2 Final code review and cleanup
     - Review all code for consistency with Phase 1
     - Remove debug logging
     - Ensure all comments are accurate
     - Verify all requirements are met
     - Verify all acceptance criteria are met
 
-- [ ] 28. Final checkpoint - Phase 2 complete
+- [x] 28. Final checkpoint - Phase 2 complete
   - Ensure all tests pass, ask the user if questions arise.
   - Verify all acceptance criteria are met
   - Confirm Phase 1 functionality unchanged

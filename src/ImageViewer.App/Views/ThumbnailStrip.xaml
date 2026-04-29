@@ -16,6 +16,8 @@
         </Border.Transitions>
         <ListView
             x:Name="Items"
+            IsItemClickEnabled="True"
+            ItemClick="OnThumbnailClicked"
             SelectionMode="None"
             ScrollViewer.HorizontalScrollBarVisibility="Auto"
             ScrollViewer.HorizontalScrollMode="Enabled"

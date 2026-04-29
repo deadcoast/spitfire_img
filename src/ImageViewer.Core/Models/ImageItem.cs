@@ -35,4 +35,9 @@ public sealed class ImageItem : IEquatable<ImageItem>
     {
         return StringComparer.OrdinalIgnoreCase.GetHashCode(FilePath);
     }
+
+    public override string ToString()
+    {
+        return Filename;
+    }
 }

@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage.Streams;
 
 namespace ImageViewer.App.Views;
 
@@ -14,6 +15,7 @@ public sealed partial class ImageCanvas : UserControl
     private MainViewModel? _viewModel;
     private bool _isPanning;
     private Windows.Foundation.Point _lastPointerPosition;
+    private int _imageLoadVersion;
 
     public ImageCanvas()
     {
@@ -56,6 +58,7 @@ public sealed partial class ImageCanvas : UserControl
     private void UpdateImage()
     {
         var image = _viewerState?.CurrentImage;
+        var loadVersion = ++_imageLoadVersion;
         EmptyStateText.Visibility = image is null ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
         if (image is null)
@@ -64,7 +67,30 @@ public sealed partial class ImageCanvas : UserControl
             return;
         }
 
-        DisplayedImage.Source = new BitmapImage(new Uri(image.FilePath));
+        _ = LoadImageSourceAsync(image.FilePath, loadVersion);
+    }
+
+    private async Task LoadImageSourceAsync(string filePath, int loadVersion)
+    {
+        try
+        {
+            await using var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var randomAccessStream = fileStream.AsRandomAccessStream();
+            var bitmap = new BitmapImage();
+            await bitmap.SetSourceAsync(randomAccessStream);
+
+            if (loadVersion == _imageLoadVersion)
+            {
+                DisplayedImage.Source = bitmap;
+            }
+        }
+        catch
+        {
+            if (loadVersion == _imageLoadVersion)
+            {
+                DisplayedImage.Source = null;
+            }
+        }
     }
 
     private void UpdateDisplayMode()

@@ -72,6 +72,11 @@ public sealed partial class SearchOverlay : UserControl
         }
 
         _isUpdating = true;
+        if (!string.Equals(SearchInput.Text, _viewModel.SearchState.SearchQuery, StringComparison.Ordinal))
+        {
+            SearchInput.Text = _viewModel.SearchState.SearchQuery;
+        }
+
         ResultCountText.Text = _viewModel.SearchState.ResultCount == 0
             ? "No matching images found"
             : _viewModel.SearchState.ResultCountText;
@@ -120,11 +125,12 @@ public sealed partial class SearchOverlay : UserControl
                 e.Handled = true;
                 break;
             case VirtualKey.Enter:
-                if (_viewModel.SearchState.SelectedResult is not null)
+                var selectedResult = _viewModel.SearchState.SelectedResult;
+                if (selectedResult is not null)
                 {
-                    await _viewModel.OpenFileAsync(_viewModel.SearchState.SelectedResult.FilePath);
                     _viewModel.HideSearch();
                     Hide();
+                    await _viewModel.OpenFileAsync(selectedResult.FilePath);
                 }
 
                 e.Handled = true;
@@ -132,15 +138,15 @@ public sealed partial class SearchOverlay : UserControl
         }
     }
 
-    private async void OnResultSelected(object sender, SelectionChangedEventArgs e)
+    private async void OnResultClicked(object sender, ItemClickEventArgs e)
     {
-        if (_isUpdating || _viewModel is null || ResultsList.SelectedItem is not ImageItem item)
+        if (_viewModel is null || e.ClickedItem is not ImageItem item)
         {
             return;
         }
 
-        await _viewModel.OpenFileAsync(item.FilePath);
         _viewModel.HideSearch();
         Hide();
+        await _viewModel.OpenFileAsync(item.FilePath);
     }
 }

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices.WindowsRuntime;
+using ImageViewer.App;
 using ImageViewer.App.Services;
 using ImageViewer.App.Views;
 using ImageViewer.Core.Models;
@@ -18,6 +19,27 @@ public sealed class WindowsImagingServiceTests : IDisposable
     {
         _tempDirectory = Path.Combine(Path.GetTempPath(), "spitfire-windows-imaging-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDirectory);
+    }
+
+    [Fact]
+    public void ParseInitialFilePath_UsesCommandLineFallbackWhenActivationArgsAreEmpty()
+    {
+        var path = Path.Combine(_tempDirectory, "launch image.png");
+
+        var result = App.ParseInitialFilePath(string.Empty, ["ImageViewer.App.exe", path]);
+
+        Assert.Equal(path, result);
+    }
+
+    [Fact]
+    public void ParseInitialFilePath_PrefersActivationArgs()
+    {
+        var activationPath = Path.Combine(_tempDirectory, "activation.png");
+        var commandLinePath = Path.Combine(_tempDirectory, "command-line.png");
+
+        var result = App.ParseInitialFilePath($"\"{activationPath}\"", ["ImageViewer.App.exe", commandLinePath]);
+
+        Assert.Equal(activationPath, result);
     }
 
     [Fact]
@@ -248,6 +270,22 @@ public sealed class WindowsImagingServiceTests : IDisposable
         Assert.Equal(50, result.Value.FocalLength);
     }
 
+    [Fact]
+    public async Task MetadataService_ExtractsGpsCoordinatesFromRealJpeg()
+    {
+        var source = Path.Combine(_tempDirectory, "gps-exif.jpg");
+        await WriteJpegWithExifAsync(source, includeGps: true);
+        var service = new WindowsMetadataService();
+
+        var result = await service.ExtractExifAsync(source);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(49.2827, result.Value.Latitude.GetValueOrDefault(), precision: 4);
+        Assert.Equal(-123.1207, result.Value.Longitude.GetValueOrDefault(), precision: 4);
+        Assert.Equal(42.5, result.Value.Altitude.GetValueOrDefault(), precision: 1);
+        Assert.Equal("49.282700 N, 123.120700 W", result.Value.FormattedGpsCoordinates);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -288,7 +326,8 @@ public sealed class WindowsImagingServiceTests : IDisposable
         string software = "spitfire-test",
         ushort iso = 400,
         int width = 16,
-        int height = 16)
+        int height = 16,
+        bool includeGps = false)
     {
         using var image = new Image<Rgba32>(width, height);
         var exif = new ExifProfile();
@@ -301,8 +340,32 @@ public sealed class WindowsImagingServiceTests : IDisposable
         exif.SetValue(ExifTag.ExposureTime, new Rational(1, 125));
         exif.SetValue(ExifTag.FocalLength, new Rational(50, 1));
         exif.SetValue(ExifTag.Orientation, (ushort)1);
+        if (includeGps)
+        {
+            exif.SetValue(ExifTag.GPSLatitudeRef, "N");
+            exif.SetValue(ExifTag.GPSLatitude, ToGpsRationals(49.2827));
+            exif.SetValue(ExifTag.GPSLongitudeRef, "W");
+            exif.SetValue(ExifTag.GPSLongitude, ToGpsRationals(123.1207));
+            exif.SetValue(ExifTag.GPSAltitude, new Rational(425, 10));
+        }
+
         image.Metadata.ExifProfile = exif;
         await image.SaveAsJpegAsync(path);
+    }
+
+    private static Rational[] ToGpsRationals(double decimalDegrees)
+    {
+        var degrees = Math.Floor(decimalDegrees);
+        var minutesDecimal = (decimalDegrees - degrees) * 60;
+        var minutes = Math.Floor(minutesDecimal);
+        var seconds = (minutesDecimal - minutes) * 60;
+
+        return
+        [
+            new Rational((uint)degrees, 1),
+            new Rational((uint)minutes, 1),
+            new Rational((uint)Math.Round(seconds * 10000), 10000)
+        ];
     }
 
     private static async Task<ExifSnapshot> ReadExifSnapshotAsync(string path)
