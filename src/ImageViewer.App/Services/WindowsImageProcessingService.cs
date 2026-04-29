@@ -1,6 +1,9 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.PixelFormats;
 using Windows.Graphics.Imaging;
 
 namespace ImageViewer.App.Services;
@@ -41,10 +44,9 @@ public sealed class WindowsImageProcessingService : IExportService, ITransformSe
                     return Result.Success();
                 }
 
-                return Result.Failure(ViewerError.ExportError(
-                    "ExportImage",
-                    destinationFilePath,
-                    new NotSupportedException("WEBP encoding is not available through Windows.Graphics.Imaging.")));
+                var webpBitmap = await DecodeBitmapAsync(sourceFilePath, cancellationToken).ConfigureAwait(false);
+                await EncodeWebpAsync(destinationFilePath, webpBitmap, options, cancellationToken).ConfigureAwait(false);
+                return Result.Success();
             }
 
             var bitmap = await DecodeBitmapAsync(sourceFilePath, cancellationToken).ConfigureAwait(false);
@@ -191,6 +193,20 @@ public sealed class WindowsImageProcessingService : IExportService, ITransformSe
         await encoder.FlushAsync();
     }
 
+    private static async Task EncodeWebpAsync(
+        string filePath,
+        BitmapBuffer bitmap,
+        ExportOptions options,
+        CancellationToken cancellationToken)
+    {
+        using var image = Image.LoadPixelData<Bgra32>(bitmap.Pixels, bitmap.Width, bitmap.Height);
+        await image.SaveAsync(
+                filePath,
+                new WebpEncoder { Quality = options.JpegQuality },
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private static BitmapBuffer ApplyPixelTransform(BitmapBuffer bitmap, TransformOperation operation)
     {
         return operation switch
@@ -302,7 +318,7 @@ public sealed class WindowsImageProcessingService : IExportService, ITransformSe
         {
             ImageExportFormat.Jpeg => BitmapEncoder.JpegEncoderId,
             ImageExportFormat.Bmp => BitmapEncoder.BmpEncoderId,
-            ImageExportFormat.Webp => throw new NotSupportedException("WEBP encoding is not available through Windows.Graphics.Imaging."),
+            ImageExportFormat.Webp => throw new NotSupportedException("WEBP encoding is handled by ImageSharp."),
             _ => BitmapEncoder.PngEncoderId
         };
     }

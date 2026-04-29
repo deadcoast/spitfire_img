@@ -92,7 +92,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Generate random playlists and search queries
     - Verify Filter → Clear → Result equals original playlist (100+ iterations)
 
-- [ ] 4. Implement ThumbnailService
+- [x] 4. Implement ThumbnailService
   - [x] 4.1 Create IThumbnailService interface and implementation
     - Implement GetThumbnailAsync() with cache check and generation
     - Implement ClearCache() method
@@ -124,7 +124,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test cache size tracking
     - _Requirements: 2.4, 13.1, 13.3_
 
-  - [ ]* 4.5 Write integration tests for thumbnail generation
+  - [x]* 4.5 Write integration tests for thumbnail generation
     - Generate thumbnails from real images (PNG, JPEG, BMP, WEBP, GIF, TIFF)
     - Verify dimensions (120px longest)
     - Verify aspect ratio preservation
@@ -198,20 +198,20 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Return Result with ExportError on failure
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.8, 14.1, 14.2, 14.3, 14.4, 14.5_
 
-  - [ ]* 7.2 Write unit tests for ExportService
+  - [x]* 7.2 Write unit tests for ExportService
     - Test format conversion logic
     - Test quality settings
     - Test overwrite handling
     - _Requirements: 5.2, 5.3, 5.4, 14.1, 14.2, 14.3_
 
-  - [ ]* 7.3 Write integration tests for export operations
+  - [x]* 7.3 Write integration tests for export operations
     - Export real images to different formats
     - Verify output file format and quality
     - Verify EXIF preservation
     - Test overwrite behavior
     - _Requirements: 5.1, 5.2, 5.3, 14.1, 14.2, 14.5_
 
-  - [ ]* 7.4 Write property test for export format conversion
+  - [x]* 7.4 Write property test for export format conversion
     - **Property 11: Export Format Conversion Correctness**
     - **Validates: Requirements 14.2**
     - Generate random source/target format pairs
@@ -238,7 +238,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test save behavior
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.8_
 
-  - [ ]* 8.3 Write integration tests for transform operations
+  - [x]* 8.3 Write integration tests for transform operations
     - Apply transforms to real images
     - Save transforms to disk
     - Verify file modifications
