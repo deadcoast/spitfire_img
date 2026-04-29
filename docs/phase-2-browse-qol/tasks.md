@@ -223,8 +223,8 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Generate images with various EXIF data
     - Verify EXIF present in output for JPEG/PNG (100+ iterations)
 
-- [ ] 8. Implement TransformService
-  - [ ] 8.1 Create ITransformService interface and implementation
+- [x] 8. Implement TransformService
+  - [x] 8.1 Create ITransformService interface and implementation
     - Implement ApplyTransformAsync() using WIC transformations
     - Implement SaveTransformsAsync() with file overwrite and EXIF update
     - Support RotateLeft, RotateRight, FlipHorizontal, FlipVertical operations
@@ -672,21 +672,21 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Apply EXIF preservation preference
     - _Requirements: 11.6_
 
-- [ ] 25. Performance optimization
+- [x] 25. Performance optimization
   - [x] 25.1 Optimize search performance
     - Implement search input debouncing (100ms)
     - Cache lowercase filenames for large playlists
     - Target: < 100ms for 1000 items, < 500ms for 1000+ items
     - _Requirements: 16.1, 16.2, 16.3_
 
-  - [ ] 25.2 Optimize thumbnail generation
+  - [x] 25.2 Optimize thumbnail generation
     - Generate thumbnails on background thread
     - Implement progressive loading (visible thumbnails first)
     - Use virtualization in thumbnail strip
     - Target: < 200ms per thumbnail
     - _Requirements: 2.8, 13.4_
 
-  - [ ] 25.3 Optimize transform preview
+  - [x] 25.3 Optimize transform preview
     - Apply transforms in-memory
     - Combine multiple transforms into single operation when possible
     - Target: < 200ms for transform preview

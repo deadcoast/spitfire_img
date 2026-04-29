@@ -14,42 +14,47 @@
                 <EntranceThemeTransition />
             </TransitionCollection>
         </Border.Transitions>
-        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-            <ItemsControl x:Name="Items">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="8" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border
-                            Width="132"
-                            Padding="6"
-                            CornerRadius="8"
-                            BorderBrush="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                            BorderThickness="{Binding BorderThickness}">
-                            <StackPanel Spacing="4">
-                                <Grid Width="120" Height="120" Background="{ThemeResource SubtlePanelBackgroundBrush}">
-                                    <Image
-                                        Source="{Binding ImageSource}"
-                                        Stretch="Uniform" />
-                                    <TextBlock
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Text="{Binding PlaceholderText}"
-                                        Foreground="{ThemeResource MutedTextBrush}" />
-                                </Grid>
+        <ListView
+            x:Name="Items"
+            SelectionMode="None"
+            ScrollViewer.HorizontalScrollBarVisibility="Auto"
+            ScrollViewer.HorizontalScrollMode="Enabled"
+            ScrollViewer.VerticalScrollBarVisibility="Disabled"
+            ScrollViewer.VerticalScrollMode="Disabled">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsStackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Border
+                        Width="132"
+                        Margin="0,0,8,0"
+                        Padding="6"
+                        CornerRadius="8"
+                        BorderBrush="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        BorderThickness="{Binding BorderThickness}">
+                        <StackPanel Spacing="4">
+                            <Grid Width="120" Height="120" Background="{ThemeResource SubtlePanelBackgroundBrush}">
+                                <Image
+                                    Source="{Binding ImageSource}"
+                                    Stretch="Uniform" />
                                 <TextBlock
-                                    Text="{Binding FileName}"
-                                    FontSize="11"
-                                    MaxLines="1"
-                                    TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Text="{Binding PlaceholderText}"
+                                    Foreground="{ThemeResource MutedTextBrush}" />
+                            </Grid>
+                            <TextBlock
+                                Text="{Binding FileName}"
+                                FontSize="11"
+                                MaxLines="1"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
     </Border>
 </UserControl>

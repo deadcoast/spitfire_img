@@ -5,7 +5,9 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 using Windows.Graphics.Imaging;
 
 namespace ImageViewer.App.Services;
@@ -129,6 +131,16 @@ public sealed class WindowsImageProcessingService : IExportService, ITransformSe
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (CanPreserveExifWithImageSharp(filePath))
+            {
+                await SaveTransformsWithImageSharpAsync(filePath, tempPath, operations, cancellationToken)
+                    .ConfigureAwait(false);
+
+                File.Copy(tempPath, filePath, overwrite: true);
+                File.Delete(tempPath);
+                return Result.Success();
+            }
+
             var bitmap = await DecodeBitmapAsync(filePath, cancellationToken).ConfigureAwait(false);
             foreach (var operation in operations)
             {
@@ -168,7 +180,7 @@ public sealed class WindowsImageProcessingService : IExportService, ITransformSe
             BitmapPixelFormat.Bgra8,
             BitmapAlphaMode.Premultiplied,
             new BitmapTransform(),
-            ExifOrientationMode.RespectExifOrientation,
+            Windows.Graphics.Imaging.ExifOrientationMode.RespectExifOrientation,
             ColorManagementMode.DoNotColorManage);
 
         return new BitmapBuffer(
@@ -200,6 +212,59 @@ public sealed class WindowsImageProcessingService : IExportService, ITransformSe
             pixels);
 
         await encoder.FlushAsync();
+    }
+
+    private static async Task SaveTransformsWithImageSharpAsync(
+        string sourceFilePath,
+        string destinationFilePath,
+        IReadOnlyList<TransformOperation> operations,
+        CancellationToken cancellationToken)
+    {
+        using var image = await Image.LoadAsync(sourceFilePath, cancellationToken).ConfigureAwait(false);
+        image.Mutate(context =>
+        {
+            foreach (var operation in operations)
+            {
+                ApplyImageSharpTransform(context, operation);
+            }
+        });
+
+        image.Metadata.ExifProfile?.SetValue(ExifTag.Orientation, (ushort)1);
+
+        if (Path.GetExtension(sourceFilePath).Equals(".png", StringComparison.OrdinalIgnoreCase))
+        {
+            await image.SaveAsync(destinationFilePath, new PngEncoder(), cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await image.SaveAsync(destinationFilePath, new JpegEncoder { Quality = 90 }, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static void ApplyImageSharpTransform(
+        IImageProcessingContext context,
+        TransformOperation operation)
+    {
+        switch (operation)
+        {
+            case TransformOperation.RotateLeft:
+                context.Rotate(RotateMode.Rotate270);
+                break;
+            case TransformOperation.RotateRight:
+                context.Rotate(RotateMode.Rotate90);
+                break;
+            case TransformOperation.FlipHorizontal:
+                context.Flip(FlipMode.Horizontal);
+                break;
+            case TransformOperation.FlipVertical:
+                context.Flip(FlipMode.Vertical);
+                break;
+        }
+    }
+
+    private static bool CanPreserveExifWithImageSharp(string filePath)
+    {
+        return Path.GetExtension(filePath).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png";
     }
 
     private static async Task ExportWithImageSharpAsync(

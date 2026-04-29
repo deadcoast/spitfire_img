@@ -345,12 +345,14 @@ public sealed class MainViewModel : ObservableObject
     public void UndoTransform()
     {
         TransformState.Undo();
+        UpdateTransformPreviewMetadata();
         ShowChrome();
     }
 
     public void RedoTransform()
     {
         TransformState.Redo();
+        UpdateTransformPreviewMetadata();
         ShowChrome();
     }
 
@@ -550,6 +552,31 @@ public sealed class MainViewModel : ObservableObject
         {
             RecentFiles.Add(recentFile);
         }
+    }
+
+    private void UpdateTransformPreviewMetadata()
+    {
+        if (ViewerState.CurrentImage is null)
+        {
+            return;
+        }
+
+        var width = ViewerState.CurrentImage.Metadata.PixelWidth;
+        var height = ViewerState.CurrentImage.Metadata.PixelHeight;
+
+        foreach (var operation in TransformState.PendingTransforms)
+        {
+            if (operation is TransformOperation.RotateLeft or TransformOperation.RotateRight)
+            {
+                (width, height) = (height, width);
+            }
+        }
+
+        ViewerState.SetMetadata(ViewerState.CurrentImage.Metadata with
+        {
+            PixelWidth = width,
+            PixelHeight = height
+        });
     }
 
     private CancellationTokenSource BeginOperation(CancellationToken cancellationToken)

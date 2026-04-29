@@ -309,6 +309,21 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task TransformUndoRedo_UpdatesDisplayedPreviewMetadata()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(100, 200, 10)));
+
+        await viewModel.ApplyTransformAsync(TransformOperation.RotateRight);
+        viewModel.UndoTransform();
+
+        Assert.Equal("100 × 200", viewModel.ViewerState.Metadata?.FormattedDimensions);
+
+        viewModel.RedoTransform();
+        Assert.Equal("200 × 100", viewModel.ViewerState.Metadata?.FormattedDimensions);
+    }
+
+    [Fact]
     public async Task SaveTransformsAsync_WithPendingTransforms_SavesAndClearsPendingState()
     {
         var transformService = new RecordingTransformService();

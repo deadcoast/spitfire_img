@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using ImageViewer.App.Services;
+using ImageViewer.App.Views;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
 using SixLabors.ImageSharp;
@@ -17,6 +18,28 @@ public sealed class WindowsImagingServiceTests : IDisposable
     {
         _tempDirectory = Path.Combine(Path.GetTempPath(), "spitfire-windows-imaging-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDirectory);
+    }
+
+    [Fact]
+    public void ThumbnailLoadPlanner_PrioritizesCurrentItemThenNearestNeighbors()
+    {
+        var indexes = ThumbnailLoadPlanner.PrioritizeVisibleFirst(itemCount: 7, currentIndex: 3);
+
+        Assert.Equal([3, 2, 4, 1, 5, 0, 6], indexes);
+    }
+
+    [Theory]
+    [InlineData(5, -10, new[] { 0, 1, 2, 3, 4 })]
+    [InlineData(5, 99, new[] { 4, 3, 2, 1, 0 })]
+    [InlineData(0, 0, new int[0])]
+    public void ThumbnailLoadPlanner_ClampsInvalidInputs(
+        int itemCount,
+        int currentIndex,
+        int[] expected)
+    {
+        var indexes = ThumbnailLoadPlanner.PrioritizeVisibleFirst(itemCount, currentIndex);
+
+        Assert.Equal(expected, indexes);
     }
 
     [Fact]
@@ -172,6 +195,28 @@ public sealed class WindowsImagingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveTransformsAsync_PreservesExifAndResetsOrientationForJpeg()
+    {
+        var source = Path.Combine(_tempDirectory, "rotate-exif.jpg");
+        await WriteJpegWithExifAsync(source, width: 24, height: 12);
+        var service = new WindowsImageProcessingService();
+
+        var result = await service.SaveTransformsAsync(source, [TransformOperation.RotateRight]);
+        var decoded = await new ImageDecodeService().DecodeImageAsync(source);
+        var exif = await ReadExifSnapshotAsync(source);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(12, decoded.Value.Metadata.PixelWidth);
+        Assert.Equal(24, decoded.Value.Metadata.PixelHeight);
+        Assert.Equal("Canon", exif.Make);
+        Assert.Equal("R5", exif.Model);
+        Assert.Equal("spitfire-test", exif.Software);
+        Assert.Equal((ushort)400, exif.Iso);
+        Assert.Equal((ushort)1, exif.Orientation);
+    }
+
+    [Fact]
     public async Task MetadataService_ValidImageWithoutExif_ReturnsEmptyMetadata()
     {
         var source = Path.Combine(_tempDirectory, "metadata.png");
@@ -241,9 +286,11 @@ public sealed class WindowsImagingServiceTests : IDisposable
         string make = "Canon",
         string model = "R5",
         string software = "spitfire-test",
-        ushort iso = 400)
+        ushort iso = 400,
+        int width = 16,
+        int height = 16)
     {
-        using var image = new Image<Rgba32>(16, 16);
+        using var image = new Image<Rgba32>(width, height);
         var exif = new ExifProfile();
         exif.SetValue(ExifTag.Make, make);
         exif.SetValue(ExifTag.Model, model);
@@ -253,6 +300,7 @@ public sealed class WindowsImagingServiceTests : IDisposable
         exif.SetValue(ExifTag.FNumber, new Rational(28, 10));
         exif.SetValue(ExifTag.ExposureTime, new Rational(1, 125));
         exif.SetValue(ExifTag.FocalLength, new Rational(50, 1));
+        exif.SetValue(ExifTag.Orientation, (ushort)1);
         image.Metadata.ExifProfile = exif;
         await image.SaveAsJpegAsync(path);
     }
@@ -265,7 +313,8 @@ public sealed class WindowsImagingServiceTests : IDisposable
             GetExifString(profile, ExifTag.Make),
             GetExifString(profile, ExifTag.Model),
             GetExifString(profile, ExifTag.Software),
-            GetExifIso(profile));
+            GetExifIso(profile),
+            GetExifOrientation(profile));
     }
 
     private static string? GetExifString(ExifProfile? profile, ExifTag<string> tag)
@@ -287,5 +336,12 @@ public sealed class WindowsImagingServiceTests : IDisposable
         return isoValues[0];
     }
 
-    private sealed record ExifSnapshot(string? Make, string? Model, string? Software, ushort? Iso);
+    private static ushort? GetExifOrientation(ExifProfile? profile)
+    {
+        return profile is not null && profile.TryGetValue(ExifTag.Orientation, out IExifValue<ushort>? value)
+            ? value.Value
+            : null;
+    }
+
+    private sealed record ExifSnapshot(string? Make, string? Model, string? Software, ushort? Iso, ushort? Orientation);
 }
