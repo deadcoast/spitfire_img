@@ -24,7 +24,7 @@
                     PlaceholderText="Search by filename..."
                     TextChanged="OnSearchTextChanged"
                     KeyDown="OnSearchKeyDown" />
-                <TextBlock x:Name="ResultCountText" Foreground="{ThemeResource TextBrush}" />
+                <TextBlock x:Name="ResultCountText" Foreground="{ThemeResource SecondaryTextBrush}" />
                 <ListView
                     x:Name="ResultsList"
                     MaxHeight="360"

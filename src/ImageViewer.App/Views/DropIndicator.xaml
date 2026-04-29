@@ -16,7 +16,7 @@
                 x:Name="MessageText"
                 FontSize="24"
                 FontWeight="SemiBold"
-                Foreground="{ThemeResource TextBrush}"
+                Foreground="{ThemeResource PrimaryTextBrush}"
                 Text="Drop image to open" />
         </Border>
     </Grid>
