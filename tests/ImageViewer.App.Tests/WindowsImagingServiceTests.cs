@@ -2,6 +2,9 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using ImageViewer.App.Services;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Metadata.Profiles.Exif;
+using SixLabors.ImageSharp.PixelFormats;
 using Windows.Graphics.Imaging;
 
 namespace ImageViewer.App.Tests;
@@ -92,6 +95,67 @@ public sealed class WindowsImagingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ExportImageAsync_PreservesExifWhenRequested()
+    {
+        var source = Path.Combine(_tempDirectory, "source-exif.jpg");
+        var destination = Path.Combine(_tempDirectory, "export-exif.jpg");
+        await WriteJpegWithExifAsync(source);
+        var service = new WindowsImageProcessingService();
+
+        var export = await service.ExportImageAsync(
+            source,
+            destination,
+            ExportOptions.Default with { TargetFormat = ImageExportFormat.Jpeg, PreserveExif = true });
+        var metadata = await new WindowsMetadataService().ExtractExifAsync(destination);
+
+        Assert.True(export.IsSuccess);
+        Assert.True(metadata.IsSuccess);
+        Assert.Equal("Canon", metadata.Value.CameraMake);
+        Assert.Equal("R5", metadata.Value.CameraModel);
+        Assert.Equal("spitfire-test", metadata.Value.Software);
+        Assert.Equal(400, metadata.Value.Iso);
+        Assert.Equal(2.8, metadata.Value.Aperture);
+        Assert.Equal(0.008, metadata.Value.ShutterSpeed);
+        Assert.Equal(50, metadata.Value.FocalLength);
+    }
+
+    [Fact]
+    public async Task ExportImageAsync_Property_PreservesExifForSupportedFormats()
+    {
+        var random = new Random(97531);
+        var formats = new[]
+        {
+            (Format: ImageExportFormat.Jpeg, Extension: ".jpg"),
+            (Format: ImageExportFormat.Png, Extension: ".png")
+        };
+        var service = new WindowsImageProcessingService();
+
+        for (var iteration = 0; iteration < 100; iteration++)
+        {
+            var selected = formats[random.Next(formats.Length)];
+            var make = $"Make-{iteration}";
+            var model = $"Model-{random.Next(1000, 9999)}";
+            var software = $"spitfire-{iteration}";
+            var iso = (ushort)random.Next(100, 3200);
+            var source = Path.Combine(_tempDirectory, $"source-exif-{iteration}.jpg");
+            var destination = Path.Combine(_tempDirectory, $"export-exif-{iteration}{selected.Extension}");
+            await WriteJpegWithExifAsync(source, make, model, software, iso);
+
+            var export = await service.ExportImageAsync(
+                source,
+                destination,
+                ExportOptions.Default with { TargetFormat = selected.Format, PreserveExif = true });
+            var exportedExif = await ReadExifSnapshotAsync(destination);
+
+            Assert.True(export.IsSuccess);
+            Assert.Equal(make, exportedExif.Make);
+            Assert.Equal(model, exportedExif.Model);
+            Assert.Equal(software, exportedExif.Software);
+            Assert.Equal(iso, exportedExif.Iso);
+        }
+    }
+
+    [Fact]
     public async Task SaveTransformsAsync_RotatesRealImageOnDisk()
     {
         var source = Path.Combine(_tempDirectory, "rotate.png");
@@ -118,6 +182,25 @@ public sealed class WindowsImagingServiceTests : IDisposable
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ExifMetadata.Empty, result.Value);
+    }
+
+    [Fact]
+    public async Task MetadataService_ExtractsExifFromRealJpeg()
+    {
+        var source = Path.Combine(_tempDirectory, "exif.jpg");
+        await WriteJpegWithExifAsync(source);
+        var service = new WindowsMetadataService();
+
+        var result = await service.ExtractExifAsync(source);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Canon", result.Value.CameraMake);
+        Assert.Equal("R5", result.Value.CameraModel);
+        Assert.Equal("spitfire-test", result.Value.Software);
+        Assert.Equal(400, result.Value.Iso);
+        Assert.Equal(2.8, result.Value.Aperture);
+        Assert.Equal(0.008, result.Value.ShutterSpeed);
+        Assert.Equal(50, result.Value.FocalLength);
     }
 
     public void Dispose()
@@ -152,4 +235,57 @@ public sealed class WindowsImagingServiceTests : IDisposable
             pixels);
         await encoder.FlushAsync();
     }
+
+    private static async Task WriteJpegWithExifAsync(
+        string path,
+        string make = "Canon",
+        string model = "R5",
+        string software = "spitfire-test",
+        ushort iso = 400)
+    {
+        using var image = new Image<Rgba32>(16, 16);
+        var exif = new ExifProfile();
+        exif.SetValue(ExifTag.Make, make);
+        exif.SetValue(ExifTag.Model, model);
+        exif.SetValue(ExifTag.Software, software);
+        exif.SetValue(ExifTag.DateTimeOriginal, "2026:04:28 13:45:30");
+        exif.SetValue(ExifTag.ISOSpeedRatings, new[] { iso });
+        exif.SetValue(ExifTag.FNumber, new Rational(28, 10));
+        exif.SetValue(ExifTag.ExposureTime, new Rational(1, 125));
+        exif.SetValue(ExifTag.FocalLength, new Rational(50, 1));
+        image.Metadata.ExifProfile = exif;
+        await image.SaveAsJpegAsync(path);
+    }
+
+    private static async Task<ExifSnapshot> ReadExifSnapshotAsync(string path)
+    {
+        using var image = await Image.LoadAsync(path);
+        var profile = image.Metadata.ExifProfile;
+        return new ExifSnapshot(
+            GetExifString(profile, ExifTag.Make),
+            GetExifString(profile, ExifTag.Model),
+            GetExifString(profile, ExifTag.Software),
+            GetExifIso(profile));
+    }
+
+    private static string? GetExifString(ExifProfile? profile, ExifTag<string> tag)
+    {
+        return profile is not null && profile.TryGetValue(tag, out IExifValue<string>? value)
+            ? value.Value
+            : null;
+    }
+
+    private static ushort? GetExifIso(ExifProfile? profile)
+    {
+        if (profile is null ||
+            !profile.TryGetValue(ExifTag.ISOSpeedRatings, out IExifValue<ushort[]>? value) ||
+            value.Value is not { Length: > 0 } isoValues)
+        {
+            return null;
+        }
+
+        return isoValues[0];
+    }
+
+    private sealed record ExifSnapshot(string? Make, string? Model, string? Software, ushort? Iso);
 }

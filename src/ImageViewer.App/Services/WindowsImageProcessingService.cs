@@ -2,6 +2,8 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 using Windows.Graphics.Imaging;
@@ -34,6 +36,13 @@ public sealed class WindowsImageProcessingService : IExportService, ITransformSe
             if (!string.IsNullOrWhiteSpace(destinationDirectory))
             {
                 Directory.CreateDirectory(destinationDirectory);
+            }
+
+            if (options.PreserveExif && options.TargetFormat is ImageExportFormat.Jpeg or ImageExportFormat.Png)
+            {
+                await ExportWithImageSharpAsync(sourceFilePath, destinationFilePath, options, cancellationToken)
+                    .ConfigureAwait(false);
+                return Result.Success();
             }
 
             if (options.TargetFormat == ImageExportFormat.Webp)
@@ -191,6 +200,33 @@ public sealed class WindowsImageProcessingService : IExportService, ITransformSe
             pixels);
 
         await encoder.FlushAsync();
+    }
+
+    private static async Task ExportWithImageSharpAsync(
+        string sourceFilePath,
+        string destinationFilePath,
+        ExportOptions options,
+        CancellationToken cancellationToken)
+    {
+        using var image = await Image.LoadAsync(sourceFilePath, cancellationToken).ConfigureAwait(false);
+        switch (options.TargetFormat)
+        {
+            case ImageExportFormat.Jpeg:
+                await image.SaveAsync(
+                        destinationFilePath,
+                        new JpegEncoder { Quality = options.JpegQuality },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                break;
+
+            case ImageExportFormat.Png:
+                await image.SaveAsync(
+                        destinationFilePath,
+                        new PngEncoder(),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                break;
+        }
     }
 
     private static async Task EncodeWebpAsync(

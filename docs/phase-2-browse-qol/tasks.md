@@ -188,8 +188,8 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
   - Ensure all tests pass, ask the user if questions arise.
 
 
-- [ ] 7. Implement ExportService
-  - [ ] 7.1 Create IExportService interface and implementation
+- [x] 7. Implement ExportService
+  - [x] 7.1 Create IExportService interface and implementation
     - Implement ExportImageAsync() with format conversion support
     - Support PNG, JPEG, BMP, WEBP target formats
     - Apply JPEG quality settings (default 90%)
@@ -217,7 +217,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Generate random source/target format pairs
     - Verify output file has correct format (100+ iterations)
 
-  - [ ]* 7.5 Write property test for export EXIF preservation
+  - [x]* 7.5 Write property test for export EXIF preservation
     - **Property 12: Export EXIF Preservation**
     - **Validates: Requirements 14.5**
     - Generate images with various EXIF data
@@ -263,7 +263,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Generate random transform sequences and undo/redo counts
     - Verify Undo → Redo restores state (100+ iterations)
 
-- [ ] 9. Implement MetadataService
+- [x] 9. Implement MetadataService
   - [x] 9.1 Create IMetadataService interface and implementation
     - Implement ExtractExifAsync() using Windows.Graphics.Imaging
     - Extract camera info: Make, Model, Software
@@ -280,7 +280,7 @@ This implementation plan breaks down the Phase 2 Browse and Quality of Life feat
     - Test graceful handling of malformed EXIF
     - _Requirements: 7.9, 7.10_
 
-  - [ ]* 9.3 Write integration tests for EXIF extraction
+  - [x]* 9.3 Write integration tests for EXIF extraction
     - Extract EXIF from real photos with various cameras
     - Verify specific tag values
     - Test with images lacking EXIF
