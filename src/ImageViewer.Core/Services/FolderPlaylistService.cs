@@ -4,6 +4,13 @@ namespace ImageViewer.Core.Services;
 
 public sealed class FolderPlaylistService : IFolderPlaylistService
 {
+    private readonly ICodecDetectionService? _codecDetectionService;
+
+    public FolderPlaylistService(ICodecDetectionService? codecDetectionService = null)
+    {
+        _codecDetectionService = codecDetectionService;
+    }
+
     public Task<Result<Playlist>> BuildPlaylistAsync(
         string openedFilePath,
         CancellationToken cancellationToken = default)
@@ -18,7 +25,7 @@ public sealed class FolderPlaylistService : IFolderPlaylistService
             }
 
             var files = Directory.EnumerateFiles(folderPath)
-                .Where(path => ImageFormatCatalog.IsSupportedFormat(Path.GetExtension(path)))
+                .Where(IsPlaylistFormat)
                 .Select(path => new ImageItem(path))
                 .OrderBy(item => item.Filename, NaturalStringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -39,5 +46,41 @@ public sealed class FolderPlaylistService : IFolderPlaylistService
             return Task.FromResult(Result<Playlist>.Failure(
                 ViewerError.PlaylistScanError("BuildPlaylist", openedFilePath, ex)));
         }
+    }
+
+    private bool IsPlaylistFormat(string path)
+    {
+        var extension = Path.GetExtension(path);
+        if (ImageFormatCatalog.IsSupportedFormat(extension))
+        {
+            return true;
+        }
+
+        if (IsHeicExtension(extension))
+        {
+            var result = _codecDetectionService?.IsHeicSupported();
+            return result is { IsSuccess: true, Value: true };
+        }
+
+        if (IsAvifExtension(extension))
+        {
+            var result = _codecDetectionService?.IsAvifSupported();
+            return result is { IsSuccess: true, Value: true };
+        }
+
+        return false;
+    }
+
+    private static bool IsHeicExtension(string? extension)
+    {
+        return extension is not null
+            && (extension.Equals(".heic", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".heif", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsAvifExtension(string? extension)
+    {
+        return extension is not null
+            && extension.Equals(".avif", StringComparison.OrdinalIgnoreCase);
     }
 }

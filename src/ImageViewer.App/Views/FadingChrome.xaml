@@ -10,8 +10,9 @@
             Padding="8,4"
             Style="{StaticResource ChromePanelBorderStyle}">
             <MenuBar>
-                <MenuBarItem Title="File">
+                <MenuBarItem x:Name="FileMenu" Title="File">
                     <MenuFlyoutItem Text="Open File" Click="OnOpenFileClicked" />
+                    <MenuFlyoutSeparator />
                     <MenuFlyoutItem Text="Exit" Click="OnExitClicked" />
                 </MenuBarItem>
                 <MenuBarItem Title="View">
@@ -20,6 +21,22 @@
                     <MenuFlyoutItem Text="Actual Size" Click="OnActualSizeClicked" />
                     <MenuFlyoutItem Text="Fit to Window" Click="OnFitToWindowClicked" />
                     <MenuFlyoutItem Text="Toggle Fullscreen" Click="OnToggleFullscreenClicked" />
+                    <MenuFlyoutSubItem Text="Slideshow Interval">
+                        <MenuFlyoutItem Text="1s" Tag="1" Click="OnSlideshowIntervalClicked" />
+                        <MenuFlyoutItem Text="2s" Tag="2" Click="OnSlideshowIntervalClicked" />
+                        <MenuFlyoutItem Text="3s" Tag="3" Click="OnSlideshowIntervalClicked" />
+                        <MenuFlyoutItem Text="5s" Tag="5" Click="OnSlideshowIntervalClicked" />
+                        <MenuFlyoutItem Text="10s" Tag="10" Click="OnSlideshowIntervalClicked" />
+                        <MenuFlyoutItem Text="15s" Tag="15" Click="OnSlideshowIntervalClicked" />
+                        <MenuFlyoutItem Text="30s" Tag="30" Click="OnSlideshowIntervalClicked" />
+                        <MenuFlyoutItem Text="60s" Tag="60" Click="OnSlideshowIntervalClicked" />
+                    </MenuFlyoutSubItem>
+                    <MenuFlyoutSubItem Text="Slideshow Transition">
+                        <MenuFlyoutItem Text="None" Tag="None" Click="OnSlideshowTransitionClicked" />
+                        <MenuFlyoutItem Text="Fade" Tag="Fade" Click="OnSlideshowTransitionClicked" />
+                        <MenuFlyoutItem Text="Slide" Tag="Slide" Click="OnSlideshowTransitionClicked" />
+                        <MenuFlyoutItem Text="Zoom" Tag="Zoom" Click="OnSlideshowTransitionClicked" />
+                    </MenuFlyoutSubItem>
                     <MenuFlyoutItem Text="Toggle Theme" Click="OnToggleThemeClicked" />
                 </MenuBarItem>
                 <MenuBarItem Title="Help">
@@ -27,6 +44,27 @@
                 </MenuBarItem>
             </MenuBar>
         </Border>
+
+        <Border
+            x:Name="UnsavedChangesBadge"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="12"
+            Padding="10,6"
+            CornerRadius="12"
+            Background="{ThemeResource AccentFillColorDefaultBrush}"
+            Visibility="Collapsed">
+            <TextBlock
+                FontSize="12"
+                FontWeight="SemiBold"
+                Text="Unsaved changes" />
+        </Border>
+
+        <views:FrameControl
+            x:Name="FrameControls"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            Margin="12,12,12,58" />
 
         <views:BottomInfoBar x:Name="InfoBar" VerticalAlignment="Bottom" Margin="12" />
     </Grid>

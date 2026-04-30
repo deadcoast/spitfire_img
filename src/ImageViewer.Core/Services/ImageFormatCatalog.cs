@@ -8,14 +8,14 @@ public static class ImageFormatCatalog
         ".jpg",
         ".jpeg",
         ".bmp",
-        ".webp"
+        ".webp",
+        ".gif",
+        ".tiff",
+        ".tif"
     };
 
     private static readonly HashSet<string> DeferredExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".gif",
-        ".tiff",
-        ".tif",
         ".heic",
         ".avif"
     };

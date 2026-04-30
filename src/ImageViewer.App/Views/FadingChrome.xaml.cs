@@ -1,7 +1,10 @@
 using ImageViewer.Core.ViewModels;
+using ImageViewer.Core.Models;
+using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
+using System.Collections.Specialized;
 
 namespace ImageViewer.App.Views;
 
@@ -21,6 +24,8 @@ public sealed partial class FadingChrome : UserControl
 
     public event EventHandler? OpenFileRequested;
 
+    public event EventHandler<string>? RecentFileRequested;
+
     public event EventHandler? ExitRequested;
 
     public event EventHandler? AboutRequested;
@@ -29,7 +34,24 @@ public sealed partial class FadingChrome : UserControl
     {
         _viewModel = viewModel;
         InfoBar.Attach(viewModel);
+        FrameControls.Attach(viewModel);
+        viewModel.RecentFiles.CollectionChanged += OnRecentFilesChanged;
+        viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
+        RebuildRecentFilesMenu();
+        UpdateUnsavedChangesBadge();
         ShowChrome();
+    }
+
+    private void OnTransformStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(UpdateUnsavedChangesBadge);
+    }
+
+    private void UpdateUnsavedChangesBadge()
+    {
+        UnsavedChangesBadge.Visibility = _viewModel?.TransformState.HasUnsavedChanges == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     public void ShowChrome()
@@ -37,6 +59,17 @@ public sealed partial class FadingChrome : UserControl
         _fadeTimer.Stop();
         AnimateOpacity(1.0, 100);
         _fadeTimer.Start();
+    }
+
+    public void PauseAutoFade()
+    {
+        _fadeTimer.Stop();
+        AnimateOpacity(1.0, 100);
+    }
+
+    public void ResumeAutoFade()
+    {
+        ShowChrome();
     }
 
     private void FadeOutChrome()
@@ -67,6 +100,34 @@ public sealed partial class FadingChrome : UserControl
         OpenFileRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    private void OnRecentFilesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RebuildRecentFilesMenu();
+    }
+
+    private void RebuildRecentFilesMenu()
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        while (FileMenu.Items.Count > 3)
+        {
+            FileMenu.Items.RemoveAt(2);
+        }
+
+        foreach (var recentFile in _viewModel.RecentFiles.Reverse())
+        {
+            var item = new MenuFlyoutItem
+            {
+                Text = recentFile.Filename
+            };
+            item.Click += (_, _) => RecentFileRequested?.Invoke(this, recentFile.FilePath);
+            FileMenu.Items.Insert(2, item);
+        }
+    }
+
     private void OnExitClicked(object sender, RoutedEventArgs e)
     {
         ExitRequested?.Invoke(this, EventArgs.Empty);
@@ -87,6 +148,24 @@ public sealed partial class FadingChrome : UserControl
         if (_viewModel is not null)
         {
             await _viewModel.ToggleThemeAsync();
+        }
+    }
+
+    private async void OnSlideshowIntervalClicked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is MenuFlyoutItem item && int.TryParse(item.Tag?.ToString(), out var intervalSeconds))
+        {
+            await _viewModel.SetSlideshowIntervalAsync(intervalSeconds);
+        }
+    }
+
+    private async void OnSlideshowTransitionClicked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null
+            && sender is MenuFlyoutItem item
+            && Enum.TryParse<TransitionEffect>(item.Tag?.ToString(), out var transition))
+        {
+            await _viewModel.SetSlideshowTransitionAsync(transition);
         }
     }
 

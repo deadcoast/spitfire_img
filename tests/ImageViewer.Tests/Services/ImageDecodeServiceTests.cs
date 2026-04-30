@@ -20,15 +20,15 @@ public sealed class ImageDecodeServiceTests : IDisposable
     [InlineData(".jpeg")]
     [InlineData(".BMP")]
     [InlineData(".webp")]
+    [InlineData(".gif")]
+    [InlineData(".TIFF")]
+    [InlineData(".tif")]
     public void IsSupportedFormat_DelegatesToCentralCatalog(string extension)
     {
         Assert.True(_service.IsSupportedFormat(extension));
     }
 
     [Theory]
-    [InlineData(".gif")]
-    [InlineData(".tiff")]
-    [InlineData(".tif")]
     [InlineData(".heic")]
     [InlineData(".avif")]
     public void IsDeferredFormat_DelegatesToCentralCatalog(string extension)
@@ -105,6 +105,75 @@ public sealed class ImageDecodeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DecodeImageAsync_GifHeader_ReturnsMetadata()
+    {
+        var path = Path.Combine(_tempDirectory, "sample.gif");
+        await File.WriteAllBytesAsync(path, CreateGifHeader(width: 120, height: 80));
+
+        var result = await _service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(120, result.Value.Metadata.PixelWidth);
+        Assert.Equal(80, result.Value.Metadata.PixelHeight);
+    }
+
+    [Theory]
+    [InlineData(".tif")]
+    [InlineData(".tiff")]
+    public async Task DecodeImageAsync_TiffHeader_ReturnsMetadata(string extension)
+    {
+        var path = Path.Combine(_tempDirectory, $"sample{extension}");
+        await File.WriteAllBytesAsync(path, CreateTiffHeader(width: 300, height: 200));
+
+        var result = await _service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(300, result.Value.Metadata.PixelWidth);
+        Assert.Equal(200, result.Value.Metadata.PixelHeight);
+    }
+
+    [Fact]
+    public async Task GetFrameCountAsync_Gif_ReturnsOneOrMoreFrames()
+    {
+        var path = Path.Combine(_tempDirectory, "sample.gif");
+        await File.WriteAllBytesAsync(path, CreateGifHeader(width: 120, height: 80));
+
+        var result = await _service.GetFrameCountAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value);
+    }
+
+    [Fact]
+    public async Task GetFrameCountAsync_AnimatedGif_ReturnsImageDescriptorCount()
+    {
+        var path = Path.Combine(_tempDirectory, "animated.gif");
+        await File.WriteAllBytesAsync(path, CreateGifWithFrameDescriptors(width: 120, height: 80, frameCount: 3));
+
+        var result = await _service.GetFrameCountAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, result.Value);
+    }
+
+    [Fact]
+    public async Task DecodeImageAsync_MultiPageTiffHeader_UsesFirstPageDimensions()
+    {
+        var path = Path.Combine(_tempDirectory, "multipage.tiff");
+        await File.WriteAllBytesAsync(path, CreateMultiPageTiffHeader(
+            firstWidth: 300,
+            firstHeight: 200,
+            secondWidth: 900,
+            secondHeight: 800));
+
+        var result = await _service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(300, result.Value.Metadata.PixelWidth);
+        Assert.Equal(200, result.Value.Metadata.PixelHeight);
+    }
+
+    [Fact]
     public async Task DecodeImageAsync_CorruptSupportedFile_ReturnsDecodeError()
     {
         var path = Path.Combine(_tempDirectory, "corrupt.png");
@@ -119,8 +188,8 @@ public sealed class ImageDecodeServiceTests : IDisposable
     [Fact]
     public async Task DecodeImageAsync_DeferredFormat_ReturnsUnsupportedFormatError()
     {
-        var path = Path.Combine(_tempDirectory, "animation.gif");
-        await File.WriteAllBytesAsync(path, [0x47, 0x49, 0x46]);
+        var path = Path.Combine(_tempDirectory, "future.avif");
+        await File.WriteAllBytesAsync(path, [0x00, 0x00, 0x00]);
 
         var result = await _service.DecodeImageAsync(path);
 
@@ -213,5 +282,75 @@ public sealed class ImageDecodeServiceTests : IDisposable
         {
             bytes[offset + index] = (byte)value[index];
         }
+    }
+
+    private static byte[] CreateGifHeader(int width, int height)
+    {
+        var bytes = new byte[10];
+        WriteAscii(bytes, 0, "GIF89a");
+        WriteUInt16LittleEndian(bytes, 6, width);
+        WriteUInt16LittleEndian(bytes, 8, height);
+        return bytes;
+    }
+
+    private static byte[] CreateGifWithFrameDescriptors(int width, int height, int frameCount)
+    {
+        var bytes = new byte[10 + frameCount];
+        CreateGifHeader(width, height).CopyTo(bytes, 0);
+        for (var index = 0; index < frameCount; index++)
+        {
+            bytes[10 + index] = 0x2C;
+        }
+
+        return bytes;
+    }
+
+    private static byte[] CreateTiffHeader(int width, int height)
+    {
+        var bytes = new byte[38];
+        bytes[0] = 0x49;
+        bytes[1] = 0x49;
+        WriteUInt16LittleEndian(bytes, 2, 42);
+        WriteLittleEndian(bytes, 4, 8);
+        WriteUInt16LittleEndian(bytes, 8, 2);
+        WriteUInt16LittleEndian(bytes, 10, 256);
+        WriteUInt16LittleEndian(bytes, 12, 4);
+        WriteLittleEndian(bytes, 14, 1);
+        WriteLittleEndian(bytes, 18, width);
+        WriteUInt16LittleEndian(bytes, 22, 257);
+        WriteUInt16LittleEndian(bytes, 24, 4);
+        WriteLittleEndian(bytes, 26, 1);
+        WriteLittleEndian(bytes, 30, height);
+        WriteLittleEndian(bytes, 34, 0);
+        return bytes;
+    }
+
+    private static byte[] CreateMultiPageTiffHeader(
+        int firstWidth,
+        int firstHeight,
+        int secondWidth,
+        int secondHeight)
+    {
+        var bytes = new byte[68];
+        var firstPage = CreateTiffHeader(firstWidth, firstHeight);
+        firstPage.CopyTo(bytes, 0);
+        WriteLittleEndian(bytes, 34, 38);
+        WriteUInt16LittleEndian(bytes, 38, 2);
+        WriteUInt16LittleEndian(bytes, 40, 256);
+        WriteUInt16LittleEndian(bytes, 42, 4);
+        WriteLittleEndian(bytes, 44, 1);
+        WriteLittleEndian(bytes, 48, secondWidth);
+        WriteUInt16LittleEndian(bytes, 52, 257);
+        WriteUInt16LittleEndian(bytes, 54, 4);
+        WriteLittleEndian(bytes, 56, 1);
+        WriteLittleEndian(bytes, 60, secondHeight);
+        WriteLittleEndian(bytes, 64, 0);
+        return bytes;
+    }
+
+    private static void WriteUInt16LittleEndian(byte[] bytes, int offset, int value)
+    {
+        bytes[offset] = (byte)(value & 0xFF);
+        bytes[offset + 1] = (byte)((value >> 8) & 0xFF);
     }
 }

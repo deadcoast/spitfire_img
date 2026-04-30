@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
 
@@ -11,7 +12,20 @@ public sealed class MainViewModel : ObservableObject
     private readonly INavigationService _navigationService;
     private readonly ISettingsService _settingsService;
     private readonly IErrorLogService _errorLogService;
+    private readonly IThumbnailService _thumbnailService;
+    private readonly IRecentFilesService _recentFilesService;
+    private readonly IExportService _exportService;
+    private readonly ITransformService _transformService;
+    private readonly IMetadataService _metadataService;
+    private readonly ISlideshowService _slideshowService;
+    private readonly IComparisonService _comparisonService;
+    private readonly ICommandPaletteService _commandPaletteService;
+    private readonly IAnimationService _animationService;
+    private readonly ICodecDetectionService? _codecDetectionService;
+    private readonly SlideshowTransitionService _slideshowTransitionService = new();
+    private readonly HashSet<string> _promptedCodecFormats = new(StringComparer.OrdinalIgnoreCase);
     private ViewerSettings _settings = ViewerSettings.Default;
+    private readonly Dictionary<string, ExifMetadata> _metadataCache = new(StringComparer.OrdinalIgnoreCase);
     private bool _isChromeVisible = true;
     private bool _isLoading;
     private bool _isCancelAvailable;
@@ -26,6 +40,44 @@ public sealed class MainViewModel : ObservableObject
         INavigationService navigationService,
         ISettingsService settingsService,
         IErrorLogService errorLogService)
+        : this(
+            fileOpenService,
+            imageDecodeService,
+            folderPlaylistService,
+            navigationService,
+            settingsService,
+            errorLogService,
+            new SearchService(),
+            new ThumbnailService(imageDecodeService),
+            new RecentFilesService(Path.Combine(Path.GetTempPath(), "spitfire.img")),
+            new ExportService(),
+            new TransformService(),
+            new MetadataService(),
+            new SlideshowService(),
+            new ComparisonService(imageDecodeService),
+            new CommandPaletteService(),
+            new AnimationService())
+    {
+    }
+
+    public MainViewModel(
+        IFileOpenService fileOpenService,
+        IImageDecodeService imageDecodeService,
+        IFolderPlaylistService folderPlaylistService,
+        INavigationService navigationService,
+        ISettingsService settingsService,
+        IErrorLogService errorLogService,
+        ISearchService searchService,
+        IThumbnailService thumbnailService,
+        IRecentFilesService recentFilesService,
+        IExportService exportService,
+        ITransformService transformService,
+        IMetadataService metadataService,
+        ISlideshowService slideshowService,
+        IComparisonService comparisonService,
+        ICommandPaletteService commandPaletteService,
+        IAnimationService animationService,
+        ICodecDetectionService? codecDetectionService = null)
     {
         _fileOpenService = fileOpenService;
         _imageDecodeService = imageDecodeService;
@@ -33,11 +85,50 @@ public sealed class MainViewModel : ObservableObject
         _navigationService = navigationService;
         _settingsService = settingsService;
         _errorLogService = errorLogService;
+        _thumbnailService = thumbnailService;
+        _recentFilesService = recentFilesService;
+        _exportService = exportService;
+        _transformService = transformService;
+        _metadataService = metadataService;
+        _slideshowService = slideshowService;
+        _comparisonService = comparisonService;
+        _commandPaletteService = commandPaletteService;
+        _animationService = animationService;
+        _codecDetectionService = codecDetectionService;
+        SearchState = new SearchState(searchService);
+        ThumbnailState = new ThumbnailState();
+        TransformState = new TransformState();
+        MetadataState = new MetadataState();
+        SlideshowState = new SlideshowState();
+        ComparisonState = new ComparisonState();
+        CommandPaletteState = new CommandPaletteState(_commandPaletteService);
+        AnimationState = new AnimationState();
+        _slideshowService.AdvanceRequested += OnSlideshowAdvanceRequested;
     }
+
+    public event EventHandler<CodecInstallPrompt>? CodecInstallPromptRequested;
 
     public ViewerState ViewerState { get; } = new();
 
     public PlaylistState PlaylistState { get; } = new();
+
+    public ObservableCollection<RecentFile> RecentFiles { get; } = [];
+
+    public SearchState SearchState { get; }
+
+    public ThumbnailState ThumbnailState { get; }
+
+    public TransformState TransformState { get; }
+
+    public MetadataState MetadataState { get; }
+
+    public SlideshowState SlideshowState { get; }
+
+    public ComparisonState ComparisonState { get; }
+
+    public CommandPaletteState CommandPaletteState { get; }
+
+    public AnimationState AnimationState { get; }
 
     public ViewerSettings Settings
     {
@@ -81,11 +172,24 @@ public sealed class MainViewModel : ObservableObject
         if (settingsResult.IsSuccess)
         {
             Settings = settingsResult.Value;
+            ThumbnailState.SetVisibility(Settings.ThumbnailStripVisible);
+            ThumbnailState.SetStripPosition(Settings.ThumbnailStripPosition);
+            var recentFilesResult = await _recentFilesService.LoadRecentFilesAsync(cancellationToken).ConfigureAwait(false);
+            if (recentFilesResult.IsSuccess)
+            {
+                SetRecentFiles(recentFilesResult.Value);
+            }
+
             return;
         }
 
         Settings = ViewerSettings.Default;
         await HandleErrorAsync(settingsResult.Error, cancellationToken).ConfigureAwait(false);
+    }
+
+    public bool IsSupportedOpenExtension(string extension)
+    {
+        return _imageDecodeService.IsSupportedFormat(extension);
     }
 
     public async Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default)
@@ -125,6 +229,14 @@ public sealed class MainViewModel : ObservableObject
             }
 
             ViewerState.SetImage(decodeResult.Value);
+            await LoadAnimationForImageAsync(decodeResult.Value.FilePath, operationToken).ConfigureAwait(false);
+            SearchState.SetPlaylist(PlaylistState.Items);
+            var recentResult = await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken).ConfigureAwait(false);
+            if (recentResult.IsSuccess)
+            {
+                SetRecentFiles(recentResult.Value);
+            }
+
             ShowChrome();
         }
         finally
@@ -140,11 +252,21 @@ public sealed class MainViewModel : ObservableObject
 
     public Task NavigateNextAsync(CancellationToken cancellationToken = default)
     {
+        if (ComparisonState.IsActive)
+        {
+            return ShiftComparisonAsync(1, cancellationToken);
+        }
+
         return NavigateToIndexAsync(PlaylistState.CurrentIndex + 1, cancellationToken);
     }
 
     public Task NavigatePreviousAsync(CancellationToken cancellationToken = default)
     {
+        if (ComparisonState.IsActive)
+        {
+            return ShiftComparisonAsync(-1, cancellationToken);
+        }
+
         return NavigateToIndexAsync(PlaylistState.CurrentIndex - 1, cancellationToken);
     }
 
@@ -158,20 +280,366 @@ public sealed class MainViewModel : ObservableObject
         return NavigateToIndexAsync(PlaylistState.TotalCount - 1, cancellationToken);
     }
 
+    public void ToggleSlideshow()
+    {
+        if (SlideshowState.IsActive)
+        {
+            _slideshowService.StopSlideshow();
+            SlideshowState.Stop();
+            ShowChrome();
+            return;
+        }
+
+        if (PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
+        var config = SlideshowConfig.FromSettings(Settings);
+        var result = _slideshowService.StartSlideshow(playlist, PlaylistState.CurrentIndex, config);
+        if (result.IsFailure)
+        {
+            _ = HandleErrorAsync(result.Error, CancellationToken.None);
+            return;
+        }
+
+        SlideshowState.Start(PlaylistState.CurrentIndex, config);
+        ShowChrome();
+    }
+
+    public Task IncreaseSlideshowIntervalAsync(CancellationToken cancellationToken = default)
+    {
+        return StepSlideshowIntervalAsync(direction: 1, cancellationToken);
+    }
+
+    public Task DecreaseSlideshowIntervalAsync(CancellationToken cancellationToken = default)
+    {
+        return StepSlideshowIntervalAsync(direction: -1, cancellationToken);
+    }
+
+    public Task SetSlideshowIntervalAsync(int intervalSeconds, CancellationToken cancellationToken = default)
+    {
+        return UpdateSlideshowIntervalAsync(intervalSeconds, cancellationToken);
+    }
+
+    public async Task SetSlideshowTransitionAsync(
+        TransitionEffect transition,
+        CancellationToken cancellationToken = default)
+    {
+        Settings = Settings with { SlideshowTransition = transition };
+        var config = SlideshowConfig.FromSettings(Settings);
+        SlideshowState.SetTransition(config.Transition);
+        if (SlideshowState.IsActive)
+        {
+            _slideshowService.UpdateConfig(config);
+        }
+
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    public SlideshowTransitionSpec BeginSlideshowTransition(TransitionEffect transition)
+    {
+        var spec = _slideshowTransitionService.GetTransition(transition);
+        SlideshowState.BeginTransition(spec);
+        return spec;
+    }
+
+    public void EndSlideshowTransition()
+    {
+        SlideshowState.EndTransition();
+    }
+
+    public void StopSlideshow()
+    {
+        _slideshowService.StopSlideshow();
+        SlideshowState.Stop();
+        ShowChrome();
+    }
+
+    public void ToggleSlideshowPause()
+    {
+        if (!SlideshowState.IsActive)
+        {
+            return;
+        }
+
+        if (SlideshowState.IsPaused)
+        {
+            _slideshowService.ResumeSlideshow();
+            SlideshowState.Resume();
+        }
+        else
+        {
+            _slideshowService.PauseSlideshow();
+            SlideshowState.Pause();
+        }
+
+        ShowChrome();
+    }
+
+    public void ToggleAnimationPlayback()
+    {
+        AnimationState.TogglePlayback();
+        ShowChrome();
+    }
+
+    public void AdvanceAnimationFrame()
+    {
+        AnimationState.AdvanceFrameManually();
+        ShowChrome();
+    }
+
+    public void RewindAnimationFrame()
+    {
+        AnimationState.RewindFrameManually();
+        ShowChrome();
+    }
+
+    public void StepAnimationFrameFromControl(int direction)
+    {
+        if (direction >= 0)
+        {
+            AnimationState.StepNextAndPause();
+        }
+        else
+        {
+            AnimationState.StepPreviousAndPause();
+        }
+
+        ShowChrome();
+    }
+
+    public void SeekAnimationFrame(int frameIndex)
+    {
+        AnimationState.SeekFrameManually(frameIndex);
+        ShowChrome();
+    }
+
+    public void AdvanceAnimationPlaybackFrame()
+    {
+        if (AnimationState.IsPlaying)
+        {
+            AnimationState.AdvanceFrame();
+        }
+    }
+
+    public async Task EnterComparisonAsync(
+        ComparisonLayout layout,
+        int imageCount = 2,
+        CancellationToken cancellationToken = default)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        using var operation = BeginOperation(cancellationToken);
+        var operationToken = operation.Token;
+        ErrorMessage = null;
+
+        try
+        {
+            var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
+            var result = await _comparisonService.EnterComparisonAsync(playlist, layout, imageCount, operationToken)
+                .ConfigureAwait(false);
+
+            if (result.IsFailure)
+            {
+                await HandleErrorAsync(result.Error, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
+            ApplyComparisonSet(result.Value);
+            ShowChrome();
+        }
+        finally
+        {
+            EndOperation(operation);
+        }
+    }
+
+    public void ExitComparison()
+    {
+        ComparisonState.ExitComparison();
+        ShowChrome();
+    }
+
+    public Task ChangeComparisonImageCountAsync(
+        int imageCount,
+        CancellationToken cancellationToken = default)
+    {
+        return ComparisonState.IsActive
+            ? EnterComparisonAsync(ComparisonLayout.SideBySide, imageCount, cancellationToken)
+            : Task.CompletedTask;
+    }
+
+    public void SelectComparisonImage(int visibleIndex)
+    {
+        ComparisonState.SelectImage(visibleIndex);
+        ShowChrome();
+    }
+
+    public void SelectNextComparisonImage()
+    {
+        ComparisonState.SelectNextImage();
+        ShowChrome();
+    }
+
+    public async Task OpenSelectedComparisonImageAsync(CancellationToken cancellationToken = default)
+    {
+        var activeImage = ComparisonState.ActiveImage;
+        if (activeImage is null)
+        {
+            return;
+        }
+
+        ComparisonState.ExitComparison();
+        await NavigateToIndexAsync(activeImage.PlaylistIndex, cancellationToken).ConfigureAwait(false);
+    }
+
+    public void SetOverlayOpacity(double opacity)
+    {
+        ComparisonState.SetOverlayOpacity(opacity);
+        ShowChrome();
+    }
+
+    public void IncreaseOverlayOpacity()
+    {
+        ComparisonState.AdjustOverlayOpacity(0.1);
+        ShowChrome();
+    }
+
+    public void DecreaseOverlayOpacity()
+    {
+        ComparisonState.AdjustOverlayOpacity(-0.1);
+        ShowChrome();
+    }
+
+    public void SwapOverlayLayers()
+    {
+        ComparisonState.SwapOverlayLayers();
+        ShowChrome();
+    }
+
+    public void ToggleComparisonSyncZoom()
+    {
+        ComparisonState.ToggleSyncZoom();
+        ShowChrome();
+    }
+
+    public void SetComparisonRelativePan(RelativePanOffset relativePan)
+    {
+        if (ComparisonState.IsSyncZoomEnabled)
+        {
+            ComparisonState.SetSynchronizedRelativePan(relativePan);
+        }
+        else
+        {
+            ComparisonState.SetActiveViewportRelativePan(relativePan);
+        }
+
+        ShowChrome();
+    }
+
+    public void ShowCommandPalette()
+    {
+        CommandPaletteState.Open();
+        ShowChrome();
+    }
+
+    public void HideCommandPalette()
+    {
+        CommandPaletteState.Close();
+        ShowChrome();
+    }
+
+    public async Task ExecuteSelectedCommandAsync(CancellationToken cancellationToken = default)
+    {
+        var selectedCommand = CommandPaletteState.SelectedCommand;
+        if (selectedCommand is null)
+        {
+            return;
+        }
+
+        CommandPaletteState.RecordCommandExecuted(selectedCommand);
+        CommandPaletteState.Close();
+        switch (selectedCommand.Id)
+        {
+            case CommandIds.ToggleFullscreen:
+                ToggleFullscreen();
+                break;
+            case CommandIds.FitToWindow:
+                FitToWindow();
+                break;
+            case CommandIds.ActualSize:
+                ActualSize();
+                break;
+            case CommandIds.NavigateNext:
+                await NavigateNextAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.NavigatePrevious:
+                await NavigatePreviousAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.RotateLeft:
+                await ApplyTransformAsync(TransformOperation.RotateLeft, cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.RotateRight:
+                await ApplyTransformAsync(TransformOperation.RotateRight, cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.ToggleSlideshow:
+                ToggleSlideshow();
+                break;
+            case CommandIds.EnterComparison:
+                await EnterComparisonAsync(ComparisonLayout.SideBySide, cancellationToken: cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.EnterOverlayComparison:
+                await EnterComparisonAsync(ComparisonLayout.Overlay, cancellationToken: cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.ToggleComparisonSyncZoom:
+                ToggleComparisonSyncZoom();
+                break;
+        }
+
+        ShowChrome();
+    }
+
     public void ZoomIn()
     {
+        if (ComparisonState.IsActive)
+        {
+            var zoomLevel = ComparisonState.ActiveViewport?.ZoomLevel ?? 100;
+            SetComparisonZoom(zoomLevel + 25);
+            return;
+        }
+
         ViewerState.SetZoom(ViewerState.ZoomLevel + 25);
         ShowChrome();
     }
 
     public void ZoomOut()
     {
+        if (ComparisonState.IsActive)
+        {
+            var zoomLevel = ComparisonState.ActiveViewport?.ZoomLevel ?? 100;
+            SetComparisonZoom(Math.Max(100, zoomLevel - 25));
+            return;
+        }
+
         ViewerState.SetZoom(Math.Max(100, ViewerState.ZoomLevel - 25));
         ShowChrome();
     }
 
     public void FitToWindow()
     {
+        if (ComparisonState.IsActive)
+        {
+            ComparisonState.ResetSynchronizedZoom();
+            ShowChrome();
+            return;
+        }
+
         ViewerState.SetDisplayMode(DisplayMode.FitToWindow);
         ViewerState.ResetPan();
         ShowChrome();
@@ -179,6 +647,12 @@ public sealed class MainViewModel : ObservableObject
 
     public void ActualSize()
     {
+        if (ComparisonState.IsActive)
+        {
+            SetComparisonZoom(100);
+            return;
+        }
+
         ViewerState.SetDisplayMode(DisplayMode.ActualSize);
         ViewerState.ResetPan();
         ShowChrome();
@@ -194,6 +668,193 @@ public sealed class MainViewModel : ObservableObject
     {
         _operationCancellation?.Cancel();
         IsCancelAvailable = false;
+    }
+
+    public void ShowSearch()
+    {
+        SearchState.SetSearchQuery(SearchState.SearchQuery);
+        ShowChrome();
+    }
+
+    public void HideSearch()
+    {
+        SearchState.ClearSearch();
+        ShowChrome();
+    }
+
+    public void SetSearchQuery(string query)
+    {
+        SearchState.SetSearchQuery(query);
+        ShowChrome();
+    }
+
+    public async Task ToggleMetadataPanelAsync(CancellationToken cancellationToken = default)
+    {
+        if (MetadataState.IsVisible)
+        {
+            MetadataState.HidePanel();
+            ShowChrome();
+            return;
+        }
+
+        if (ViewerState.CurrentImage is null)
+        {
+            MetadataState.ShowPanel(ExifMetadata.Empty);
+            ShowChrome();
+            return;
+        }
+
+        if (!_metadataCache.TryGetValue(ViewerState.CurrentImage.FilePath, out var metadata))
+        {
+            var metadataResult = await _metadataService.ExtractExifAsync(ViewerState.CurrentImage.FilePath, cancellationToken)
+                .ConfigureAwait(false);
+            if (metadataResult.IsFailure)
+            {
+                await HandleErrorAsync(metadataResult.Error, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            metadata = metadataResult.Value;
+            _metadataCache[ViewerState.CurrentImage.FilePath] = metadata;
+        }
+
+        MetadataState.ShowPanel(metadata);
+        ShowChrome();
+    }
+
+    public async Task ApplyTransformAsync(TransformOperation operation, CancellationToken cancellationToken = default)
+    {
+        if (ViewerState.CurrentImage is null)
+        {
+            return;
+        }
+
+        TransformState.ApplyTransform(operation);
+        var transformResult = await _transformService.ApplyTransformAsync(
+                ViewerState.CurrentImage,
+                TransformState.PendingTransforms.ToArray(),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (transformResult.IsFailure)
+        {
+            await HandleErrorAsync(transformResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        ViewerState.SetMetadata(transformResult.Value.Metadata);
+        ShowChrome();
+    }
+
+    public void UndoTransform()
+    {
+        TransformState.Undo();
+        UpdateTransformPreviewMetadata();
+        ShowChrome();
+    }
+
+    public void RedoTransform()
+    {
+        TransformState.Redo();
+        UpdateTransformPreviewMetadata();
+        ShowChrome();
+    }
+
+    public async Task SaveTransformsAsync(CancellationToken cancellationToken = default)
+    {
+        if (ViewerState.CurrentImage is null || !TransformState.HasUnsavedChanges)
+        {
+            return;
+        }
+
+        var operations = TransformState.PendingTransforms.ToArray();
+        var result = await _transformService.SaveTransformsAsync(
+                ViewerState.CurrentImage.FilePath,
+                operations,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            await HandleErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        TransformState.DiscardTransforms();
+        ShowChrome();
+    }
+
+    public async Task<Result<Thumbnail>> GetThumbnailAsync(
+        ImageItem item,
+        CancellationToken cancellationToken = default)
+    {
+        return await _thumbnailService.GetThumbnailAsync(item, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task ToggleThumbnailStrip(CancellationToken cancellationToken = default)
+    {
+        ThumbnailState.ToggleVisibility();
+        Settings = Settings with { ThumbnailStripVisible = ThumbnailState.IsStripVisible };
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    public async Task SetThumbnailPosition(ThumbnailPosition position, CancellationToken cancellationToken = default)
+    {
+        ThumbnailState.SetStripPosition(position);
+        Settings = Settings with { ThumbnailStripPosition = position };
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    public async Task<bool> ExportCurrentImageAsync(
+        string destinationFilePath,
+        ImageExportFormat targetFormat,
+        CancellationToken cancellationToken = default)
+    {
+        if (ViewerState.CurrentImage is null)
+        {
+            return false;
+        }
+
+        var result = await _exportService.ExportImageAsync(
+                ViewerState.CurrentImage.FilePath,
+                destinationFilePath,
+                new ExportOptions(
+                    targetFormat,
+                    Settings.DefaultJpegQuality,
+                    Settings.PreserveExifOnExport,
+                    OverwriteExisting: true),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            await HandleErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        ShowChrome();
+        return true;
+    }
+
+    public async Task OpenRecentFileAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(filePath))
+        {
+            var recentResult = await _recentFilesService.RemoveRecentFileAsync(filePath, cancellationToken)
+                .ConfigureAwait(false);
+            if (recentResult.IsSuccess)
+            {
+                SetRecentFiles(recentResult.Value);
+            }
+
+            await HandleErrorAsync(ViewerError.FileAccessError("OpenRecentFile", filePath), cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        await OpenFileAsync(filePath, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ToggleThemeAsync(CancellationToken cancellationToken = default)
@@ -238,8 +899,17 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private async Task NavigateToIndexAsync(int targetIndex, CancellationToken cancellationToken)
+    private async Task NavigateToIndexAsync(
+        int targetIndex,
+        CancellationToken cancellationToken,
+        bool resetSlideshowTimer = true)
     {
+        if (SlideshowState.IsTransitioning && resetSlideshowTimer)
+        {
+            ShowChrome();
+            return;
+        }
+
         if (PlaylistState.TotalCount == 0)
         {
             return;
@@ -263,6 +933,15 @@ public sealed class MainViewModel : ObservableObject
 
             PlaylistState.SetCurrentIndex(navigationResult.Value.Index);
             ViewerState.SetImage(navigationResult.Value.Image);
+            await LoadAnimationForImageAsync(navigationResult.Value.Image.FilePath, operationToken).ConfigureAwait(false);
+            SlideshowState.SetCurrentImageIndex(navigationResult.Value.Index);
+            if (resetSlideshowTimer && SlideshowState.IsActive)
+            {
+                _slideshowService.ResetTimer();
+                SlideshowState.ResetTimer();
+            }
+
+            TransformState.DiscardTransforms();
             ShowChrome();
         }
         finally
@@ -271,11 +950,245 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    private async Task ShiftComparisonAsync(int offset, CancellationToken cancellationToken)
+    {
+        if (PlaylistState.TotalCount == 0 || !ComparisonState.IsActive)
+        {
+            return;
+        }
+
+        using var operation = BeginOperation(cancellationToken);
+        var operationToken = operation.Token;
+        ErrorMessage = null;
+
+        try
+        {
+            var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
+            var currentIndices = ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray();
+            var result = await _comparisonService.ShiftComparisonAsync(
+                    playlist,
+                    currentIndices,
+                    offset,
+                    ComparisonState.Layout,
+                    operationToken)
+                .ConfigureAwait(false);
+
+            if (result.IsFailure)
+            {
+                await HandleErrorAsync(result.Error, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
+            ApplyComparisonSet(result.Value);
+            if (SlideshowState.IsActive)
+            {
+                _slideshowService.ResetTimer();
+                SlideshowState.ResetTimer();
+            }
+
+            ShowChrome();
+        }
+        finally
+        {
+            EndOperation(operation);
+        }
+    }
+
+    private void SetComparisonZoom(double zoomLevel)
+    {
+        if (ComparisonState.IsSyncZoomEnabled)
+        {
+            ComparisonState.SetSynchronizedZoom(zoomLevel);
+        }
+        else
+        {
+            ComparisonState.SetActiveViewportZoom(zoomLevel);
+        }
+
+        ShowChrome();
+    }
+
+    private void ApplyComparisonSet(ComparisonSet comparison)
+    {
+        ComparisonState.EnterComparison(comparison);
+        var primaryImage = comparison.Images[0];
+        PlaylistState.SetCurrentIndex(primaryImage.PlaylistIndex);
+        ViewerState.SetImage(primaryImage.Image);
+        AnimationState.ClearAnimation();
+        SlideshowState.SetCurrentImageIndex(primaryImage.PlaylistIndex);
+        TransformState.DiscardTransforms();
+    }
+
+    private async Task LoadAnimationForImageAsync(string filePath, CancellationToken cancellationToken)
+    {
+        if (!string.Equals(Path.GetExtension(filePath), ".gif", StringComparison.OrdinalIgnoreCase))
+        {
+            AnimationState.ClearAnimation();
+            return;
+        }
+
+        var animationResult = await _animationService.LoadAnimatedGifAsync(filePath, cancellationToken)
+            .ConfigureAwait(false);
+        if (animationResult.IsFailure)
+        {
+            AnimationState.ClearAnimation();
+            if (animationResult.Error.Category == ErrorCategory.UnsupportedFormatError)
+            {
+                return;
+            }
+
+            await HandleErrorAsync(animationResult.Error, CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+
+        AnimationState.LoadAnimation(animationResult.Value);
+    }
+
     private async Task HandleErrorAsync(ViewerError error, CancellationToken cancellationToken)
     {
         CurrentErrorSeverity = error.Severity;
         ErrorMessage = error.UserMessage;
         await _errorLogService.LogErrorAsync(error, cancellationToken).ConfigureAwait(false);
+        RequestCodecInstallPromptIfNeeded(error);
+    }
+
+    private void RequestCodecInstallPromptIfNeeded(ViewerError error)
+    {
+        if (error.Category != ErrorCategory.CodecUnavailableError)
+        {
+            return;
+        }
+
+        var extension = Path.GetExtension(error.FilePath);
+        var prompt = CreateCodecInstallPrompt(error, extension);
+        if (prompt is null || !_promptedCodecFormats.Add(prompt.FormatName))
+        {
+            return;
+        }
+
+        CodecInstallPromptRequested?.Invoke(this, prompt);
+    }
+
+    private CodecInstallPrompt? CreateCodecInstallPrompt(ViewerError error, string? extension)
+    {
+        if (IsHeicExtension(extension))
+        {
+            var storeUrl = _codecDetectionService?.GetHeicStoreUrl();
+            return storeUrl is { IsSuccess: true }
+                ? new CodecInstallPrompt("HEIC", "HEIF Image Extensions", storeUrl.Value, error.UserMessage)
+                : null;
+        }
+
+        if (IsAvifExtension(extension))
+        {
+            var storeUrl = _codecDetectionService?.GetAvifStoreUrl();
+            return storeUrl is { IsSuccess: true }
+                ? new CodecInstallPrompt("AVIF", "AV1 Video Extension", storeUrl.Value, error.UserMessage)
+                : null;
+        }
+
+        return null;
+    }
+
+    private static bool IsHeicExtension(string? extension)
+    {
+        return extension is not null
+            && (extension.Equals(".heic", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".heif", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsAvifExtension(string? extension)
+    {
+        return extension is not null
+            && extension.Equals(".avif", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OnSlideshowAdvanceRequested(object? sender, SlideshowAdvanceRequestedEventArgs e)
+    {
+        _ = AdvanceSlideshowAsync(e.NextIndex);
+    }
+
+    private async Task SaveSettingsOrReportErrorAsync(CancellationToken cancellationToken)
+    {
+        var saveResult = await _settingsService.SaveSettingsAsync(Settings, cancellationToken).ConfigureAwait(false);
+        if (saveResult.IsFailure)
+        {
+            await HandleErrorAsync(saveResult.Error, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task StepSlideshowIntervalAsync(int direction, CancellationToken cancellationToken)
+    {
+        var nextInterval = SlideshowConfig.StepIntervalSeconds(Settings.SlideshowIntervalSeconds, direction);
+        await UpdateSlideshowIntervalAsync(nextInterval, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task UpdateSlideshowIntervalAsync(int intervalSeconds, CancellationToken cancellationToken)
+    {
+        var nextInterval = SlideshowConfig.NormalizeIntervalSeconds(intervalSeconds);
+        Settings = Settings with { SlideshowIntervalSeconds = nextInterval };
+        var config = SlideshowConfig.FromSettings(Settings);
+        SlideshowState.SetInterval(config.Interval);
+        if (SlideshowState.IsActive)
+        {
+            _slideshowService.UpdateConfig(config);
+        }
+
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    private async Task AdvanceSlideshowAsync(int nextIndex)
+    {
+        var transition = BeginSlideshowTransition(Settings.SlideshowTransition);
+        try
+        {
+            await NavigateToIndexAsync(nextIndex, CancellationToken.None, resetSlideshowTimer: false)
+                .ConfigureAwait(false);
+
+            if (transition.Duration > TimeSpan.Zero)
+            {
+                await Task.Delay(transition.Duration).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            EndSlideshowTransition();
+        }
+    }
+
+    private void SetRecentFiles(IEnumerable<RecentFile> recentFiles)
+    {
+        RecentFiles.Clear();
+        foreach (var recentFile in recentFiles)
+        {
+            RecentFiles.Add(recentFile);
+        }
+    }
+
+    private void UpdateTransformPreviewMetadata()
+    {
+        if (ViewerState.CurrentImage is null)
+        {
+            return;
+        }
+
+        var width = ViewerState.CurrentImage.Metadata.PixelWidth;
+        var height = ViewerState.CurrentImage.Metadata.PixelHeight;
+
+        foreach (var operation in TransformState.PendingTransforms)
+        {
+            if (operation is TransformOperation.RotateLeft or TransformOperation.RotateRight)
+            {
+                (width, height) = (height, width);
+            }
+        }
+
+        ViewerState.SetMetadata(ViewerState.CurrentImage.Metadata with
+        {
+            PixelWidth = width,
+            PixelHeight = height
+        });
     }
 
     private CancellationTokenSource BeginOperation(CancellationToken cancellationToken)

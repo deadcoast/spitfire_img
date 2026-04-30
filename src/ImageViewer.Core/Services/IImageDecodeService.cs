@@ -9,4 +9,6 @@ public interface IImageDecodeService
     bool IsSupportedFormat(string extension);
 
     bool IsDeferredFormat(string extension);
+
+    Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default);
 }

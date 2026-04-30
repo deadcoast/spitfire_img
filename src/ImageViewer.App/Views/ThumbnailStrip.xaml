@@ -1,0 +1,62 @@
+<UserControl
+    x:Class="ImageViewer.App.Views.ThumbnailStrip"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Visibility="Collapsed">
+    <Border
+        x:Name="StripBorder"
+        Margin="12"
+        Padding="8"
+        VerticalAlignment="Bottom"
+        Style="{StaticResource ChromePanelBorderStyle}">
+        <Border.Transitions>
+            <TransitionCollection>
+                <EntranceThemeTransition />
+            </TransitionCollection>
+        </Border.Transitions>
+        <ListView
+            x:Name="Items"
+            IsItemClickEnabled="True"
+            ItemClick="OnThumbnailClicked"
+            SelectionMode="None"
+            ScrollViewer.HorizontalScrollBarVisibility="Auto"
+            ScrollViewer.HorizontalScrollMode="Enabled"
+            ScrollViewer.VerticalScrollBarVisibility="Disabled"
+            ScrollViewer.VerticalScrollMode="Disabled">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsStackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Border
+                        Width="132"
+                        Margin="0,0,8,0"
+                        Padding="6"
+                        CornerRadius="8"
+                        BorderBrush="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        BorderThickness="{Binding BorderThickness}">
+                        <StackPanel Spacing="4">
+                            <Grid Width="120" Height="120" Background="{ThemeResource SubtlePanelBackgroundBrush}">
+                                <Image
+                                    Source="{Binding ImageSource}"
+                                    Stretch="Uniform" />
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Text="{Binding PlaceholderText}"
+                                    Foreground="{ThemeResource MutedTextBrush}" />
+                            </Grid>
+                            <TextBlock
+                                Text="{Binding FileName}"
+                                FontSize="11"
+                                MaxLines="1"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Border>
+</UserControl>

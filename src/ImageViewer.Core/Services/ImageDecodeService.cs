@@ -43,6 +43,31 @@ public sealed class ImageDecodeService : IImageDecodeService
         return ImageFormatCatalog.IsDeferredFormat(extension);
     }
 
+    public async Task<Result<int>> GetFrameCountAsync(
+        string filePath,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var extension = Path.GetExtension(filePath);
+            if (!IsSupportedFormat(extension))
+            {
+                return Result<int>.Failure(ViewerError.UnsupportedFormatError("GetFrameCount", filePath));
+            }
+
+            var bytes = await File.ReadAllBytesAsync(filePath, cancellationToken).ConfigureAwait(false);
+            var frameCount = extension.Equals(".gif", StringComparison.OrdinalIgnoreCase)
+                ? CountGifFrames(bytes)
+                : 1;
+
+            return Result<int>.Success(Math.Max(1, frameCount));
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            return Result<int>.Failure(ViewerError.DecodeError("GetFrameCount", filePath, ex));
+        }
+    }
+
     private static (int Width, int Height) ReadDimensions(string extension, byte[] bytes)
     {
         return extension.ToLowerInvariant() switch
@@ -51,6 +76,8 @@ public sealed class ImageDecodeService : IImageDecodeService
             ".jpg" or ".jpeg" => ReadJpegDimensions(bytes),
             ".bmp" => ReadBmpDimensions(bytes),
             ".webp" => ReadWebpDimensions(bytes),
+            ".gif" => ReadGifDimensions(bytes),
+            ".tiff" or ".tif" => ReadTiffDimensions(bytes),
             _ => throw new InvalidDataException("Unsupported image format.")
         };
     }
@@ -110,6 +137,78 @@ public sealed class ImageDecodeService : IImageDecodeService
         throw new InvalidDataException("Unsupported WEBP header variant.");
     }
 
+    private static (int Width, int Height) ReadGifDimensions(byte[] bytes)
+    {
+        if (bytes.Length < 10 || (!IsAscii(bytes, 0, "GIF87a") && !IsAscii(bytes, 0, "GIF89a")))
+        {
+            throw new InvalidDataException("Invalid GIF header.");
+        }
+
+        return (
+            BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(6, 2)),
+            BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(8, 2)));
+    }
+
+    private static (int Width, int Height) ReadTiffDimensions(byte[] bytes)
+    {
+        if (bytes.Length < 8)
+        {
+            throw new InvalidDataException("Invalid TIFF header.");
+        }
+
+        var littleEndian = bytes[0] == 0x49 && bytes[1] == 0x49;
+        var bigEndian = bytes[0] == 0x4D && bytes[1] == 0x4D;
+        if (!littleEndian && !bigEndian)
+        {
+            throw new InvalidDataException("Invalid TIFF byte order.");
+        }
+
+        if (ReadUInt16(bytes.AsSpan(2, 2), littleEndian) != 42)
+        {
+            throw new InvalidDataException("Invalid TIFF magic number.");
+        }
+
+        var ifdOffset = ReadInt32(bytes.AsSpan(4, 4), littleEndian);
+        if (ifdOffset < 0 || ifdOffset + 2 > bytes.Length)
+        {
+            throw new InvalidDataException("Invalid TIFF IFD offset.");
+        }
+
+        var entryCount = ReadUInt16(bytes.AsSpan(ifdOffset, 2), littleEndian);
+        var offset = ifdOffset + 2;
+        int? width = null;
+        int? height = null;
+
+        for (var entryIndex = 0; entryIndex < entryCount; entryIndex++)
+        {
+            if (offset + 12 > bytes.Length)
+            {
+                break;
+            }
+
+            var tag = ReadUInt16(bytes.AsSpan(offset, 2), littleEndian);
+            var type = ReadUInt16(bytes.AsSpan(offset + 2, 2), littleEndian);
+            var value = type == 3
+                ? ReadUInt16(bytes.AsSpan(offset + 8, 2), littleEndian)
+                : ReadInt32(bytes.AsSpan(offset + 8, 4), littleEndian);
+
+            if (tag == 256)
+            {
+                width = value;
+            }
+            else if (tag == 257)
+            {
+                height = value;
+            }
+
+            offset += 12;
+        }
+
+        return width.HasValue && height.HasValue
+            ? (width.Value, height.Value)
+            : throw new InvalidDataException("TIFF dimensions were not found.");
+    }
+
     private static (int Width, int Height) ReadJpegDimensions(byte[] bytes)
     {
         if (bytes.Length < 4 || bytes[0] != 0xFF || bytes[1] != 0xD8)
@@ -161,6 +260,26 @@ public sealed class ImageDecodeService : IImageDecodeService
     private static int ReadUInt24LittleEndian(ReadOnlySpan<byte> bytes)
     {
         return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16);
+    }
+
+    private static int CountGifFrames(byte[] bytes)
+    {
+        ReadGifDimensions(bytes);
+        return bytes.Count(value => value == 0x2C);
+    }
+
+    private static ushort ReadUInt16(ReadOnlySpan<byte> bytes, bool littleEndian)
+    {
+        return littleEndian
+            ? BinaryPrimitives.ReadUInt16LittleEndian(bytes)
+            : BinaryPrimitives.ReadUInt16BigEndian(bytes);
+    }
+
+    private static int ReadInt32(ReadOnlySpan<byte> bytes, bool littleEndian)
+    {
+        return littleEndian
+            ? BinaryPrimitives.ReadInt32LittleEndian(bytes)
+            : BinaryPrimitives.ReadInt32BigEndian(bytes);
     }
 
     private static bool IsAscii(byte[] bytes, int offset, string value)

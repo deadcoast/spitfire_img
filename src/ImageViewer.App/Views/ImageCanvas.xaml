@@ -11,15 +11,47 @@
             FontSize="18"
             Text="Open an image to begin" />
 
-        <Image
-            x:Name="DisplayedImage"
+        <Grid
+            x:Name="ImageTransitionHost"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            Stretch="Uniform"
+            RenderTransformOrigin="0.5,0.5"
             ManipulationMode="TranslateX,TranslateY">
-            <Image.RenderTransform>
-                <CompositeTransform x:Name="ImageTransform" />
-            </Image.RenderTransform>
-        </Image>
+            <Grid.RenderTransform>
+                <CompositeTransform x:Name="TransitionTransform" />
+            </Grid.RenderTransform>
+            <Image
+                x:Name="DisplayedImage"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                RenderTransformOrigin="0.5,0.5"
+                Stretch="Uniform">
+                <Image.RenderTransform>
+                    <CompositeTransform x:Name="ImageTransform" />
+                </Image.RenderTransform>
+            </Image>
+        </Grid>
+
+        <Grid
+            x:Name="PreviousImageTransitionHost"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            IsHitTestVisible="False"
+            RenderTransformOrigin="0.5,0.5"
+            Visibility="Collapsed">
+            <Grid.RenderTransform>
+                <CompositeTransform x:Name="PreviousTransitionTransform" />
+            </Grid.RenderTransform>
+            <Image
+                x:Name="PreviousImage"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                RenderTransformOrigin="0.5,0.5"
+                Stretch="Uniform">
+                <Image.RenderTransform>
+                    <CompositeTransform x:Name="PreviousImageTransform" />
+                </Image.RenderTransform>
+            </Image>
+        </Grid>
     </Grid>
 </UserControl>

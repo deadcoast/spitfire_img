@@ -1,0 +1,108 @@
+using ImageViewer.Core.Models;
+using ImageViewer.Core.Services;
+using ImageViewer.Core.ViewModels;
+
+namespace ImageViewer.Tests.Properties;
+
+public sealed class Phase2PropertyTests
+{
+    private readonly Random _random = new(67890);
+
+    [Fact]
+    public async Task TransformDimensions_FollowRotationAndFlipRules_ForRandomSequences()
+    {
+        var service = new TransformService();
+
+        for (var iteration = 0; iteration < 150; iteration++)
+        {
+            var width = _random.Next(1, 10000);
+            var height = _random.Next(1, 10000);
+            var expectedWidth = width;
+            var expectedHeight = height;
+            var operations = RandomOperations(_random.Next(1, 20));
+
+            foreach (var operation in operations)
+            {
+                if (operation is TransformOperation.RotateLeft or TransformOperation.RotateRight)
+                {
+                    (expectedWidth, expectedHeight) = (expectedHeight, expectedWidth);
+                }
+            }
+
+            var image = new DecodedImage(@"C:\Images\property.png", new ImageMetadata(width, height, 10));
+            var result = await service.ApplyTransformAsync(image, operations);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(expectedWidth, result.Value.Metadata.PixelWidth);
+            Assert.Equal(expectedHeight, result.Value.Metadata.PixelHeight);
+        }
+    }
+
+    [Fact]
+    public void TransformUndoRedo_RestoresPendingSequence_ForRandomSequences()
+    {
+        for (var iteration = 0; iteration < 150; iteration++)
+        {
+            var state = new TransformState();
+            var operations = RandomOperations(_random.Next(1, 20));
+            foreach (var operation in operations)
+            {
+                state.ApplyTransform(operation);
+            }
+
+            var undoCount = _random.Next(0, operations.Length + 1);
+            for (var index = 0; index < undoCount; index++)
+            {
+                state.Undo();
+            }
+
+            for (var index = 0; index < undoCount; index++)
+            {
+                state.Redo();
+            }
+
+            Assert.Equal(operations, state.PendingTransforms);
+        }
+    }
+
+    [Fact]
+    public async Task MetadataExtraction_GracefullyDegrades_ForReadableFilesWithoutExif()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "spitfire-metadata-property-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var service = new MetadataService();
+            for (var iteration = 0; iteration < 120; iteration++)
+            {
+                var path = Path.Combine(tempDirectory, $"plain-{iteration}.jpg");
+                await File.WriteAllBytesAsync(path, RandomBytes(_random.Next(1, 256)));
+
+                var result = await service.ExtractExifAsync(path);
+
+                Assert.True(result.IsSuccess);
+                Assert.Equal(ExifMetadata.Empty, result.Value);
+            }
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    private TransformOperation[] RandomOperations(int count)
+    {
+        var values = Enum.GetValues<TransformOperation>();
+        return Enumerable.Range(0, count)
+            .Select(_ => values[_random.Next(values.Length)])
+            .ToArray();
+    }
+
+    private byte[] RandomBytes(int count)
+    {
+        var bytes = new byte[count];
+        _random.NextBytes(bytes);
+        return bytes;
+    }
+}

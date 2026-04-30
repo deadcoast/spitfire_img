@@ -6,8 +6,8 @@ namespace ImageViewer.Tests.Properties;
 
 public sealed class Phase1PropertyTests : IDisposable
 {
-    private static readonly string[] SupportedExtensions = [".png", ".jpg", ".jpeg", ".bmp", ".webp"];
-    private static readonly string[] DeferredExtensions = [".gif", ".tiff", ".tif", ".heic", ".avif"];
+    private static readonly string[] SupportedExtensions = [".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff", ".tif"];
+    private static readonly string[] DeferredExtensions = [".heic", ".avif"];
     private static readonly string[] UnknownExtensions = [".txt", ".raw", ".svg", ".psd", ".unknown"];
     private readonly string _tempDirectory;
     private readonly Random _random = new(12345);
@@ -199,5 +199,10 @@ public sealed class Phase1PropertyTests : IDisposable
         public bool IsSupportedFormat(string extension) => ImageFormatCatalog.IsSupportedFormat(extension);
 
         public bool IsDeferredFormat(string extension) => ImageFormatCatalog.IsDeferredFormat(extension);
+
+        public Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<int>.Success(1));
+        }
     }
 }

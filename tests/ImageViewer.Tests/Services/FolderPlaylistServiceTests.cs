@@ -34,7 +34,7 @@ public sealed class FolderPlaylistServiceTests : IDisposable
         var opened = CreateFile("b.jpg");
         CreateFile("a.png");
         CreateFile("notes.txt");
-        CreateFile("future.gif");
+        CreateFile("future.avif");
 
         var result = await _service.BuildPlaylistAsync(opened);
 
@@ -42,6 +42,78 @@ public sealed class FolderPlaylistServiceTests : IDisposable
         Assert.Equal(["a.png", "b.jpg"], result.Value.Items.Select(item => item.Filename).ToArray());
         Assert.Equal(1, result.Value.CurrentIndex);
         Assert.Equal(2, result.Value.TotalCount);
+    }
+
+    [Fact]
+    public async Task BuildPlaylistAsync_IncludesHeicWhenCodecIsAvailable()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("a.png");
+        CreateFile("phone.heic");
+        var service = new FolderPlaylistService(new StubCodecDetectionService(heicSupported: true));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a.png", "b.jpg", "phone.heic"], result.Value.Items.Select(item => item.Filename).ToArray());
+    }
+
+    [Fact]
+    public async Task BuildPlaylistAsync_ExcludesHeicWhenCodecIsUnavailable()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("a.png");
+        CreateFile("phone.heic");
+        var service = new FolderPlaylistService(new StubCodecDetectionService(heicSupported: false));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a.png", "b.jpg"], result.Value.Items.Select(item => item.Filename).ToArray());
+    }
+
+    [Fact]
+    public async Task BuildPlaylistAsync_IncludesAvifWhenCodecIsAvailable()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("a.png");
+        CreateFile("modern.avif");
+        var service = new FolderPlaylistService(new StubCodecDetectionService(avifSupported: true));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a.png", "b.jpg", "modern.avif"], result.Value.Items.Select(item => item.Filename).ToArray());
+    }
+
+    [Fact]
+    public async Task BuildPlaylistAsync_ExcludesAvifWhenCodecIsUnavailable()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("a.png");
+        CreateFile("modern.avif");
+        var service = new FolderPlaylistService(new StubCodecDetectionService(avifSupported: false));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a.png", "b.jpg"], result.Value.Items.Select(item => item.Filename).ToArray());
+    }
+
+    [Fact]
+    public async Task BuildPlaylistAsync_HandlesHeicAndAvifCodecsIndependently()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("phone.heic");
+        CreateFile("modern.avif");
+        var service = new FolderPlaylistService(new StubCodecDetectionService(
+            heicSupported: false,
+            avifSupported: true));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["b.jpg", "modern.avif"], result.Value.Items.Select(item => item.Filename).ToArray());
     }
 
     [Fact]
@@ -104,5 +176,43 @@ public sealed class FolderPlaylistServiceTests : IDisposable
         var path = Path.Combine(_tempDirectory, filename);
         File.WriteAllText(path, "test");
         return path;
+    }
+
+    private sealed class StubCodecDetectionService : ICodecDetectionService
+    {
+        private readonly bool _heicSupported;
+        private readonly bool _avifSupported;
+
+        public StubCodecDetectionService(bool heicSupported = false, bool avifSupported = false)
+        {
+            _heicSupported = heicSupported;
+            _avifSupported = avifSupported;
+        }
+
+        public Task<Result<CodecAvailability>> DetectCodecsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<CodecAvailability>.Success(
+                new CodecAvailability(_heicSupported, _avifSupported, DateTimeOffset.UtcNow)));
+        }
+
+        public Result<bool> IsHeicSupported()
+        {
+            return Result<bool>.Success(_heicSupported);
+        }
+
+        public Result<bool> IsAvifSupported()
+        {
+            return Result<bool>.Success(_avifSupported);
+        }
+
+        public Result<string> GetHeicStoreUrl()
+        {
+            return Result<string>.Success("ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG");
+        }
+
+        public Result<string> GetAvifStoreUrl()
+        {
+            return Result<string>.Success("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V");
+        }
     }
 }

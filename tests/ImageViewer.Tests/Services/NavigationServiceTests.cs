@@ -88,5 +88,10 @@ public sealed class NavigationServiceTests
         public bool IsSupportedFormat(string extension) => ImageFormatCatalog.IsSupportedFormat(extension);
 
         public bool IsDeferredFormat(string extension) => ImageFormatCatalog.IsDeferredFormat(extension);
+
+        public Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<int>.Success(1));
+        }
     }
 }
