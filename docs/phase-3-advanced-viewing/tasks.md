@@ -249,20 +249,20 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Handle independent codec detection for HEIC and AVIF
   - _Requirements: 13.2, 13.3, 13.4, 13.5, 13.8, 13.9_
 
-- [ ]* 20.1 Write property test for codec-dependent playlist inclusion
+- [x]* 20.1 Write property test for codec-dependent playlist inclusion
   - **Property 14: Codec-Dependent Playlist Inclusion**
   - **Validates: Requirements 12.9, 12.10, 13.9, 13.10**
 
-- [ ]* 20.2 Write integration tests for codec detection
+- [x]* 20.2 Write integration tests for codec detection
   - Test codec detection on systems with/without codecs
   - Verify Store URL generation
   - Test caching behavior
   - Test with mock registry access
 
-- [ ] 21. Checkpoint - Ensure codec detection tests pass
+- [x] 21. Checkpoint - Ensure codec detection tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 22. Implement grid layout mode
+- [x] 22. Implement grid layout mode
   - Create LayoutService with grid calculations
   - Create LayoutState ViewModel
   - Create GridLayout XAML component
@@ -274,7 +274,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Preserve aspect ratios for all grid images
   - _Requirements: 14.1, 14.2, 14.3, 14.6_
 
-- [ ] 23. Implement grid layout density adjustment
+- [x] 23. Implement grid layout density adjustment
   - Implement grid density increase with Ctrl+Plus
   - Implement grid density decrease with Ctrl+Minus
   - Support grid sizes from 2×2 to 6×6
@@ -287,7 +287,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - **Property 15: Grid Layout Cell Distribution**
   - **Validates: Requirements 14.2, 14.3**
 
-- [ ] 24. Implement filmstrip layout mode
+- [x] 24. Implement filmstrip layout mode
   - Create FilmstripView XAML component
   - Implement filmstrip activation with Ctrl+F (in layout context)
   - Divide canvas into focus area (75%) and thumbnail strip (25%)
@@ -296,7 +296,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Reuse ThumbnailService from Phase 2 for thumbnails
   - _Requirements: 15.1, 15.2, 15.6, 15.8_
 
-- [ ] 25. Implement filmstrip navigation and scrolling
+- [x] 25. Implement filmstrip navigation and scrolling
   - Implement thumbnail click to change focus image
   - Implement Left/Right arrow navigation in filmstrip
   - Scroll thumbnail strip to keep current image centered
@@ -305,20 +305,20 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Display current image index and total in Chrome
   - _Requirements: 15.3, 15.4, 15.5, 15.7, 15.9, 15.10_
 
-- [ ]* 25.1 Write property test for filmstrip thumbnail centering
+- [x]* 25.1 Write property test for filmstrip thumbnail centering
   - **Property 16: Filmstrip Thumbnail Centering**
   - **Validates: Requirements 15.5**
 
-- [ ]* 25.2 Write integration tests for custom layouts
+- [x]* 25.2 Write integration tests for custom layouts
   - Test grid layout with various sizes
   - Test filmstrip with real thumbnails
   - Test layout switching
   - Test memory usage with many images
 
-- [ ] 26. Checkpoint - Ensure custom layout tests pass
+- [x] 26. Checkpoint - Ensure custom layout tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 27. Implement layout persistence
+- [x] 27. Implement layout persistence
   - Add layout preferences to ViewerSettings
   - Save layout mode on layout change
   - Restore saved layout on app start
@@ -326,7 +326,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Add Ctrl+1 shortcut to return to single-image view
   - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-- [ ] 28. Implement slideshow in advanced modes
+- [x] 28. Implement slideshow in advanced modes
   - Implement slideshow in comparison mode (advance both images)
   - Implement slideshow in grid layout (advance all visible images)
   - Implement slideshow in filmstrip mode (advance focus image)
@@ -334,11 +334,11 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Continue slideshow when switching layouts
   - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5_
 
-- [ ]* 28.1 Write property test for slideshow in comparison mode
+- [x]* 28.1 Write property test for slideshow in comparison mode
   - **Property 17: Slideshow in Comparison Mode**
   - **Validates: Requirements 17.1, 17.2**
 
-- [ ] 29. Extend error handling for Phase 3
+- [x] 29. Extend error handling for Phase 3
   - Add new error categories to ViewerError enum
   - Implement SlideshowError factory method
   - Implement TransitionError factory method
@@ -354,7 +354,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Extend ErrorLogService with Phase 3 error logging
   - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7_
 
-- [ ] 30. Implement graceful degradation strategies
+- [x] 30. Implement graceful degradation strategies
   - Fall back to instant transitions if transition fails
   - Reduce image count in comparison if memory insufficient
   - Display first frame as static if GIF animation fails
@@ -363,7 +363,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Fall back to single-image view for critical layout failures
   - _Requirements: Error Handling section_
 
-- [ ] 31. Optimize performance for advanced modes
+- [x] 31. Optimize performance for advanced modes
   - Preload next image during slideshow
   - Load comparison images in parallel
   - Cache fuzzy match scores in command palette
@@ -373,7 +373,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Implement progressive loading for layouts
   - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5, 19.6, 19.7_
 
-- [ ] 32. Integrate Phase 3 features with MainViewModel
+- [x] 32. Integrate Phase 3 features with MainViewModel
   - Add slideshow commands to MainViewModel
   - Add comparison commands to MainViewModel
   - Add command palette commands to MainViewModel
@@ -383,7 +383,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Update Chrome UI with Phase 3 indicators
   - _Requirements: Integration section_
 
-- [ ] 33. Update settings persistence with Phase 3 preferences
+- [x] 33. Update settings persistence with Phase 3 preferences
   - Add SlideshowInterval to ViewerSettings
   - Add SlideshowTransition to ViewerSettings
   - Add PreferredLayout to ViewerSettings

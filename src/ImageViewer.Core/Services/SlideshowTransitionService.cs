@@ -12,15 +12,16 @@ public sealed class SlideshowTransitionService
 {
     public SlideshowTransitionSpec GetTransition(TransitionEffect effect)
     {
-        var duration = effect switch
+        var normalizedEffect = Enum.IsDefined(effect) ? effect : TransitionEffect.None;
+        var duration = normalizedEffect switch
         {
             TransitionEffect.None => TimeSpan.Zero,
             TransitionEffect.Fade => TimeSpan.FromMilliseconds(300),
             TransitionEffect.Slide => TimeSpan.FromMilliseconds(400),
             TransitionEffect.Zoom => TimeSpan.FromMilliseconds(350),
-            _ => TimeSpan.FromMilliseconds(300)
+            _ => TimeSpan.Zero
         };
 
-        return new SlideshowTransitionSpec(effect, duration, BlocksNavigation: true, TargetFrameRate: 60);
+        return new SlideshowTransitionSpec(normalizedEffect, duration, BlocksNavigation: true, TargetFrameRate: 60);
     }
 }

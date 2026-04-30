@@ -5,6 +5,9 @@ namespace ImageViewer.Core.Services;
 public sealed class CommandPaletteService : ICommandPaletteService
 {
     private readonly CommandItem[] _commands;
+    private readonly CommandSearchIndex[] _indexedCommands;
+    private readonly Dictionary<string, IReadOnlyList<CommandSearchResult>> _searchCache = new(StringComparer.Ordinal);
+    private readonly object _cacheGate = new();
 
     public CommandPaletteService()
         : this(DefaultCommands)
@@ -14,6 +17,9 @@ public sealed class CommandPaletteService : ICommandPaletteService
     public CommandPaletteService(IEnumerable<CommandItem> commands)
     {
         _commands = commands.ToArray();
+        _indexedCommands = _commands
+            .Select(command => new CommandSearchIndex(command, command.Title.ToUpperInvariant()))
+            .ToArray();
     }
 
     private static readonly CommandItem[] DefaultCommands =
@@ -32,6 +38,10 @@ public sealed class CommandPaletteService : ICommandPaletteService
         new(CommandIds.EnterComparison, "Side-by-Side Comparison", CommandCategory.Comparison, "Ctrl+D"),
         new(CommandIds.EnterOverlayComparison, "Overlay Comparison", CommandCategory.Comparison, "Ctrl+Shift+D"),
         new(CommandIds.ToggleComparisonSyncZoom, "Toggle Comparison Sync Zoom", CommandCategory.Comparison, "Ctrl+L"),
+        new(CommandIds.ComparisonTwoImages, "Compare Two Images", CommandCategory.Comparison, "Ctrl+2"),
+        new(CommandIds.ComparisonThreeImages, "Compare Three Images", CommandCategory.Comparison, "Ctrl+3"),
+        new(CommandIds.ComparisonFourImages, "Compare Four Images", CommandCategory.Comparison, "Ctrl+4"),
+        new(CommandIds.ReturnToSingleImage, "Single Image View", CommandCategory.Layout, "Ctrl+1"),
         new(CommandIds.ToggleGifPlayback, "Toggle GIF Playback", CommandCategory.Animation, "P")
     ];
 
@@ -42,14 +52,37 @@ public sealed class CommandPaletteService : ICommandPaletteService
 
     public IReadOnlyList<CommandSearchResult> SearchCommands(string query)
     {
-        if (string.IsNullOrWhiteSpace(query))
+        var normalizedQuery = NormalizeQuery(query);
+        lock (_cacheGate)
+        {
+            if (_searchCache.TryGetValue(normalizedQuery, out var cachedResults))
+            {
+                return cachedResults;
+            }
+        }
+
+        var results = SearchCommandsCore(normalizedQuery);
+        lock (_cacheGate)
+        {
+            if (_searchCache.TryGetValue(normalizedQuery, out var cachedResults))
+            {
+                return cachedResults;
+            }
+
+            _searchCache[normalizedQuery] = results;
+            return results;
+        }
+    }
+
+    private IReadOnlyList<CommandSearchResult> SearchCommandsCore(string normalizedQuery)
+    {
+        if (normalizedQuery.Length == 0)
         {
             return _commands
                 .Select((command, index) => new CommandSearchResult(command, [], 1000 - index))
                 .ToArray();
         }
 
-        var normalizedQuery = query.Trim();
         if (Enum.TryParse<CommandCategory>(normalizedQuery, ignoreCase: true, out var category))
         {
             return _commands
@@ -58,7 +91,7 @@ public sealed class CommandPaletteService : ICommandPaletteService
                 .ToArray();
         }
 
-        return _commands
+        return _indexedCommands
             .Select(command => TryMatch(command, normalizedQuery))
             .Where(result => result is not null)
             .Select(result => result!)
@@ -67,15 +100,14 @@ public sealed class CommandPaletteService : ICommandPaletteService
             .ToArray();
     }
 
-    private static CommandSearchResult? TryMatch(CommandItem command, string query)
+    private static CommandSearchResult? TryMatch(CommandSearchIndex command, string normalizedQuery)
     {
-        var matchIndexes = new List<int>(query.Length);
-        var title = command.Title;
+        var matchIndexes = new List<int>(normalizedQuery.Length);
         var searchStart = 0;
 
-        foreach (var queryCharacter in query)
+        foreach (var queryCharacter in normalizedQuery)
         {
-            var matchIndex = IndexOf(title, queryCharacter, searchStart);
+            var matchIndex = command.NormalizedTitle.IndexOf(queryCharacter, searchStart);
             if (matchIndex < 0)
             {
                 return null;
@@ -85,20 +117,10 @@ public sealed class CommandPaletteService : ICommandPaletteService
             searchStart = matchIndex + 1;
         }
 
-        return new CommandSearchResult(command, matchIndexes, CalculateScore(command, query, matchIndexes));
-    }
-
-    private static int IndexOf(string text, char queryCharacter, int startIndex)
-    {
-        for (var index = startIndex; index < text.Length; index++)
-        {
-            if (char.ToUpperInvariant(text[index]) == char.ToUpperInvariant(queryCharacter))
-            {
-                return index;
-            }
-        }
-
-        return -1;
+        return new CommandSearchResult(
+            command.Command,
+            matchIndexes,
+            CalculateScore(command.Command, normalizedQuery, matchIndexes));
     }
 
     private static int CalculateScore(CommandItem command, string query, IReadOnlyList<int> matchIndexes)
@@ -113,4 +135,13 @@ public sealed class CommandPaletteService : ICommandPaletteService
         var prefixBonus = matchIndexes[0] == 0 ? 25 : 0;
         return 1000 + compactBonus + boundaryBonus + prefixBonus - matchIndexes[0];
     }
+
+    private static string NormalizeQuery(string query)
+    {
+        return string.IsNullOrWhiteSpace(query)
+            ? string.Empty
+            : query.Trim().ToUpperInvariant();
+    }
+
+    private sealed record CommandSearchIndex(CommandItem Command, string NormalizedTitle);
 }

@@ -20,6 +20,20 @@ public sealed class CommandPaletteServiceTests
     }
 
     [Fact]
+    public void GetRegisteredCommands_IncludesExecutablePhaseThreeIntegrationCommands()
+    {
+        var service = new CommandPaletteService();
+
+        var commandIds = service.GetRegisteredCommands().Select(command => command.Id).ToArray();
+
+        Assert.Contains(CommandIds.ReturnToSingleImage, commandIds);
+        Assert.Contains(CommandIds.ComparisonTwoImages, commandIds);
+        Assert.Contains(CommandIds.ComparisonThreeImages, commandIds);
+        Assert.Contains(CommandIds.ComparisonFourImages, commandIds);
+        Assert.Contains(CommandIds.ToggleGifPlayback, commandIds);
+    }
+
+    [Fact]
     public void SearchCommands_MatchesCharactersInOrderAndHighlightsMatchedIndexes()
     {
         var service = new CommandPaletteService();
@@ -92,5 +106,16 @@ public sealed class CommandPaletteServiceTests
 
         Assert.NotEmpty(results);
         Assert.All(results, result => Assert.Equal(CommandCategory.Comparison, result.Command.Category));
+    }
+
+    [Fact]
+    public void SearchCommands_ReusesCachedResultsForRepeatedNormalizedQuery()
+    {
+        var service = new CommandPaletteService();
+
+        var first = service.SearchCommands(" rot ");
+        var second = service.SearchCommands("rot");
+
+        Assert.Same(first, second);
     }
 }

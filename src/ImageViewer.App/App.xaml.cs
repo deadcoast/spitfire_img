@@ -88,6 +88,8 @@ public partial class App : Application
         services.AddSingleton<ISlideshowService, SlideshowService>();
         services.AddSingleton<IComparisonService>(provider =>
             new ComparisonService(provider.GetRequiredService<IImageDecodeService>()));
+        services.AddSingleton<ILayoutService>(provider =>
+            new LayoutService(provider.GetRequiredService<IImageDecodeService>()));
         services.AddSingleton<ICommandPaletteService, CommandPaletteService>();
         services.AddSingleton<IAnimationService, WindowsAnimationService>();
         services.AddSingleton<WindowsImageProcessingService>();

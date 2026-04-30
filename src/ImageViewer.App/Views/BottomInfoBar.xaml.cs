@@ -23,8 +23,10 @@ public sealed partial class BottomInfoBar : UserControl
         viewModel.SlideshowState.PropertyChanged += OnStateChanged;
         viewModel.ComparisonState.PropertyChanged += OnStateChanged;
         viewModel.AnimationState.PropertyChanged += OnStateChanged;
+        viewModel.LayoutState.PropertyChanged += OnStateChanged;
         viewModel.ComparisonState.VisibleImages.CollectionChanged += OnVisibleImagesChanged;
         viewModel.ComparisonState.Viewports.CollectionChanged += OnVisibleImagesChanged;
+        viewModel.LayoutState.VisibleImages.CollectionChanged += OnVisibleImagesChanged;
         Update();
     }
 
@@ -61,6 +63,11 @@ public sealed partial class BottomInfoBar : UserControl
             : Visibility.Collapsed;
         AnimationText.Text = _viewModel.AnimationState.FramePositionText;
         AnimationText.Visibility = _viewModel.AnimationState.IsAnimationActive
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        LayoutText.Text = _viewModel.LayoutState.PositionText;
+        LayoutText.Visibility = _viewModel.LayoutState.IsActive &&
+                                !string.IsNullOrWhiteSpace(_viewModel.LayoutState.PositionText)
             ? Visibility.Visible
             : Visibility.Collapsed;
         FolderText.Text = string.IsNullOrWhiteSpace(_viewModel.PlaylistState.FolderPath)

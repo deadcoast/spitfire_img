@@ -14,10 +14,16 @@ public enum ErrorCategory
     TransformError,
     TransformSaveError,
     MetadataExtractionError,
+    SlideshowError,
+    TransitionError,
     ComparisonError,
+    SyncError,
+    CommandPaletteError,
+    ExecutionError,
     AnimationError,
     CodecDetectionError,
-    CodecUnavailableError
+    CodecUnavailableError,
+    LayoutError
 }
 
 public enum ErrorSeverity
@@ -130,9 +136,44 @@ public sealed record ViewerError(
         return Create(ErrorCategory.MetadataExtractionError, operation, filePath, exception);
     }
 
+    public static ViewerError SlideshowError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.SlideshowError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError SlideshowError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.SlideshowError, operation, filePath, exception);
+    }
+
+    public static ViewerError TransitionError(TransitionEffect effect, Exception? exception = null)
+    {
+        return Create(ErrorCategory.TransitionError, $"Transition:{effect}", filePath: null, exception);
+    }
+
     public static ViewerError ComparisonError(string operation, string? filePath, Exception? exception = null)
     {
         return Create(ErrorCategory.ComparisonError, operation, filePath, exception);
+    }
+
+    public static ViewerError ComparisonError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.ComparisonError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError SyncError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.SyncError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError CommandPaletteError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.CommandPaletteError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError ExecutionError(string commandId, Exception? exception = null)
+    {
+        return Create(ErrorCategory.ExecutionError, $"Command:{commandId}", filePath: null, exception);
     }
 
     public static ViewerError AnimationError(string operation, string? filePath, Exception? exception = null)
@@ -140,13 +181,36 @@ public sealed record ViewerError(
         return Create(ErrorCategory.AnimationError, operation, filePath, exception);
     }
 
+    public static ViewerError AnimationError(string filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.AnimationError, "LoadAnimation", filePath, exception);
+    }
+
     public static ViewerError CodecDetectionError(string operation, string? filePath, Exception? exception = null)
     {
         return Create(ErrorCategory.CodecDetectionError, operation, filePath, exception);
     }
 
+    public static ViewerError CodecDetectionError(Exception? exception = null)
+    {
+        return Create(ErrorCategory.CodecDetectionError, "DetectCodecs", filePath: null, exception);
+    }
+
     public static ViewerError CodecUnavailableError(string operation, string? filePath, Exception? exception = null)
     {
+        if (IsFormatCodecPair(operation, filePath))
+        {
+            return new ViewerError(
+                DateTimeOffset.UtcNow,
+                ErrorSeverity.Error,
+                ErrorCategory.CodecUnavailableError,
+                $"{operation} format requires the {filePath} from the Microsoft Store. Would you like to open the Store page?",
+                $"CodecUnavailable:{operation}",
+                null,
+                exception?.GetType().Name,
+                exception?.StackTrace);
+        }
+
         return new ViewerError(
             DateTimeOffset.UtcNow,
             ErrorSeverity.Error,
@@ -158,11 +222,22 @@ public sealed record ViewerError(
             exception?.StackTrace);
     }
 
+    public static ViewerError LayoutError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.LayoutError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError LayoutError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.LayoutError, operation, filePath, exception);
+    }
+
     private static ErrorSeverity GetSeverity(ErrorCategory category)
     {
         return category is ErrorCategory.PlaylistScanError
             or ErrorCategory.SettingsPersistenceError
             or ErrorCategory.ThumbnailGenerationError
+            or ErrorCategory.SyncError
             or ErrorCategory.AnimationError
             or ErrorCategory.CodecDetectionError
             ? ErrorSeverity.Warning
@@ -185,10 +260,16 @@ public sealed record ViewerError(
             ErrorCategory.TransformError => "Unable to apply the requested image change.",
             ErrorCategory.TransformSaveError => "Unable to save changes to this image.",
             ErrorCategory.MetadataExtractionError => "Unable to read detailed metadata for this image.",
-            ErrorCategory.ComparisonError => "Comparison mode requires at least two images",
-            ErrorCategory.AnimationError => "Unable to load animated GIF frames. Displaying the first frame.",
+            ErrorCategory.SlideshowError => "Unable to start slideshow mode.",
+            ErrorCategory.TransitionError => "Unable to apply transition effect.",
+            ErrorCategory.ComparisonError => "Unable to load images for comparison.",
+            ErrorCategory.SyncError => "Unable to synchronize zoom and pan.",
+            ErrorCategory.CommandPaletteError => "Unable to load command palette.",
+            ErrorCategory.ExecutionError => "Unable to execute command.",
+            ErrorCategory.AnimationError => "Unable to load animated GIF.",
             ErrorCategory.CodecDetectionError => "Unable to detect codec availability.",
             ErrorCategory.CodecUnavailableError => "This format requires an additional Windows codec from the Microsoft Store.",
+            ErrorCategory.LayoutError => "Unable to load custom layout.",
             _ => "An unexpected error occurred. The application will attempt to continue."
         };
     }
@@ -201,5 +282,12 @@ public sealed record ViewerError(
             ".avif" => "AVIF format requires the AV1 Video Extension from the Microsoft Store. Would you like to open the Store page?",
             _ => "This format requires an additional Windows codec from the Microsoft Store."
         };
+    }
+
+    private static bool IsFormatCodecPair(string format, string? codecName)
+    {
+        return !string.IsNullOrWhiteSpace(codecName)
+            && !Path.IsPathFullyQualified(codecName)
+            && format is "HEIC" or "HEIF" or "AVIF";
     }
 }

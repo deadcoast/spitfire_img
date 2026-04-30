@@ -1,0 +1,73 @@
+<UserControl
+    x:Class="ImageViewer.App.Views.FilmstripView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Visibility="Collapsed">
+    <Grid
+        x:Name="FilmstripRoot"
+        Padding="24"
+        Background="{ThemeResource CanvasBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="3*" />
+            <RowDefinition Height="1*" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            Grid.Row="0"
+            x:Name="FocusRoot"
+            Margin="0,0,0,16"
+            Background="{ThemeResource CanvasBackgroundBrush}">
+            <Image
+                x:Name="FocusImage"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Stretch="Uniform" />
+        </Grid>
+
+        <Border
+            Grid.Row="1"
+            Padding="10"
+            Style="{StaticResource ChromePanelBorderStyle}">
+            <ListView
+                x:Name="ThumbnailItems"
+                IsItemClickEnabled="True"
+                ItemClick="OnThumbnailClicked"
+                SelectionMode="None"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ScrollViewer.HorizontalScrollMode="Disabled"
+                ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                ScrollViewer.VerticalScrollMode="Disabled">
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsStackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Border
+                            Width="118"
+                            Margin="0,0,8,0"
+                            Padding="5"
+                            BorderBrush="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            BorderThickness="{Binding BorderThickness}">
+                            <Grid
+                                Width="106"
+                                Height="96"
+                                Background="{ThemeResource SubtlePanelBackgroundBrush}">
+                                <Image
+                                    Source="{Binding ImageSource}"
+                                    Stretch="Uniform" />
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Text="{Binding PlaceholderText}"
+                                    Foreground="{ThemeResource MutedTextBrush}"
+                                    FontSize="11" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Border>
+    </Grid>
+</UserControl>

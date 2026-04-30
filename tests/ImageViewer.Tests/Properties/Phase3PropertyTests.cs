@@ -132,6 +132,49 @@ public sealed class Phase3PropertyTests
     }
 
     [Fact]
+    public async Task SlideshowInComparisonMode_AdvancesAllComparedImages_ForRandomPlaylists()
+    {
+        var comparisonService = new ComparisonService(new PathImageDecodeService());
+
+        for (var iteration = 0; iteration < 120; iteration++)
+        {
+            var count = _random.Next(2, 40);
+            var currentIndex = _random.Next(0, count);
+            var imageCount = _random.Next(2, Math.Min(4, count) + 1);
+            var playlist = CreatePlaylist(count, currentIndex);
+            var timer = new RecordingSlideshowTimer();
+            var slideshowService = new SlideshowService(timer);
+            SlideshowAdvanceRequestedEventArgs? advance = null;
+            slideshowService.AdvanceRequested += (_, args) => advance = args;
+
+            var comparison = await comparisonService.EnterComparisonAsync(
+                playlist,
+                ComparisonLayout.SideBySide,
+                imageCount);
+            slideshowService.StartSlideshow(playlist, currentIndex, SlideshowConfig.Default);
+            await timer.WaitUntilWaitingAsync();
+            timer.CompleteWait();
+            await timer.WaitUntilWaitingAsync(expectedWaitCount: 2);
+            slideshowService.StopSlideshow();
+
+            Assert.True(comparison.IsSuccess);
+            Assert.NotNull(advance);
+            var shifted = await comparisonService.ShiftComparisonAsync(
+                playlist,
+                comparison.Value.Images.Select(image => image.PlaylistIndex).ToArray(),
+                advance.NextIndex - comparison.Value.Images[0].PlaylistIndex,
+                ComparisonLayout.SideBySide);
+
+            Assert.True(shifted.IsSuccess);
+            Assert.Equal(
+                Enumerable.Range(0, imageCount)
+                    .Select(index => Mod(advance.NextIndex + index, count))
+                    .ToArray(),
+                shifted.Value.Images.Select(image => image.PlaylistIndex).ToArray());
+        }
+    }
+
+    [Fact]
     public void SideBySideAspectRatioPreservation_FitsImagesInsideLayoutRegions_ForRandomDimensions()
     {
         var service = new ComparisonService(new PathImageDecodeService());
@@ -301,6 +344,120 @@ public sealed class Phase3PropertyTests
         }
     }
 
+    [Fact]
+    public async Task CodecDependentPlaylistInclusion_IncludesOnlyFormatsWithAvailableCodecs_ForRandomFolders()
+    {
+        var supportedExtensions = new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff", ".tif" };
+        var heicExtensions = new[] { ".heic", ".heif", ".HEIC", ".HEIF" };
+        var avifExtensions = new[] { ".avif", ".AVIF" };
+        var unsupportedExtensions = new[] { ".txt", ".zip", ".raw", ".png.backup" };
+
+        for (var iteration = 0; iteration < 120; iteration++)
+        {
+            var folder = Path.Combine(
+                Path.GetTempPath(),
+                "spitfire-codec-playlist-property",
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+
+            try
+            {
+                var heicSupported = _random.Next(2) == 0;
+                var avifSupported = _random.Next(2) == 0;
+                var expectedFilenames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var opened = CreateFile(folder, "opened.jpg");
+                expectedFilenames.Add(Path.GetFileName(opened));
+
+                AddRandomFiles(
+                    folder,
+                    "supported",
+                    supportedExtensions,
+                    _random.Next(0, 9),
+                    expectedFilenames);
+                AddRandomFiles(
+                    folder,
+                    "heic",
+                    heicExtensions,
+                    _random.Next(0, 9),
+                    heicSupported ? expectedFilenames : null);
+                AddRandomFiles(
+                    folder,
+                    "avif",
+                    avifExtensions,
+                    _random.Next(0, 9),
+                    avifSupported ? expectedFilenames : null);
+                AddRandomFiles(
+                    folder,
+                    "unsupported",
+                    unsupportedExtensions,
+                    _random.Next(0, 9),
+                    expectedFilenames: null);
+
+                var service = new FolderPlaylistService(
+                    new StubCodecDetectionService(heicSupported, avifSupported));
+
+                var result = await service.BuildPlaylistAsync(opened);
+
+                Assert.True(result.IsSuccess);
+                Assert.Equal(expectedFilenames.Count, result.Value.TotalCount);
+                Assert.Equal(
+                    expectedFilenames.Order(StringComparer.OrdinalIgnoreCase),
+                    result.Value.Items.Select(item => item.Filename).Order(StringComparer.OrdinalIgnoreCase));
+                Assert.All(result.Value.Items, item =>
+                {
+                    Assert.True(
+                        ImageFormatCatalog.IsSupportedFormat(item.Extension)
+                        || (IsHeicExtension(item.Extension) && heicSupported)
+                        || (IsAvifExtension(item.Extension) && avifSupported));
+                });
+            }
+            finally
+            {
+                if (Directory.Exists(folder))
+                {
+                    Directory.Delete(folder, recursive: true);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task FilmstripThumbnailCentering_CentersFocusImageWhenRoomAllows_ForRandomPlaylists()
+    {
+        var service = new LayoutService(new PathImageDecodeService());
+
+        for (var iteration = 0; iteration < 120; iteration++)
+        {
+            var count = _random.Next(1, 80);
+            var focusIndex = _random.Next(0, count);
+            var playlist = CreatePlaylist(count, currentIndex: _random.Next(0, count));
+            var visibleCount = Math.Min(LayoutConfig.FilmstripThumbnailCount, count);
+            var expectedStart = Math.Clamp(
+                focusIndex - visibleCount / 2,
+                0,
+                Math.Max(0, count - visibleCount));
+
+            var result = await service.EnterFilmstripAsync(playlist, focusIndex);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(LayoutMode.Filmstrip, result.Value.Mode);
+            Assert.Equal(visibleCount, result.Value.VisibleImages.Count);
+            Assert.Equal(expectedStart, result.Value.WindowStartIndex);
+            Assert.Equal(focusIndex - expectedStart, result.Value.ActiveImageIndex);
+            Assert.Equal(focusIndex, result.Value.FocusImage?.PlaylistIndex);
+            Assert.Equal(
+                Enumerable.Range(expectedStart, visibleCount),
+                result.Value.VisibleImages.Select(image => image.PlaylistIndex));
+
+            var hasRoomBefore = expectedStart > 0;
+            var hasRoomAfter = expectedStart + visibleCount < count;
+            if (hasRoomBefore && hasRoomAfter)
+            {
+                Assert.Equal(visibleCount / 2, result.Value.ActiveImageIndex);
+            }
+        }
+    }
+
     private static Playlist CreatePlaylist(int count, int currentIndex)
     {
         var items = Enumerable.Range(0, count)
@@ -359,6 +516,39 @@ public sealed class Phase3PropertyTests
             frames);
     }
 
+    private void AddRandomFiles(
+        string folder,
+        string prefix,
+        IReadOnlyList<string> extensions,
+        int count,
+        HashSet<string>? expectedFilenames)
+    {
+        for (var index = 0; index < count; index++)
+        {
+            var extension = extensions[_random.Next(extensions.Count)];
+            var filePath = CreateFile(folder, $"{prefix}-{index:000}{extension}");
+            expectedFilenames?.Add(Path.GetFileName(filePath));
+        }
+    }
+
+    private static string CreateFile(string folder, string filename)
+    {
+        var path = Path.Combine(folder, filename);
+        File.WriteAllText(path, "test");
+        return path;
+    }
+
+    private static bool IsHeicExtension(string extension)
+    {
+        return extension.Equals(".heic", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".heif", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAvifExtension(string extension)
+    {
+        return extension.Equals(".avif", StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class PathImageDecodeService : IImageDecodeService
     {
         public Task<Result<DecodedImage>> DecodeImageAsync(string filePath, CancellationToken cancellationToken = default)
@@ -374,6 +564,44 @@ public sealed class Phase3PropertyTests
         public Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(Result<int>.Success(1));
+        }
+    }
+
+    private sealed class StubCodecDetectionService : ICodecDetectionService
+    {
+        private readonly bool _heicSupported;
+        private readonly bool _avifSupported;
+
+        public StubCodecDetectionService(bool heicSupported, bool avifSupported)
+        {
+            _heicSupported = heicSupported;
+            _avifSupported = avifSupported;
+        }
+
+        public Task<Result<CodecAvailability>> DetectCodecsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<CodecAvailability>.Success(
+                new CodecAvailability(_heicSupported, _avifSupported, DateTimeOffset.UtcNow)));
+        }
+
+        public Result<bool> IsHeicSupported()
+        {
+            return Result<bool>.Success(_heicSupported);
+        }
+
+        public Result<bool> IsAvifSupported()
+        {
+            return Result<bool>.Success(_avifSupported);
+        }
+
+        public Result<string> GetHeicStoreUrl()
+        {
+            return Result<string>.Success("ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG");
+        }
+
+        public Result<string> GetAvifStoreUrl()
+        {
+            return Result<string>.Success("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V");
         }
     }
 

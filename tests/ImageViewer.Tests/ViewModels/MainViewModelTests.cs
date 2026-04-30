@@ -51,6 +51,52 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task OpenFileAsync_AnimatedGif_WithGifAutoPlayDisabled_LoadsAnimationPaused()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(320, 240, 100));
+        var playlist = new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos");
+        var animation = new AnimatedGif(
+            image.FilePath,
+            image.Metadata,
+            [
+                new AnimationFrame(0, TimeSpan.FromMilliseconds(40), [0x01], 320, 240),
+                new AnimationFrame(1, TimeSpan.FromMilliseconds(80), [0x02], 320, 240)
+            ]);
+        var services = TestServices.Success(
+            image,
+            playlist,
+            new RecordingAnimationService(Result<AnimatedGif>.Success(animation)),
+            ViewerSettings.Default with { GifAutoPlay = false });
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        Assert.True(viewModel.AnimationState.IsAnimationActive);
+        Assert.False(viewModel.AnimationState.IsPlaying);
+    }
+
+    [Fact]
+    public async Task OpenFileAsync_AnimatedGifAnimationFailure_KeepsStaticImageDisplayed()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(320, 240, 100));
+        var playlist = new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos");
+        var error = ViewerError.AnimationError("LoadAnimatedGif", image.FilePath);
+        var services = TestServices.Success(
+            image,
+            playlist,
+            new RecordingAnimationService(Result<AnimatedGif>.Failure(error)));
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        Assert.Equal(image, viewModel.ViewerState.CurrentImage);
+        Assert.False(viewModel.AnimationState.IsAnimationActive);
+        Assert.Equal(error.UserMessage, viewModel.ErrorMessage);
+        Assert.Equal(error, services.ErrorLogService.LoggedErrors.Single());
+    }
+
+    [Fact]
     public async Task ToggleAnimationPlayback_WhenAnimatedGifIsActive_TogglesAnimationState()
     {
         var viewModel = await CreateAnimatedGifViewModelAsync();
@@ -62,6 +108,31 @@ public sealed class MainViewModelTests
         viewModel.ToggleAnimationPlayback();
 
         Assert.True(viewModel.AnimationState.IsPlaying);
+    }
+
+    [Fact]
+    public async Task ToggleAnimationPlayback_WhenAnimatedGifIsActive_PersistsGifAutoPlayPreference()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(320, 240, 100));
+        var playlist = new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos");
+        var animation = new AnimatedGif(
+            image.FilePath,
+            image.Metadata,
+            [
+                new AnimationFrame(0, TimeSpan.FromMilliseconds(40), [0x01], 320, 240),
+                new AnimationFrame(1, TimeSpan.FromMilliseconds(80), [0x02], 320, 240)
+            ]);
+        var services = TestServices.Success(
+            image,
+            playlist,
+            new RecordingAnimationService(Result<AnimatedGif>.Success(animation)));
+        var viewModel = services.CreateViewModel();
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        viewModel.ToggleAnimationPlayback();
+
+        Assert.False(viewModel.Settings.GifAutoPlay);
+        Assert.False(services.SettingsService.SavedSettings.Last().GifAutoPlay);
     }
 
     [Fact]
@@ -203,6 +274,23 @@ public sealed class MainViewModelTests
         Assert.Equal(1, slideshowService.StopCount);
         Assert.False(viewModel.SlideshowState.IsActive);
         Assert.True(viewModel.IsChromeVisible);
+    }
+
+    [Fact]
+    public async Task ToggleSlideshow_PreloadsNextImageDuringCurrentDisplay()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var decoder = new RecordingDecodeService();
+        var services = TestServices.WithPlaylistDecoder(playlist, decoder);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        viewModel.ToggleSlideshow();
+        await decoder.WaitForDecodedPathAsync(@"C:\Photos\b.png");
+
+        Assert.Contains(@"C:\Photos\b.png", decoder.DecodedPaths);
+        Assert.Equal(0, viewModel.PlaylistState.CurrentIndex);
+        Assert.Null(viewModel.ViewerState.CurrentImage);
     }
 
     [Fact]
@@ -372,6 +460,108 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task SlideshowAdvance_InComparisonMode_AdvancesAllComparedImages()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithPlaylist(
+            playlist,
+            slideshowService: slideshowService,
+            settings: ViewerSettings.Default with { SlideshowTransition = TransitionEffect.None });
+        var viewModel = services.CreateViewModel();
+        await viewModel.InitializeAsync();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide, imageCount: 3);
+        viewModel.ToggleSlideshow();
+
+        slideshowService.RaiseAdvanceRequested(1, playlist.Items[1]);
+        await WaitUntilAsync(() => viewModel.ComparisonState.VisibleImages.First().PlaylistIndex == 1);
+
+        Assert.True(viewModel.SlideshowState.IsActive);
+        Assert.Equal([1, 2, 3], viewModel.ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray());
+        Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(1, viewModel.SlideshowState.CurrentImageIndex);
+        Assert.Equal(TimeSpan.FromSeconds(3), slideshowService.StartedConfig?.Interval);
+        Assert.Equal(TransitionEffect.None, slideshowService.StartedConfig?.Transition);
+    }
+
+    [Fact]
+    public async Task SlideshowAdvance_InGridLayout_AdvancesVisibleGridWindow()
+    {
+        var playlist = CreatePlaylist(12);
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithPlaylist(
+            playlist,
+            slideshowService: slideshowService,
+            settings: ViewerSettings.Default with { SlideshowTransition = TransitionEffect.None });
+        var viewModel = services.CreateViewModel();
+        await viewModel.InitializeAsync();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync();
+        viewModel.ToggleSlideshow();
+
+        slideshowService.RaiseAdvanceRequested(1, playlist.Items[1]);
+        await WaitUntilAsync(() => viewModel.LayoutState.WindowStartIndex == 1);
+
+        Assert.True(viewModel.SlideshowState.IsActive);
+        Assert.Equal(LayoutMode.Grid, viewModel.LayoutState.Mode);
+        Assert.Equal(
+            Enumerable.Range(1, 9),
+            viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex));
+        Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(1, viewModel.SlideshowState.CurrentImageIndex);
+    }
+
+    [Fact]
+    public async Task SlideshowAdvance_InFilmstripLayout_AdvancesFocusImage()
+    {
+        var playlist = CreatePlaylist(12) with { CurrentIndex = 5 };
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithPlaylist(
+            playlist,
+            slideshowService: slideshowService,
+            settings: ViewerSettings.Default with { SlideshowTransition = TransitionEffect.None });
+        var viewModel = services.CreateViewModel();
+        await viewModel.InitializeAsync();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterFilmstripLayoutAsync();
+        viewModel.ToggleSlideshow();
+
+        slideshowService.RaiseAdvanceRequested(6, playlist.Items[6]);
+        await WaitUntilAsync(() => viewModel.LayoutState.FocusImage?.PlaylistIndex == 6);
+
+        Assert.True(viewModel.SlideshowState.IsActive);
+        Assert.Equal(LayoutMode.Filmstrip, viewModel.LayoutState.Mode);
+        Assert.Equal(6, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(6, viewModel.SlideshowState.CurrentImageIndex);
+        Assert.Equal(@"C:\Photos\006.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
+    public async Task SlideshowAdvance_AfterExitingLayout_ContinuesInSingleImageView()
+    {
+        var playlist = CreatePlaylist(4);
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithPlaylist(
+            playlist,
+            slideshowService: slideshowService,
+            settings: ViewerSettings.Default with { SlideshowTransition = TransitionEffect.None });
+        var viewModel = services.CreateViewModel();
+        await viewModel.InitializeAsync();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync();
+        viewModel.ToggleSlideshow();
+        await viewModel.ReturnToSingleImageViewAsync();
+
+        slideshowService.RaiseAdvanceRequested(1, playlist.Items[1]);
+        await WaitUntilAsync(() => viewModel.PlaylistState.CurrentIndex == 1);
+
+        Assert.True(viewModel.SlideshowState.IsActive);
+        Assert.False(viewModel.LayoutState.IsActive);
+        Assert.Equal(@"C:\Photos\001.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
     public async Task EnterComparisonAsync_WithTwoImages_DisplaysCurrentAndNextImages()
     {
         var playlist = CreateThreeItemPlaylist();
@@ -387,6 +577,23 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task EnterComparisonAsync_WithSavedSyncZoomDisabled_RestoresSyncPreference()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(
+            playlist,
+            settings: ViewerSettings.Default with { ComparisonSyncZoom = false });
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.InitializeAsync();
+
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+
+        Assert.True(viewModel.ComparisonState.IsActive);
+        Assert.False(viewModel.ComparisonState.IsSyncZoomEnabled);
+    }
+
+    [Fact]
     public async Task EnterComparisonAsync_WithSingleImage_ShowsComparisonError()
     {
         var playlist = new Playlist([new ImageItem(@"C:\Photos\a.png")], 0, @"C:\Photos");
@@ -397,7 +604,7 @@ public sealed class MainViewModelTests
         await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
 
         Assert.False(viewModel.ComparisonState.IsActive);
-        Assert.Equal("Comparison mode requires at least two images", viewModel.ErrorMessage);
+        Assert.Equal("Unable to load images for comparison.", viewModel.ErrorMessage);
         Assert.Equal(ErrorCategory.ComparisonError, services.ErrorLogService.LoggedErrors.Single().Category);
     }
 
@@ -544,6 +751,302 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task ToggleComparisonSyncZoom_PersistsSyncZoomPreference()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+
+        viewModel.ToggleComparisonSyncZoom();
+
+        Assert.False(viewModel.Settings.ComparisonSyncZoom);
+        Assert.False(services.SettingsService.SavedSettings.Last().ComparisonSyncZoom);
+    }
+
+    [Fact]
+    public async Task EnterGridLayoutAsync_DefaultGrid_DisplaysNineImagesFromCurrentPlaylist()
+    {
+        var playlist = CreateTenItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterGridLayoutAsync();
+
+        Assert.True(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.Grid, viewModel.LayoutState.Mode);
+        Assert.Equal(3, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(3, viewModel.LayoutState.Config.Columns);
+        Assert.Equal(
+            Enumerable.Range(0, 9),
+            viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex));
+        Assert.Equal(0, viewModel.PlaylistState.CurrentIndex);
+        Assert.True(viewModel.IsChromeVisible);
+    }
+
+    [Fact]
+    public async Task ExecuteSelectedCommandAsync_GridLayoutCommand_ActivatesGridLayout()
+    {
+        var playlist = CreateTenItemPlaylist();
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.GridLayout);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+
+        Assert.True(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.Grid, viewModel.LayoutState.Mode);
+        Assert.False(viewModel.CommandPaletteState.IsOpen);
+    }
+
+    [Fact]
+    public async Task GridDensityCommands_AdjustGridBetweenTwoByTwoAndSixBySix()
+    {
+        var playlist = CreatePlaylist(40);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync();
+
+        await viewModel.IncreaseGridDensityAsync();
+        Assert.Equal(4, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(4, viewModel.LayoutState.Config.Columns);
+        Assert.Equal(16, viewModel.LayoutState.VisibleImages.Count);
+
+        await viewModel.DecreaseGridDensityAsync();
+        await viewModel.DecreaseGridDensityAsync();
+        Assert.Equal(2, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(2, viewModel.LayoutState.Config.Columns);
+        Assert.Equal(4, viewModel.LayoutState.VisibleImages.Count);
+    }
+
+    [Fact]
+    public async Task IncreaseGridDensityAsync_CriticalLayoutFailure_FallsBackToSingleImageView()
+    {
+        var playlist = CreatePlaylist(12);
+        var layoutService = new FailsAfterFirstGridLayoutService(new LayoutService(new PathImageDecodeService()));
+        var services = TestServices.WithPlaylist(playlist, layoutService: layoutService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        viewModel.ViewerState.SetImage(new DecodedImage(@"C:\Photos\000.png", new ImageMetadata(100, 100, 10)));
+        await viewModel.EnterGridLayoutAsync();
+
+        await viewModel.IncreaseGridDensityAsync();
+
+        Assert.False(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.SingleImage, viewModel.LayoutState.Mode);
+        Assert.Equal(@"C:\Photos\000.png", viewModel.ViewerState.CurrentImage?.FilePath);
+        Assert.Equal(ErrorCategory.LayoutError, services.ErrorLogService.LoggedErrors.Single().Category);
+    }
+
+    [Fact]
+    public async Task EnterGridLayoutAsync_SavesGridLayoutPreference()
+    {
+        var playlist = CreatePlaylist(20);
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterGridLayoutAsync();
+        await viewModel.IncreaseGridDensityAsync();
+
+        var saved = services.SettingsService.SavedSettings.Last();
+        Assert.Equal(LayoutMode.Grid, saved.PreferredLayout);
+        Assert.Equal(4, saved.GridRows);
+        Assert.Equal(4, saved.GridColumns);
+    }
+
+    [Fact]
+    public async Task OpenFileAsync_WithSavedGridLayout_RestoresPreferredGrid()
+    {
+        var playlist = CreatePlaylist(20) with { CurrentIndex = 5 };
+        var settings = ViewerSettings.Default with
+        {
+            PreferredLayout = LayoutMode.Grid,
+            GridRows = 4,
+            GridColumns = 4
+        };
+        var services = TestServices.WithPlaylist(playlist, settings: settings);
+        var viewModel = services.CreateViewModel();
+        await viewModel.InitializeAsync();
+
+        await viewModel.OpenFileAsync(@"C:\Photos\005.png");
+
+        Assert.True(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.Grid, viewModel.LayoutState.Mode);
+        Assert.Equal(4, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(4, viewModel.LayoutState.Config.Columns);
+        Assert.Equal(5, viewModel.LayoutState.WindowStartIndex);
+    }
+
+    [Fact]
+    public async Task ScrollGridLayoutAsync_LoadsNextAndPreviousRowsOfImages()
+    {
+        var playlist = CreatePlaylist(15);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync();
+
+        await viewModel.ScrollGridLayoutAsync(1);
+        Assert.Equal(3, viewModel.LayoutState.WindowStartIndex);
+        Assert.Equal(
+            Enumerable.Range(3, 9),
+            viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex));
+
+        await viewModel.ScrollGridLayoutAsync(-1);
+        Assert.Equal(0, viewModel.LayoutState.WindowStartIndex);
+        Assert.Equal(
+            Enumerable.Range(0, 9),
+            viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex));
+    }
+
+    [Fact]
+    public async Task OpenSelectedGridImageAsync_ExitsGridAndDisplaysSelectedImage()
+    {
+        var playlist = CreateTenItemPlaylist();
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync();
+
+        viewModel.SelectGridImage(4);
+        await viewModel.OpenSelectedGridImageAsync();
+
+        Assert.False(viewModel.LayoutState.IsActive);
+        Assert.Equal(4, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(@"C:\Photos\004.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
+    public async Task EnterFilmstripLayoutAsync_DisplaysCurrentImageWithNineThumbnailStripItems()
+    {
+        var playlist = CreatePlaylist(12) with { CurrentIndex = 5 };
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterFilmstripLayoutAsync();
+
+        Assert.True(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.Filmstrip, viewModel.LayoutState.Mode);
+        Assert.Equal(5, viewModel.LayoutState.FocusImage?.PlaylistIndex);
+        Assert.Equal(9, viewModel.LayoutState.VisibleImages.Count);
+        Assert.Equal(
+            Enumerable.Range(1, 9),
+            viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex));
+        Assert.Equal(@"C:\Photos\005.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
+    public async Task EnterFilmstripLayoutAsync_SavesFilmstripLayoutPreference()
+    {
+        var playlist = CreatePlaylist(12) with { CurrentIndex = 5 };
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterFilmstripLayoutAsync();
+
+        Assert.Equal(LayoutMode.Filmstrip, services.SettingsService.SavedSettings.Single().PreferredLayout);
+    }
+
+    [Fact]
+    public async Task ReturnToSingleImageViewAsync_ExitsLayoutAndSavesSingleImagePreference()
+    {
+        var playlist = CreatePlaylist(12) with { CurrentIndex = 5 };
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterFilmstripLayoutAsync();
+
+        await viewModel.ReturnToSingleImageViewAsync();
+
+        Assert.False(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.SingleImage, viewModel.Settings.PreferredLayout);
+        Assert.Equal(LayoutMode.SingleImage, services.SettingsService.SavedSettings.Last().PreferredLayout);
+        Assert.Equal(5, viewModel.PlaylistState.CurrentIndex);
+    }
+
+    [Fact]
+    public async Task ExecuteSelectedCommandAsync_FilmstripLayoutCommand_ActivatesFilmstripLayout()
+    {
+        var playlist = CreateTenItemPlaylist();
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.FilmstripLayout);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+
+        Assert.True(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.Filmstrip, viewModel.LayoutState.Mode);
+        Assert.False(viewModel.CommandPaletteState.IsOpen);
+    }
+
+    [Fact]
+    public async Task NavigateNextAsync_InFilmstripMode_AdvancesFocusAndKeepsThumbnailWindowCentered()
+    {
+        var playlist = CreatePlaylist(12) with { CurrentIndex = 5 };
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterFilmstripLayoutAsync();
+
+        await viewModel.NavigateNextAsync();
+
+        Assert.True(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.Filmstrip, viewModel.LayoutState.Mode);
+        Assert.Equal(6, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(6, viewModel.LayoutState.FocusImage?.PlaylistIndex);
+        Assert.Equal(2, viewModel.LayoutState.WindowStartIndex);
+        Assert.Equal(
+            Enumerable.Range(2, 9),
+            viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex));
+    }
+
+    [Fact]
+    public async Task SelectFilmstripImageAsync_ClickedThumbnailChangesFocusedImage()
+    {
+        var playlist = CreatePlaylist(12) with { CurrentIndex = 5 };
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterFilmstripLayoutAsync();
+
+        await viewModel.SelectFilmstripImageAsync(visibleIndex: 6);
+
+        Assert.True(viewModel.LayoutState.IsActive);
+        Assert.Equal(7, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(7, viewModel.LayoutState.FocusImage?.PlaylistIndex);
+        Assert.Equal(@"C:\Photos\007.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
+    public async Task ZoomIn_InFilmstripMode_ZoomsFocusImageWithoutChangingThumbnailWindow()
+    {
+        var playlist = CreatePlaylist(12) with { CurrentIndex = 5 };
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterFilmstripLayoutAsync();
+        var visibleBefore = viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex).ToArray();
+
+        viewModel.ZoomIn();
+
+        Assert.Equal(125, viewModel.ViewerState.ZoomLevel);
+        Assert.Equal(LayoutMode.Filmstrip, viewModel.LayoutState.Mode);
+        Assert.Equal(visibleBefore, viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex).ToArray());
+    }
+
+    [Fact]
+    public async Task FilmstripPositionText_DisplaysCurrentImageIndexAndTotal()
+    {
+        var playlist = CreatePlaylist(12) with { CurrentIndex = 5 };
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterFilmstripLayoutAsync();
+
+        Assert.Equal("Filmstrip 6 / 12", viewModel.LayoutState.PositionText);
+    }
+
+    [Fact]
     public void ShowAndHideCommandPalette_UpdatesPaletteStateAndChrome()
     {
         var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
@@ -581,6 +1084,71 @@ public sealed class MainViewModelTests
 
         Assert.Equal(CommandIds.ToggleFullscreen, viewModel.CommandPaletteState.RecentCommands[0].Id);
         Assert.Equal("Recent", viewModel.CommandPaletteState.DisplayItems[0].Header);
+    }
+
+    [Fact]
+    public async Task ExecuteSelectedCommandAsync_OpenFileCommand_RaisesOpenFileRequest()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+        var requestCount = 0;
+        viewModel.OpenFileRequested += (_, _) => requestCount++;
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.OpenFile);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+
+        Assert.Equal(1, requestCount);
+        Assert.False(viewModel.CommandPaletteState.IsOpen);
+        Assert.Equal(CommandIds.OpenFile, viewModel.CommandPaletteState.RecentCommands[0].Id);
+    }
+
+    [Fact]
+    public async Task ExecuteSelectedCommandAsync_ToggleGifPlaybackCommand_TogglesAnimationState()
+    {
+        var viewModel = await CreateAnimatedGifViewModelAsync();
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.ToggleGifPlayback);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.False(viewModel.CommandPaletteState.IsOpen);
+        Assert.Equal(CommandIds.ToggleGifPlayback, viewModel.CommandPaletteState.RecentCommands[0].Id);
+    }
+
+    [Fact]
+    public async Task ExecuteSelectedCommandAsync_ReturnToSingleImageCommand_ExitsActiveLayout()
+    {
+        var playlist = CreatePlaylist(12);
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync();
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.ReturnToSingleImage);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+
+        Assert.False(viewModel.LayoutState.IsActive);
+        Assert.Equal(LayoutMode.SingleImage, viewModel.Settings.PreferredLayout);
+        Assert.Equal(CommandIds.ReturnToSingleImage, viewModel.CommandPaletteState.RecentCommands[0].Id);
+    }
+
+    [Fact]
+    public async Task ExecuteSelectedCommandAsync_ComparisonImageCountCommand_ChangesVisibleImageCount()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.ComparisonFourImages);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+
+        Assert.True(viewModel.ComparisonState.IsActive);
+        Assert.Equal(4, viewModel.ComparisonState.VisibleImages.Count);
+        Assert.Equal(CommandIds.ComparisonFourImages, viewModel.CommandPaletteState.RecentCommands[0].Id);
     }
 
     [Fact]
@@ -974,6 +1542,21 @@ public sealed class MainViewModelTests
             @"C:\Photos");
     }
 
+    private static Playlist CreateTenItemPlaylist()
+    {
+        return CreatePlaylist(10);
+    }
+
+    private static Playlist CreatePlaylist(int count)
+    {
+        return new Playlist(
+            Enumerable.Range(0, count)
+                .Select(index => new ImageItem($@"C:\Photos\{index:000}.png"))
+                .ToArray(),
+            0,
+            @"C:\Photos");
+    }
+
     private static async Task<MainViewModel> CreateAnimatedGifViewModelAsync()
     {
         var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(320, 240, 100));
@@ -994,6 +1577,16 @@ public sealed class MainViewModelTests
         return viewModel;
     }
 
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        while (!condition())
+        {
+            timeout.Token.ThrowIfCancellationRequested();
+            await Task.Delay(10, timeout.Token);
+        }
+    }
+
     private sealed class TestServices
     {
         private TestServices(
@@ -1009,6 +1602,7 @@ public sealed class MainViewModelTests
             RecordingTransformService? transformService = null,
             ISlideshowService? slideshowService = null,
             IComparisonService? comparisonService = null,
+            ILayoutService? layoutService = null,
             ICommandPaletteService? commandPaletteService = null,
             IAnimationService? animationService = null,
             ICodecDetectionService? codecDetectionService = null)
@@ -1025,6 +1619,7 @@ public sealed class MainViewModelTests
             TransformService = transformService ?? new RecordingTransformService();
             SlideshowService = slideshowService ?? new RecordingSlideshowService();
             ComparisonService = comparisonService ?? new ComparisonService(ImageDecodeService);
+            LayoutService = layoutService;
             CommandPaletteService = commandPaletteService ?? new CommandPaletteService();
             AnimationService = animationService ?? new RecordingAnimationService(Result<AnimatedGif>.Failure(
                 ViewerError.UnsupportedFormatError("LoadAnimatedGif", null)));
@@ -1055,6 +1650,8 @@ public sealed class MainViewModelTests
 
         public IComparisonService ComparisonService { get; }
 
+        public ILayoutService? LayoutService { get; }
+
         public ICommandPaletteService CommandPaletteService { get; }
 
         public IAnimationService AnimationService { get; }
@@ -1064,7 +1661,8 @@ public sealed class MainViewModelTests
         public static TestServices Success(
             DecodedImage image,
             Playlist playlist,
-            IAnimationService? animationService = null)
+            IAnimationService? animationService = null,
+            ViewerSettings? settings = null)
         {
             var decoder = new StubImageDecodeService(Result<DecodedImage>.Success(image));
             return new TestServices(
@@ -1072,7 +1670,7 @@ public sealed class MainViewModelTests
                 decoder,
                 new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
                 new NavigationService(decoder),
-                new StubSettingsService(),
+                new StubSettingsService(settings ?? ViewerSettings.Default),
                 new RecordingErrorLogService(),
                 animationService: animationService);
         }
@@ -1083,7 +1681,9 @@ public sealed class MainViewModelTests
             RecordingTransformService? transformService = null,
             RecordingExportService? exportService = null,
             RecordingMetadataService? metadataService = null,
-            ISlideshowService? slideshowService = null)
+            ISlideshowService? slideshowService = null,
+            ILayoutService? layoutService = null,
+            ViewerSettings? settings = null)
         {
             var decoder = new PathImageDecodeService(failDecodePath);
             return new TestServices(
@@ -1091,12 +1691,24 @@ public sealed class MainViewModelTests
                 decoder,
                 new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
                 new NavigationService(decoder),
-                new StubSettingsService(),
+                new StubSettingsService(settings ?? ViewerSettings.Default),
                 new RecordingErrorLogService(),
                 metadataService: metadataService,
                 exportService: exportService,
                 transformService: transformService,
-                slideshowService: slideshowService);
+                slideshowService: slideshowService,
+                layoutService: layoutService);
+        }
+
+        public static TestServices WithPlaylistDecoder(Playlist playlist, IImageDecodeService decoder)
+        {
+            return new TestServices(
+                new StubFileOpenService(Result<string>.Success(playlist.CurrentItem?.FilePath ?? string.Empty)),
+                decoder,
+                new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
+                new NavigationService(decoder),
+                new StubSettingsService(),
+                new RecordingErrorLogService());
         }
 
         public static TestServices WithSettings(ViewerSettings settings, ISlideshowService? slideshowService = null)
@@ -1158,7 +1770,8 @@ public sealed class MainViewModelTests
                 ComparisonService,
                 CommandPaletteService,
                 AnimationService,
-                CodecDetectionService);
+                CodecDetectionService,
+                LayoutService);
         }
     }
 
@@ -1197,6 +1810,53 @@ public sealed class MainViewModelTests
         public Result<string> GetAvifStoreUrl()
         {
             return Result<string>.Success("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V");
+        }
+    }
+
+    private sealed class FailsAfterFirstGridLayoutService : ILayoutService
+    {
+        private readonly ILayoutService _inner;
+        private int _gridCallCount;
+
+        public FailsAfterFirstGridLayoutService(ILayoutService inner)
+        {
+            _inner = inner;
+        }
+
+        public Task<Result<LayoutSet>> EnterGridAsync(
+            Playlist playlist,
+            LayoutConfig config,
+            int? startIndex = null,
+            CancellationToken cancellationToken = default)
+        {
+            _gridCallCount++;
+            return _gridCallCount == 1
+                ? _inner.EnterGridAsync(playlist, config, startIndex, cancellationToken)
+                : Task.FromResult(Result<LayoutSet>.Failure(
+                    ViewerError.LayoutError("EnterGrid", new InvalidOperationException("layout failed"))));
+        }
+
+        public Task<Result<LayoutSet>> EnterFilmstripAsync(
+            Playlist playlist,
+            int? focusIndex = null,
+            CancellationToken cancellationToken = default)
+        {
+            return _inner.EnterFilmstripAsync(playlist, focusIndex, cancellationToken);
+        }
+
+        public IReadOnlyList<GridLayoutRegion> CalculateGridRegions(
+            LayoutConfig config,
+            double canvasWidth,
+            double canvasHeight)
+        {
+            return _inner.CalculateGridRegions(config, canvasWidth, canvasHeight);
+        }
+
+        public LayoutImageFit CalculateAspectPreservingFit(
+            ImageMetadata imageMetadata,
+            GridLayoutRegion region)
+        {
+            return _inner.CalculateAspectPreservingFit(imageMetadata, region);
         }
     }
 
@@ -1326,6 +1986,50 @@ public sealed class MainViewModelTests
 
             return Task.FromResult(Result<DecodedImage>.Success(
                 new DecodedImage(filePath, new ImageMetadata(100, 100, 10))));
+        }
+
+        public bool IsSupportedFormat(string extension) => true;
+
+        public bool IsDeferredFormat(string extension) => false;
+
+        public Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<int>.Success(1));
+        }
+    }
+
+    private sealed class RecordingDecodeService : IImageDecodeService
+    {
+        private readonly object _gate = new();
+
+        public List<string> DecodedPaths { get; } = [];
+
+        public Task<Result<DecodedImage>> DecodeImageAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            lock (_gate)
+            {
+                DecodedPaths.Add(filePath);
+            }
+
+            return Task.FromResult(Result<DecodedImage>.Success(
+                new DecodedImage(filePath, new ImageMetadata(100, 100, 10))));
+        }
+
+        public async Task WaitForDecodedPathAsync(string filePath)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            while (true)
+            {
+                lock (_gate)
+                {
+                    if (DecodedPaths.Contains(filePath))
+                    {
+                        return;
+                    }
+                }
+
+                await Task.Delay(10, timeout.Token).ConfigureAwait(false);
+            }
         }
 
         public bool IsSupportedFormat(string extension) => true;

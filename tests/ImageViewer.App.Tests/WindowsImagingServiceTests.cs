@@ -574,6 +574,116 @@ public sealed class WindowsImagingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CustomGridLayout_WithRealImages_LoadsVariousGridDensities()
+    {
+        var paths = await WriteImageSequenceAsync("custom-grid", count: 36);
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(paths[0]);
+
+        await viewModel.EnterGridLayoutAsync();
+        Assert.Equal(LayoutMode.Grid, viewModel.LayoutState.Mode);
+        Assert.Equal(3, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(9, viewModel.LayoutState.VisibleImages.Count);
+
+        await viewModel.IncreaseGridDensityAsync();
+        Assert.Equal(4, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(16, viewModel.LayoutState.VisibleImages.Count);
+
+        await viewModel.IncreaseGridDensityAsync();
+        Assert.Equal(5, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(25, viewModel.LayoutState.VisibleImages.Count);
+
+        await viewModel.IncreaseGridDensityAsync();
+        Assert.Equal(6, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(36, viewModel.LayoutState.VisibleImages.Count);
+        Assert.Equal(
+            Enumerable.Range(0, 36),
+            viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex));
+    }
+
+    [Fact]
+    public async Task CustomFilmstripLayout_WithRealImages_UsesRealThumbnailServiceForVisibleStrip()
+    {
+        var paths = await WriteImageSequenceAsync("custom-filmstrip", count: 12);
+        var viewModel = CreateRealImageViewModel(
+            ViewerSettings.Default,
+            new ManualSlideshowService(),
+            new WindowsThumbnailService());
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(paths[5]);
+
+        await viewModel.EnterFilmstripLayoutAsync();
+
+        Assert.Equal(LayoutMode.Filmstrip, viewModel.LayoutState.Mode);
+        Assert.Equal(5, viewModel.LayoutState.FocusImage?.PlaylistIndex);
+        Assert.Equal(
+            Enumerable.Range(1, 9),
+            viewModel.LayoutState.VisibleImages.Select(image => image.PlaylistIndex));
+
+        var focusThumbnail = await viewModel.GetThumbnailAsync(new ImageItem(paths[5]));
+        Assert.True(focusThumbnail.IsSuccess);
+        Assert.True(focusThumbnail.Value.EncodedBytes.Length > 8);
+        Assert.Equal([0x89, 0x50, 0x4E, 0x47], focusThumbnail.Value.EncodedBytes.Take(4).ToArray());
+    }
+
+    [Fact]
+    public async Task CustomLayouts_WithRealImages_SwitchBetweenGridAndFilmstripCleanly()
+    {
+        var paths = await WriteImageSequenceAsync("custom-switch", count: 12);
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(paths[4]);
+
+        await viewModel.EnterGridLayoutAsync();
+        await viewModel.IncreaseGridDensityAsync();
+        Assert.Equal(LayoutMode.Grid, viewModel.LayoutState.Mode);
+        Assert.Equal(4, viewModel.LayoutState.Config.Rows);
+
+        await viewModel.EnterFilmstripLayoutAsync();
+        Assert.Equal(LayoutMode.Filmstrip, viewModel.LayoutState.Mode);
+        Assert.Equal(4, viewModel.LayoutState.FocusImage?.PlaylistIndex);
+        Assert.Equal(@"custom-switch-04.png", viewModel.PlaylistState.CurrentItem?.Filename);
+
+        await viewModel.EnterGridLayoutAsync();
+        Assert.Equal(LayoutMode.Grid, viewModel.LayoutState.Mode);
+        Assert.Equal(4, viewModel.LayoutState.Config.Rows);
+        Assert.Equal(4, viewModel.LayoutState.Config.Columns);
+        Assert.Equal(4, viewModel.LayoutState.WindowStartIndex);
+    }
+
+    [Fact]
+    public async Task CustomLayouts_WithManyRealImages_RepeatedSwitchesKeepMemoryBounded()
+    {
+        var paths = await WriteImageSequenceAsync("custom-memory", count: 48);
+        var viewModel = CreateRealImageViewModel(
+            ViewerSettings.Default,
+            new ManualSlideshowService(),
+            new WindowsThumbnailService());
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(paths[10]);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var beforeBytes = GC.GetTotalMemory(forceFullCollection: true);
+
+        for (var iteration = 0; iteration < 10; iteration++)
+        {
+            await viewModel.EnterGridLayoutAsync();
+            await viewModel.IncreaseGridDensityAsync();
+            await viewModel.ScrollGridLayoutAsync(1);
+            await viewModel.EnterFilmstripLayoutAsync();
+            await viewModel.NavigateNextAsync();
+        }
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var afterBytes = GC.GetTotalMemory(forceFullCollection: true);
+        Assert.InRange(afterBytes - beforeBytes, long.MinValue, 30L * 1024 * 1024);
+    }
+
+    [Fact]
     public async Task CommandPalette_WithRealRegistry_SearchesExecutesAndTracksRecentCommand()
     {
         var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
@@ -626,7 +736,8 @@ public sealed class WindowsImagingServiceTests : IDisposable
 
     private static MainViewModel CreateRealImageViewModel(
         ViewerSettings settings,
-        ISlideshowService slideshowService)
+        ISlideshowService slideshowService,
+        IThumbnailService? thumbnailService = null)
     {
         var decoder = new ImageDecodeService();
         return new MainViewModel(
@@ -637,7 +748,7 @@ public sealed class WindowsImagingServiceTests : IDisposable
             new StubSettingsService(settings),
             new RecordingErrorLogService(),
             new SearchService(),
-            new ThumbnailService(decoder),
+            thumbnailService ?? new ThumbnailService(decoder),
             new RecentFilesService(Path.Combine(Path.GetTempPath(), "spitfire-img-app-test-recent", Guid.NewGuid().ToString("N"))),
             new ExportService(),
             new TransformService(),
@@ -646,6 +757,19 @@ public sealed class WindowsImagingServiceTests : IDisposable
             new ComparisonService(decoder),
             new CommandPaletteService(),
             new WindowsAnimationService());
+    }
+
+    private async Task<string[]> WriteImageSequenceAsync(string prefix, int count)
+    {
+        var paths = new string[count];
+        for (var index = 0; index < count; index++)
+        {
+            var path = Path.Combine(_tempDirectory, $"{prefix}-{index:00}.png");
+            await WritePngAsync(path, width: 20 + index, height: 12 + index % 7);
+            paths[index] = path;
+        }
+
+        return paths;
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

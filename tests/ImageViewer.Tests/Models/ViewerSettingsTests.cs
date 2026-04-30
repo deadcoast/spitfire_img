@@ -17,6 +17,11 @@ public sealed class ViewerSettingsTests
         Assert.Equal(300, settings.FadeDurationMs);
         Assert.Equal(3, settings.SlideshowIntervalSeconds);
         Assert.Equal(TransitionEffect.Fade, settings.SlideshowTransition);
+        Assert.Equal(LayoutMode.SingleImage, settings.PreferredLayout);
+        Assert.Equal(3, settings.GridRows);
+        Assert.Equal(3, settings.GridColumns);
+        Assert.True(settings.ComparisonSyncZoom);
+        Assert.True(settings.GifAutoPlay);
     }
 
     [Fact]
@@ -52,5 +57,27 @@ public sealed class ViewerSettingsTests
         var normalized = settings.Normalize();
 
         Assert.Equal(expectedSeconds, normalized.SlideshowIntervalSeconds);
+    }
+
+    [Theory]
+    [InlineData(-1, 0, 2, 2)]
+    [InlineData(4, 5, 4, 5)]
+    [InlineData(9, 12, 6, 6)]
+    public void Normalize_ClampsGridDimensionsToSupportedRange(
+        int rows,
+        int columns,
+        int expectedRows,
+        int expectedColumns)
+    {
+        var settings = ViewerSettings.Default with
+        {
+            GridRows = rows,
+            GridColumns = columns
+        };
+
+        var normalized = settings.Normalize();
+
+        Assert.Equal(expectedRows, normalized.GridRows);
+        Assert.Equal(expectedColumns, normalized.GridColumns);
     }
 }

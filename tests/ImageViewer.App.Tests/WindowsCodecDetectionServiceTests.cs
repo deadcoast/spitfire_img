@@ -159,6 +159,109 @@ public sealed class WindowsCodecDetectionServiceTests
         Assert.Equal(1, service.DetectCalls);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task CodecDetectionIntegration_PropagatesMockRegistryStateThroughStartupAndImageServices(
+        bool heicSupported,
+        bool avifSupported)
+    {
+        var probe = new RecordingCodecRegistryProbe(heicSupported, avifSupported);
+        var metadataReader = new RecordingWindowsImageMetadataReader(
+            Result<ImageMetadata>.Success(new ImageMetadata(1920, 1080, 1234)));
+        var services = new ServiceCollection()
+            .AddSingleton<ICodecRegistryProbe>(probe)
+            .AddSingleton<ICodecDetectionService>(provider =>
+                new WindowsCodecDetectionService(
+                    provider.GetRequiredService<ICodecRegistryProbe>(),
+                    () => FixedDetectionTime))
+            .AddSingleton<IFileOpenService>(provider =>
+                new FileOpenService(provider.GetRequiredService<ICodecDetectionService>()))
+            .AddSingleton<IFolderPlaylistService>(provider =>
+                new FolderPlaylistService(provider.GetRequiredService<ICodecDetectionService>()))
+            .AddSingleton<IWindowsImageMetadataReader>(metadataReader)
+            .AddSingleton<IImageDecodeService>(provider =>
+                new WindowsImageDecodeService(
+                    provider.GetRequiredService<ICodecDetectionService>(),
+                    provider.GetRequiredService<IWindowsImageMetadataReader>()))
+            .BuildServiceProvider();
+
+        var folder = Path.Combine(
+            Path.GetTempPath(),
+            "spitfire-codec-detection-integration",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+
+        try
+        {
+            var opened = CreateFile(folder, "opened.jpg");
+            var heic = CreateFile(folder, "phone.heic");
+            var avif = CreateFile(folder, "modern.avif");
+
+            await App.InitializeStartupServicesAsync(services);
+
+            var codecService = services.GetRequiredService<ICodecDetectionService>();
+            var fileOpenService = services.GetRequiredService<IFileOpenService>();
+            var playlistService = services.GetRequiredService<IFolderPlaylistService>();
+            var decodeService = services.GetRequiredService<IImageDecodeService>();
+
+            var availability = await codecService.DetectCodecsAsync();
+            Assert.True(availability.IsSuccess);
+            Assert.Equal(heicSupported, availability.Value.HeicSupported);
+            Assert.Equal(avifSupported, availability.Value.AvifSupported);
+            Assert.Equal(FixedDetectionTime, availability.Value.DetectionTime);
+            Assert.Equal(1, probe.HeicChecks);
+            Assert.Equal(1, probe.AvifChecks);
+
+            Assert.Equal(WindowsCodecDetectionService.HeicStoreUrl, codecService.GetHeicStoreUrl().Value);
+            Assert.Equal(WindowsCodecDetectionService.AvifStoreUrl, codecService.GetAvifStoreUrl().Value);
+
+            AssertCodecValidationResult(fileOpenService.ValidateFilePath(heic), heicSupported);
+            AssertCodecValidationResult(fileOpenService.ValidateFilePath(avif), avifSupported);
+
+            var playlist = await playlistService.BuildPlaylistAsync(opened);
+            Assert.True(playlist.IsSuccess);
+            var playlistFilenames = playlist.Value.Items
+                .Select(item => item.Filename)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("opened.jpg", playlistFilenames);
+            Assert.Equal(heicSupported, playlistFilenames.Contains("phone.heic"));
+            Assert.Equal(avifSupported, playlistFilenames.Contains("modern.avif"));
+
+            var heicDecode = await decodeService.DecodeImageAsync(heic);
+            AssertCodecDecodeResult(heicDecode, heicSupported);
+
+            var avifDecode = await decodeService.DecodeImageAsync(avif);
+            AssertCodecDecodeResult(avifDecode, avifSupported);
+
+            var expectedMetadataReads = new List<string>();
+            if (heicSupported)
+            {
+                expectedMetadataReads.Add(heic);
+            }
+
+            if (avifSupported)
+            {
+                expectedMetadataReads.Add(avif);
+            }
+
+            Assert.Equal(expectedMetadataReads, metadataReader.ReadFilePaths);
+            Assert.Equal(1, probe.HeicChecks);
+            Assert.Equal(1, probe.AvifChecks);
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+
+            services.Dispose();
+        }
+    }
+
     [Fact]
     public async Task WindowsImageDecodeService_HeicWithCodecAvailable_UsesWindowsMetadataReader()
     {
@@ -239,6 +342,31 @@ public sealed class WindowsCodecDetectionServiceTests
 
         Assert.True(service.IsSupportedFormat(".heic"));
         Assert.False(service.IsSupportedFormat(".avif"));
+    }
+
+    private static string CreateFile(string folder, string filename)
+    {
+        var path = Path.Combine(folder, filename);
+        File.WriteAllText(path, "test");
+        return path;
+    }
+
+    private static void AssertCodecValidationResult(Result<string> result, bool supported)
+    {
+        Assert.Equal(supported, result.IsSuccess);
+        if (!supported)
+        {
+            Assert.Equal(ErrorCategory.CodecUnavailableError, result.Error.Category);
+        }
+    }
+
+    private static void AssertCodecDecodeResult(Result<DecodedImage> result, bool supported)
+    {
+        Assert.Equal(supported, result.IsSuccess);
+        if (!supported)
+        {
+            Assert.Equal(ErrorCategory.CodecUnavailableError, result.Error.Category);
+        }
     }
 
     private sealed class RecordingCodecRegistryProbe : ICodecRegistryProbe

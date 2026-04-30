@@ -128,6 +128,11 @@ public sealed class ComparisonState : ObservableObject
         IsSyncZoomEnabled = !IsSyncZoomEnabled;
     }
 
+    public void SetSyncZoom(bool isEnabled)
+    {
+        IsSyncZoomEnabled = isEnabled;
+    }
+
     public void SetSynchronizedZoom(double zoomLevel)
     {
         if (!IsSyncZoomEnabled)

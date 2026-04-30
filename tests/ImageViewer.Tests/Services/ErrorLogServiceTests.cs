@@ -49,6 +49,28 @@ public sealed class ErrorLogServiceTests : IDisposable
         Assert.True(File.Exists(recentLog));
     }
 
+    [Fact]
+    public async Task LogErrorAsync_Phase3Errors_RecordsCategoryAndActionableContext()
+    {
+        var service = new ErrorLogService(_tempDirectory);
+        var codecError = ViewerError.CodecUnavailableError("HEIC", "HEIF Image Extensions");
+        var layoutError = ViewerError.LayoutError("EnterGrid", new InvalidOperationException("raw layout failure"));
+
+        Assert.True((await service.LogErrorAsync(codecError)).IsSuccess);
+        Assert.True((await service.LogErrorAsync(layoutError)).IsSuccess);
+
+        var logPath = Path.Combine(_tempDirectory, "logs", $"viewer-{DateTimeOffset.Now:yyyy-MM-dd}.log");
+        var log = await File.ReadAllTextAsync(logPath);
+        Assert.Contains("[CodecUnavailableError]", log);
+        Assert.Contains("HEIC", log);
+        Assert.Contains("HEIF Image Extensions", log);
+        Assert.Contains("[LayoutError]", log);
+        Assert.Contains("Operation: EnterGrid", log);
+        Assert.Contains("Message: Unable to load custom layout.", log);
+        Assert.Contains("Exception: InvalidOperationException", log);
+        Assert.DoesNotContain("raw layout failure", log);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))

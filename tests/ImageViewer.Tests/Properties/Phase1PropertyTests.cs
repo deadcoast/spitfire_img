@@ -112,7 +112,12 @@ public sealed class Phase1PropertyTests : IDisposable
                 _random.Next(-1, 3000),
                 _random.Next(-1, 2000),
                 _random.Next(500, 10000),
-                _random.Next(100, 2000));
+                _random.Next(100, 2000))
+            {
+                PreferredLayout = Pick(Enum.GetValues<LayoutMode>()),
+                GridRows = _random.Next(LayoutConfig.MinGridSize, LayoutConfig.MaxGridSize + 1),
+                GridColumns = _random.Next(LayoutConfig.MinGridSize, LayoutConfig.MaxGridSize + 1)
+            };
 
             var json = JsonSerializer.Serialize(settings, options);
             var roundTrip = JsonSerializer.Deserialize<ViewerSettings>(json, options);
