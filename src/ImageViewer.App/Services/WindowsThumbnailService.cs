@@ -32,7 +32,11 @@ public sealed class WindowsThumbnailService : IThumbnailService
             AddToCache(thumbnail);
             return Result<Thumbnail>.Success(thumbnail);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or OperationCanceledException)
+        catch (Exception ex) when (ex is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or OperationCanceledException
+            or OverflowException)
         {
             return Result<Thumbnail>.Failure(ViewerError.ThumbnailGenerationError("GenerateThumbnail", item.FilePath, ex));
         }
@@ -89,9 +93,10 @@ public sealed class WindowsThumbnailService : IThumbnailService
             pixelData.DetachPixelData());
         await encoder.FlushAsync();
 
-        var encodedBytes = new byte[memory.Size];
+        var encodedLength = checked((int)memory.Size);
+        var encodedBytes = new byte[encodedLength];
         memory.Seek(0);
-        await memory.ReadAsync(encodedBytes.AsBuffer(), checked((uint)encodedBytes.Length), InputStreamOptions.None);
+        await memory.ReadAsync(encodedBytes.AsBuffer(), checked((uint)encodedLength), InputStreamOptions.None);
 
         return new Thumbnail(
             item,
