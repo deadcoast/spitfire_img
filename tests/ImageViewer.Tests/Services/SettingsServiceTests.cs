@@ -36,7 +36,14 @@ public sealed class SettingsServiceTests : IDisposable
             10,
             20,
             2500,
-            350);
+            350)
+        {
+            PreferredLayout = LayoutMode.Grid,
+            GridRows = 4,
+            GridColumns = 5,
+            ComparisonSyncZoom = false,
+            GifAutoPlay = false
+        };
 
         var saveResult = await service.SaveSettingsAsync(settings);
         var loadResult = await service.LoadSettingsAsync();
@@ -44,6 +51,35 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.True(saveResult.IsSuccess);
         Assert.True(loadResult.IsSuccess);
         Assert.Equal(settings, loadResult.Value);
+    }
+
+    [Fact]
+    public async Task SaveThenLoadSettingsAsync_RoundTripsAllPhaseThreePreferences()
+    {
+        var service = new SettingsService(_tempDirectory);
+        var settings = ViewerSettings.Default with
+        {
+            SlideshowIntervalSeconds = 15,
+            SlideshowTransition = TransitionEffect.Zoom,
+            PreferredLayout = LayoutMode.Filmstrip,
+            GridRows = 6,
+            GridColumns = 4,
+            ComparisonSyncZoom = false,
+            GifAutoPlay = false
+        };
+
+        var saveResult = await service.SaveSettingsAsync(settings);
+        var loadResult = await service.LoadSettingsAsync();
+
+        Assert.True(saveResult.IsSuccess);
+        Assert.True(loadResult.IsSuccess);
+        Assert.Equal(15, loadResult.Value.SlideshowIntervalSeconds);
+        Assert.Equal(TransitionEffect.Zoom, loadResult.Value.SlideshowTransition);
+        Assert.Equal(LayoutMode.Filmstrip, loadResult.Value.PreferredLayout);
+        Assert.Equal(6, loadResult.Value.GridRows);
+        Assert.Equal(4, loadResult.Value.GridColumns);
+        Assert.False(loadResult.Value.ComparisonSyncZoom);
+        Assert.False(loadResult.Value.GifAutoPlay);
     }
 
     [Fact]

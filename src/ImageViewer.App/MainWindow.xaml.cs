@@ -36,6 +36,8 @@ public sealed partial class MainWindow : Window
         ImageCanvas.Attach(viewModel);
         ThumbnailStrip.Attach(viewModel);
         ComparisonView.Attach(viewModel);
+        GridLayout.Attach(viewModel);
+        FilmstripView.Attach(viewModel);
         SearchOverlay.Attach(viewModel);
         CommandPalette.Attach(viewModel);
         MetadataPanel.Attach(viewModel);
@@ -44,6 +46,7 @@ public sealed partial class MainWindow : Window
         Chrome.RecentFileRequested += async (_, path) => await _viewModel.OpenRecentFileAsync(path);
         Chrome.ExitRequested += (_, _) => Close();
         Chrome.AboutRequested += (_, _) => ShowInfo("spitfire.img Phase 1 MVP Viewer");
+        viewModel.OpenFileRequested += OnViewModelOpenFileRequested;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ViewerState.PropertyChanged += OnViewerStatePropertyChanged;
         viewModel.CommandPaletteState.PropertyChanged += OnCommandPaletteStatePropertyChanged;
@@ -66,6 +69,7 @@ public sealed partial class MainWindow : Window
         _viewModel.CommandPaletteState.PropertyChanged -= OnCommandPaletteStatePropertyChanged;
         _viewModel.AnimationState.PropertyChanged -= OnAnimationStatePropertyChanged;
         _viewModel.CodecInstallPromptRequested -= OnCodecInstallPromptRequested;
+        _viewModel.OpenFileRequested -= OnViewModelOpenFileRequested;
         _animationTimer.Stop();
         await _viewModel.SaveWindowStateAsync(
             _appWindow.Size.Width,
@@ -211,6 +215,10 @@ public sealed partial class MainWindow : Window
                 await _viewModel.OpenSelectedComparisonImageAsync();
                 e.Handled = true;
                 break;
+            case VirtualKey.Enter when _viewModel.LayoutState.IsActive:
+                await _viewModel.OpenSelectedGridImageAsync();
+                e.Handled = true;
+                break;
             case VirtualKey.Up when _viewModel.ComparisonState is { IsActive: true, Layout: ComparisonLayout.Overlay }:
                 _viewModel.IncreaseOverlayOpacity();
                 e.Handled = true;
@@ -245,14 +253,19 @@ public sealed partial class MainWindow : Window
                     _viewModel.HideCommandPalette();
                     e.Handled = true;
                 }
-                else if (_viewModel.SlideshowState.IsActive)
-                {
-                    _viewModel.StopSlideshow();
-                    e.Handled = true;
-                }
                 else if (_viewModel.ComparisonState.IsActive)
                 {
                     _viewModel.ExitComparison();
+                    e.Handled = true;
+                }
+                else if (_viewModel.LayoutState.IsActive)
+                {
+                    await _viewModel.ReturnToSingleImageViewAsync();
+                    e.Handled = true;
+                }
+                else if (_viewModel.SlideshowState.IsActive)
+                {
+                    _viewModel.StopSlideshow();
                     e.Handled = true;
                 }
                 else if (_viewModel.MetadataState.IsVisible)
@@ -271,15 +284,31 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.Number1 when isControlPressed:
-                _viewModel.ActualSize();
+                await _viewModel.ReturnToSingleImageViewAsync();
                 e.Handled = true;
                 break;
             case VirtualKey.Add when isControlPressed:
-                _viewModel.ZoomIn();
+                if (_viewModel.LayoutState.IsActive)
+                {
+                    await _viewModel.IncreaseGridDensityAsync();
+                }
+                else
+                {
+                    _viewModel.ZoomIn();
+                }
+
                 e.Handled = true;
                 break;
             case VirtualKey.Subtract when isControlPressed:
-                _viewModel.ZoomOut();
+                if (_viewModel.LayoutState.IsActive)
+                {
+                    await _viewModel.DecreaseGridDensityAsync();
+                }
+                else
+                {
+                    _viewModel.ZoomOut();
+                }
+
                 e.Handled = true;
                 break;
             case VirtualKey.O when isControlPressed:
@@ -287,8 +316,11 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.F when isControlPressed:
-                _viewModel.ShowSearch();
-                SearchOverlay.Show();
+                await _viewModel.EnterFilmstripLayoutAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.G when isControlPressed:
+                await _viewModel.EnterGridLayoutAsync();
                 e.Handled = true;
                 break;
             case VirtualKey.T when isControlPressed:
@@ -373,6 +405,11 @@ public sealed partial class MainWindow : Window
         {
             DispatcherQueue.TryEnqueue(UpdateChromeFadeState);
         }
+    }
+
+    private async void OnViewModelOpenFileRequested(object? sender, EventArgs e)
+    {
+        await OpenFileFromPickerAsync();
     }
 
     private void OnAnimationStatePropertyChanged(object? sender, PropertyChangedEventArgs e)

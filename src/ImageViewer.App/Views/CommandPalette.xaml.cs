@@ -13,12 +13,17 @@ namespace ImageViewer.App.Views;
 
 public sealed partial class CommandPalette : UserControl
 {
+    private static readonly TimeSpan SearchDebounceInterval = TimeSpan.FromMilliseconds(50);
     private MainViewModel? _viewModel;
     private bool _isUpdating;
+    private readonly DispatcherTimer _searchDebounceTimer;
+    private string _pendingSearchQuery = string.Empty;
 
     public CommandPalette()
     {
         InitializeComponent();
+        _searchDebounceTimer = new DispatcherTimer { Interval = SearchDebounceInterval };
+        _searchDebounceTimer.Tick += OnSearchDebounceTick;
     }
 
     public void Attach(MainViewModel viewModel)
@@ -196,6 +201,7 @@ public sealed partial class CommandPalette : UserControl
             return;
         }
 
+        FlushPendingSearchQuery();
         switch (e.Key)
         {
             case VirtualKey.Escape:
@@ -224,7 +230,36 @@ public sealed partial class CommandPalette : UserControl
             return;
         }
 
-        _viewModel?.CommandPaletteState.SetSearchQuery(CommandInput.Text);
+        _pendingSearchQuery = CommandInput.Text;
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
+    }
+
+    private void OnSearchDebounceTick(object? sender, object e)
+    {
+        _searchDebounceTimer.Stop();
+        ApplyPendingSearchQuery();
+    }
+
+    private void FlushPendingSearchQuery()
+    {
+        if (!_searchDebounceTimer.IsEnabled)
+        {
+            return;
+        }
+
+        _searchDebounceTimer.Stop();
+        ApplyPendingSearchQuery();
+    }
+
+    private void ApplyPendingSearchQuery()
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        _viewModel.CommandPaletteState.SetSearchQuery(_pendingSearchQuery);
     }
 
     private async void OnCommandClicked(object sender, ItemClickEventArgs e)

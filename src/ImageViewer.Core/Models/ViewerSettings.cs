@@ -34,7 +34,12 @@ public sealed record ViewerSettings(
     int DefaultJpegQuality = 90,
     bool PreserveExifOnExport = true,
     int SlideshowIntervalSeconds = 3,
-    TransitionEffect SlideshowTransition = TransitionEffect.Fade)
+    TransitionEffect SlideshowTransition = TransitionEffect.Fade,
+    LayoutMode PreferredLayout = LayoutMode.SingleImage,
+    int GridRows = 3,
+    int GridColumns = 3,
+    bool ComparisonSyncZoom = true,
+    bool GifAutoPlay = true)
 {
     public const int DefaultWindowWidth = 1200;
     public const int DefaultWindowHeight = 800;
@@ -64,7 +69,10 @@ public sealed record ViewerSettings(
             FadeDelayMs = FadeDelayMs < MinimumFadeDelayMs ? MinimumFadeDelayMs : FadeDelayMs,
             FadeDurationMs = FadeDurationMs < MinimumFadeDurationMs ? MinimumFadeDurationMs : FadeDurationMs,
             DefaultJpegQuality = Math.Clamp(DefaultJpegQuality, 1, 100),
-            SlideshowIntervalSeconds = SlideshowConfig.NormalizeIntervalSeconds(SlideshowIntervalSeconds)
+            SlideshowIntervalSeconds = SlideshowConfig.NormalizeIntervalSeconds(SlideshowIntervalSeconds),
+            PreferredLayout = Enum.IsDefined(PreferredLayout) ? PreferredLayout : LayoutMode.SingleImage,
+            GridRows = Math.Clamp(GridRows, LayoutConfig.MinGridSize, LayoutConfig.MaxGridSize),
+            GridColumns = Math.Clamp(GridColumns, LayoutConfig.MinGridSize, LayoutConfig.MaxGridSize)
         };
     }
 }

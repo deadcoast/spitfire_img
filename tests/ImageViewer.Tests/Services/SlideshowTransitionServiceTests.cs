@@ -23,4 +23,16 @@ public sealed class SlideshowTransitionServiceTests
         Assert.True(transition.BlocksNavigation);
         Assert.Equal(60, transition.TargetFrameRate);
     }
+
+    [Fact]
+    public void GetTransition_UnsupportedEffect_FallsBackToInstantTransition()
+    {
+        var service = new SlideshowTransitionService();
+
+        var transition = service.GetTransition((TransitionEffect)999);
+
+        Assert.Equal(TransitionEffect.None, transition.Effect);
+        Assert.Equal(TimeSpan.Zero, transition.Duration);
+        Assert.True(transition.BlocksNavigation);
+    }
 }

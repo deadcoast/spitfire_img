@@ -11,6 +11,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="FilenameText" Foreground="{ThemeResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis" />
@@ -32,7 +33,12 @@
                 Grid.Column="5"
                 Foreground="{ThemeResource SecondaryTextBrush}"
                 Visibility="Collapsed" />
-            <TextBlock x:Name="FolderText" Grid.Column="6" Foreground="{ThemeResource MutedTextBrush}" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
+            <TextBlock
+                x:Name="LayoutText"
+                Grid.Column="6"
+                Foreground="{ThemeResource SecondaryTextBrush}"
+                Visibility="Collapsed" />
+            <TextBlock x:Name="FolderText" Grid.Column="7" Foreground="{ThemeResource MutedTextBrush}" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
         </Grid>
     </Border>
 </UserControl>

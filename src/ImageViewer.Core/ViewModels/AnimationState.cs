@@ -48,7 +48,7 @@ public sealed class AnimationState : ObservableObject
         ? $"Frame {CurrentFrameIndex + 1} / {TotalFrames}"
         : string.Empty;
 
-    public void LoadAnimation(AnimatedGif animation)
+    public void LoadAnimation(AnimatedGif animation, bool autoPlay = true)
     {
         if (!animation.IsAnimated)
         {
@@ -58,7 +58,7 @@ public sealed class AnimationState : ObservableObject
 
         CurrentAnimation = animation;
         CurrentFrameIndex = 0;
-        IsPlaying = true;
+        IsPlaying = autoPlay;
         NotifyComputedProperties();
     }
 

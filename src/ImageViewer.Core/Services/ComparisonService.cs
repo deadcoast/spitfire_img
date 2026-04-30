@@ -96,28 +96,79 @@ public sealed class ComparisonService : IComparisonService
             return Result<ComparisonSet>.Failure(ViewerError.ComparisonError("EnterComparison", playlist.FolderPath));
         }
 
-        var visibleCount = Math.Clamp(imageCount, 2, Math.Min(4, playlist.Items.Count));
+        var requestedVisibleCount = Math.Clamp(imageCount, 2, Math.Min(4, playlist.Items.Count));
         var normalizedStart = Mod(startIndex, playlist.Items.Count);
-        var images = new List<ComparisonImage>(visibleCount);
-        for (var offset = 0; offset < visibleCount; offset++)
+
+        for (var visibleCount = requestedVisibleCount; visibleCount >= 2; visibleCount--)
         {
-            var playlistIndex = Mod(normalizedStart + offset, playlist.Items.Count);
-            var item = playlist.Items[playlistIndex];
-            var decode = await _imageDecodeService.DecodeImageAsync(item.FilePath, cancellationToken)
+            var decodeResults = await DecodeVisibleImagesAsync(
+                    playlist,
+                    normalizedStart,
+                    visibleCount,
+                    cancellationToken)
                 .ConfigureAwait(false);
-            if (decode.IsFailure)
+            var failedDecode = decodeResults.FirstOrDefault(result => result.Decode.IsFailure);
+            if (failedDecode is not null)
             {
-                return Result<ComparisonSet>.Failure(ViewerError.ComparisonError("EnterComparison", item.FilePath));
+                if (visibleCount > 2 && IsMemoryFailure(failedDecode.Decode.Error))
+                {
+                    continue;
+                }
+
+                return Result<ComparisonSet>.Failure(
+                    ViewerError.ComparisonError("EnterComparison", failedDecode.FilePath));
             }
 
-            images.Add(new ComparisonImage(playlistIndex, decode.Value));
+            var images = decodeResults
+                .Select(result => new ComparisonImage(result.PlaylistIndex, result.Decode.Value))
+                .ToArray();
+
+            return Result<ComparisonSet>.Success(new ComparisonSet(layout, images));
         }
 
-        return Result<ComparisonSet>.Success(new ComparisonSet(layout, images));
+        return Result<ComparisonSet>.Failure(ViewerError.ComparisonError("EnterComparison", playlist.FolderPath));
+    }
+
+    private Task<ComparisonDecodeResult[]> DecodeVisibleImagesAsync(
+        Playlist playlist,
+        int normalizedStart,
+        int visibleCount,
+        CancellationToken cancellationToken)
+    {
+        var decodeTasks = Enumerable.Range(0, visibleCount)
+            .Select(offset => DecodeComparisonImageAsync(playlist, normalizedStart, offset, cancellationToken))
+            .ToArray();
+
+        return Task.WhenAll(decodeTasks);
+    }
+
+    private async Task<ComparisonDecodeResult> DecodeComparisonImageAsync(
+        Playlist playlist,
+        int normalizedStart,
+        int offset,
+        CancellationToken cancellationToken)
+    {
+        var playlistIndex = Mod(normalizedStart + offset, playlist.Items.Count);
+        var item = playlist.Items[playlistIndex];
+        var decode = await _imageDecodeService.DecodeImageAsync(item.FilePath, cancellationToken)
+            .ConfigureAwait(false);
+        return new ComparisonDecodeResult(playlistIndex, item.FilePath, decode);
     }
 
     private static int Mod(int value, int divisor)
     {
         return ((value % divisor) + divisor) % divisor;
     }
+
+    private static bool IsMemoryFailure(ViewerError error)
+    {
+        return error.Category == ErrorCategory.DecodeError
+            && (string.Equals(error.ExceptionType, nameof(OutOfMemoryException), StringComparison.Ordinal)
+                || string.Equals(error.UserMessage, "This image is too large to display.", StringComparison.Ordinal));
+    }
+
+    private sealed record ComparisonDecodeResult(
+        int PlaylistIndex,
+        string FilePath,
+        Result<DecodedImage> Decode);
 }

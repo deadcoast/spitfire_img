@@ -21,6 +21,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IComparisonService _comparisonService;
     private readonly ICommandPaletteService _commandPaletteService;
     private readonly IAnimationService _animationService;
+    private readonly ILayoutService _layoutService;
     private readonly ICodecDetectionService? _codecDetectionService;
     private readonly SlideshowTransitionService _slideshowTransitionService = new();
     private readonly HashSet<string> _promptedCodecFormats = new(StringComparer.OrdinalIgnoreCase);
@@ -77,7 +78,8 @@ public sealed class MainViewModel : ObservableObject
         IComparisonService comparisonService,
         ICommandPaletteService commandPaletteService,
         IAnimationService animationService,
-        ICodecDetectionService? codecDetectionService = null)
+        ICodecDetectionService? codecDetectionService = null,
+        ILayoutService? layoutService = null)
     {
         _fileOpenService = fileOpenService;
         _imageDecodeService = imageDecodeService;
@@ -94,6 +96,7 @@ public sealed class MainViewModel : ObservableObject
         _comparisonService = comparisonService;
         _commandPaletteService = commandPaletteService;
         _animationService = animationService;
+        _layoutService = layoutService ?? new LayoutService(imageDecodeService);
         _codecDetectionService = codecDetectionService;
         SearchState = new SearchState(searchService);
         ThumbnailState = new ThumbnailState();
@@ -103,10 +106,13 @@ public sealed class MainViewModel : ObservableObject
         ComparisonState = new ComparisonState();
         CommandPaletteState = new CommandPaletteState(_commandPaletteService);
         AnimationState = new AnimationState();
+        LayoutState = new LayoutState();
         _slideshowService.AdvanceRequested += OnSlideshowAdvanceRequested;
     }
 
     public event EventHandler<CodecInstallPrompt>? CodecInstallPromptRequested;
+
+    public event EventHandler? OpenFileRequested;
 
     public ViewerState ViewerState { get; } = new();
 
@@ -129,6 +135,8 @@ public sealed class MainViewModel : ObservableObject
     public CommandPaletteState CommandPaletteState { get; }
 
     public AnimationState AnimationState { get; }
+
+    public LayoutState LayoutState { get; }
 
     public ViewerSettings Settings
     {
@@ -237,6 +245,7 @@ public sealed class MainViewModel : ObservableObject
                 SetRecentFiles(recentResult.Value);
             }
 
+            await RestorePreferredLayoutAsync(operationToken).ConfigureAwait(false);
             ShowChrome();
         }
         finally
@@ -257,6 +266,11 @@ public sealed class MainViewModel : ObservableObject
             return ShiftComparisonAsync(1, cancellationToken);
         }
 
+        if (LayoutState is { IsActive: true, Mode: LayoutMode.Filmstrip })
+        {
+            return NavigateFilmstripAsync(1, cancellationToken);
+        }
+
         return NavigateToIndexAsync(PlaylistState.CurrentIndex + 1, cancellationToken);
     }
 
@@ -265,6 +279,11 @@ public sealed class MainViewModel : ObservableObject
         if (ComparisonState.IsActive)
         {
             return ShiftComparisonAsync(-1, cancellationToken);
+        }
+
+        if (LayoutState is { IsActive: true, Mode: LayoutMode.Filmstrip })
+        {
+            return NavigateFilmstripAsync(-1, cancellationToken);
         }
 
         return NavigateToIndexAsync(PlaylistState.CurrentIndex - 1, cancellationToken);
@@ -305,6 +324,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         SlideshowState.Start(PlaylistState.CurrentIndex, config);
+        PreloadNextSlideshowImage();
         ShowChrome();
     }
 
@@ -382,6 +402,12 @@ public sealed class MainViewModel : ObservableObject
     public void ToggleAnimationPlayback()
     {
         AnimationState.TogglePlayback();
+        if (AnimationState.IsAnimationActive)
+        {
+            Settings = Settings with { GifAutoPlay = AnimationState.IsPlaying };
+            SaveSettingsOrReportError();
+        }
+
         ShowChrome();
     }
 
@@ -526,6 +552,8 @@ public sealed class MainViewModel : ObservableObject
     public void ToggleComparisonSyncZoom()
     {
         ComparisonState.ToggleSyncZoom();
+        Settings = Settings with { ComparisonSyncZoom = ComparisonState.IsSyncZoomEnabled };
+        SaveSettingsOrReportError();
         ShowChrome();
     }
 
@@ -541,6 +569,291 @@ public sealed class MainViewModel : ObservableObject
         }
 
         ShowChrome();
+    }
+
+    public async Task EnterGridLayoutAsync(CancellationToken cancellationToken = default)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        await RefreshGridLayoutAsync(
+                CreatePreferredGridConfig(),
+                PlaylistState.CurrentIndex,
+                persistPreference: true,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task EnterFilmstripLayoutAsync(CancellationToken cancellationToken = default)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        await FocusFilmstripIndexAsync(
+                PlaylistState.CurrentIndex,
+                persistPreference: true,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public Task SelectFilmstripImageAsync(int visibleIndex, CancellationToken cancellationToken = default)
+    {
+        if (LayoutState is not { IsActive: true, Mode: LayoutMode.Filmstrip } ||
+            visibleIndex < 0 ||
+            visibleIndex >= LayoutState.VisibleImages.Count)
+        {
+            return Task.CompletedTask;
+        }
+
+        return FocusFilmstripIndexAsync(
+            LayoutState.VisibleImages[visibleIndex].PlaylistIndex,
+            persistPreference: false,
+            cancellationToken);
+    }
+
+    private Task NavigateFilmstripAsync(int offset, CancellationToken cancellationToken)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var nextIndex = Math.Clamp(PlaylistState.CurrentIndex + offset, 0, PlaylistState.TotalCount - 1);
+        return FocusFilmstripIndexAsync(nextIndex, persistPreference: false, cancellationToken: cancellationToken);
+    }
+
+    private async Task FocusFilmstripIndexAsync(
+        int focusIndex,
+        bool persistPreference,
+        CancellationToken cancellationToken)
+    {
+        using var operation = BeginOperation(cancellationToken);
+        var operationToken = operation.Token;
+        ErrorMessage = null;
+
+        try
+        {
+            await ApplyFilmstripLayoutAsync(focusIndex, persistPreference, operationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            EndOperation(operation);
+        }
+    }
+
+    public Task IncreaseGridDensityAsync(CancellationToken cancellationToken = default)
+    {
+        return StepGridDensityAsync(1, cancellationToken);
+    }
+
+    public Task DecreaseGridDensityAsync(CancellationToken cancellationToken = default)
+    {
+        return StepGridDensityAsync(-1, cancellationToken);
+    }
+
+    public Task ScrollGridLayoutAsync(int direction, CancellationToken cancellationToken = default)
+    {
+        if (!LayoutState.IsActive || PlaylistState.TotalCount == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var rowOffset = LayoutState.Config.Columns * Math.Sign(direction);
+        if (rowOffset == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var nextStartIndex = Mod(LayoutState.WindowStartIndex + rowOffset, PlaylistState.TotalCount);
+        return RefreshGridLayoutAsync(
+            LayoutState.Config,
+            nextStartIndex,
+            persistPreference: false,
+            cancellationToken: cancellationToken);
+    }
+
+    public void SelectGridImage(int visibleIndex)
+    {
+        LayoutState.SelectImage(visibleIndex);
+        ShowChrome();
+    }
+
+    public async Task OpenSelectedGridImageAsync(CancellationToken cancellationToken = default)
+    {
+        var activeImage = LayoutState.ActiveImage;
+        if (activeImage is null)
+        {
+            return;
+        }
+
+        await ReturnToSingleImageViewAsync(cancellationToken).ConfigureAwait(false);
+        await NavigateToIndexAsync(activeImage.PlaylistIndex, cancellationToken).ConfigureAwait(false);
+    }
+
+    private Task StepGridDensityAsync(int direction, CancellationToken cancellationToken)
+    {
+        if (!LayoutState.IsActive || PlaylistState.TotalCount == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var nextConfig = LayoutConfig.StepGridDensity(LayoutState.Config, direction);
+        return RefreshGridLayoutAsync(
+            nextConfig,
+            LayoutState.WindowStartIndex,
+            persistPreference: true,
+            cancellationToken: cancellationToken);
+    }
+
+    private async Task RefreshGridLayoutAsync(
+        LayoutConfig config,
+        int startIndex,
+        bool persistPreference,
+        CancellationToken cancellationToken)
+    {
+        using var operation = BeginOperation(cancellationToken);
+        var operationToken = operation.Token;
+        ErrorMessage = null;
+
+        try
+        {
+            await ApplyGridLayoutAsync(config, startIndex, persistPreference, operationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            EndOperation(operation);
+        }
+    }
+
+    public void ExitLayout()
+    {
+        LayoutState.ExitLayout();
+        ShowChrome();
+    }
+
+    public async Task ReturnToSingleImageViewAsync(CancellationToken cancellationToken = default)
+    {
+        LayoutState.ExitLayout();
+        Settings = Settings with { PreferredLayout = LayoutMode.SingleImage };
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    private async Task RestorePreferredLayoutAsync(CancellationToken cancellationToken)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        switch (Settings.PreferredLayout)
+        {
+            case LayoutMode.Grid:
+                await ApplyGridLayoutAsync(
+                        CreatePreferredGridConfig(),
+                        PlaylistState.CurrentIndex,
+                        persistPreference: false,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                break;
+            case LayoutMode.Filmstrip:
+                await ApplyFilmstripLayoutAsync(
+                        PlaylistState.CurrentIndex,
+                        persistPreference: false,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                break;
+            default:
+                LayoutState.ExitLayout();
+                break;
+        }
+    }
+
+    private async Task<bool> ApplyGridLayoutAsync(
+        LayoutConfig config,
+        int startIndex,
+        bool persistPreference,
+        CancellationToken cancellationToken)
+    {
+        var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
+        var result = await _layoutService.EnterGridAsync(playlist, config, startIndex, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            await HandleErrorAsync(result.Error, CancellationToken.None).ConfigureAwait(false);
+            ComparisonState.ExitComparison();
+            LayoutState.ExitLayout();
+            return false;
+        }
+
+        ComparisonState.ExitComparison();
+        LayoutState.EnterLayout(result.Value);
+        if (persistPreference)
+        {
+            Settings = Settings with
+            {
+                PreferredLayout = LayoutMode.Grid,
+                GridRows = result.Value.Config.Rows,
+                GridColumns = result.Value.Config.Columns
+            };
+            await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        ShowChrome();
+        return true;
+    }
+
+    private async Task ApplyFilmstripLayoutAsync(
+        int focusIndex,
+        bool persistPreference,
+        CancellationToken cancellationToken)
+    {
+        var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
+        var result = await _layoutService.EnterFilmstripAsync(playlist, focusIndex, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            await HandleErrorAsync(result.Error, CancellationToken.None).ConfigureAwait(false);
+            ComparisonState.ExitComparison();
+            LayoutState.ExitLayout();
+            return;
+        }
+
+        ComparisonState.ExitComparison();
+        LayoutState.EnterLayout(result.Value);
+        if (result.Value.FocusImage is { } focusImage)
+        {
+            PlaylistState.SetCurrentIndex(focusImage.PlaylistIndex);
+            ViewerState.SetImage(focusImage.Image);
+            SlideshowState.SetCurrentImageIndex(focusImage.PlaylistIndex);
+            TransformState.DiscardTransforms();
+        }
+
+        if (persistPreference)
+        {
+            Settings = Settings with { PreferredLayout = LayoutMode.Filmstrip };
+            await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        ShowChrome();
+    }
+
+    private LayoutConfig CreatePreferredGridConfig()
+    {
+        var normalizedSettings = Settings.Normalize();
+        return LayoutConfig.Default with
+        {
+            Rows = normalizedSettings.GridRows,
+            Columns = normalizedSettings.GridColumns
+        };
     }
 
     public void ShowCommandPalette()
@@ -567,6 +880,9 @@ public sealed class MainViewModel : ObservableObject
         CommandPaletteState.Close();
         switch (selectedCommand.Id)
         {
+            case CommandIds.OpenFile:
+                OpenFileRequested?.Invoke(this, EventArgs.Empty);
+                break;
             case CommandIds.ToggleFullscreen:
                 ToggleFullscreen();
                 break;
@@ -599,6 +915,27 @@ public sealed class MainViewModel : ObservableObject
                 break;
             case CommandIds.ToggleComparisonSyncZoom:
                 ToggleComparisonSyncZoom();
+                break;
+            case CommandIds.ComparisonTwoImages:
+                await ChangeComparisonImageCountAsync(2, cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.ComparisonThreeImages:
+                await ChangeComparisonImageCountAsync(3, cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.ComparisonFourImages:
+                await ChangeComparisonImageCountAsync(4, cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.ReturnToSingleImage:
+                await ReturnToSingleImageViewAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.GridLayout:
+                await EnterGridLayoutAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.FilmstripLayout:
+                await EnterFilmstripLayoutAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case CommandIds.ToggleGifPlayback:
+                ToggleAnimationPlayback();
                 break;
         }
 
@@ -1010,7 +1347,9 @@ public sealed class MainViewModel : ObservableObject
 
     private void ApplyComparisonSet(ComparisonSet comparison)
     {
+        LayoutState.ExitLayout();
         ComparisonState.EnterComparison(comparison);
+        ComparisonState.SetSyncZoom(Settings.ComparisonSyncZoom);
         var primaryImage = comparison.Images[0];
         PlaylistState.SetCurrentIndex(primaryImage.PlaylistIndex);
         ViewerState.SetImage(primaryImage.Image);
@@ -1041,7 +1380,7 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        AnimationState.LoadAnimation(animationResult.Value);
+        AnimationState.LoadAnimation(animationResult.Value, Settings.GifAutoPlay);
     }
 
     private async Task HandleErrorAsync(ViewerError error, CancellationToken cancellationToken)
@@ -1090,6 +1429,11 @@ public sealed class MainViewModel : ObservableObject
         return null;
     }
 
+    private static int Mod(int value, int divisor)
+    {
+        return ((value % divisor) + divisor) % divisor;
+    }
+
     private static bool IsHeicExtension(string? extension)
     {
         return extension is not null
@@ -1114,6 +1458,19 @@ public sealed class MainViewModel : ObservableObject
         if (saveResult.IsFailure)
         {
             await HandleErrorAsync(saveResult.Error, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private void SaveSettingsOrReportError()
+    {
+        var saveResult = _settingsService.SaveSettingsAsync(Settings, CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        if (saveResult.IsFailure)
+        {
+            HandleErrorAsync(saveResult.Error, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
         }
     }
 
@@ -1143,9 +1500,29 @@ public sealed class MainViewModel : ObservableObject
         var transition = BeginSlideshowTransition(Settings.SlideshowTransition);
         try
         {
-            await NavigateToIndexAsync(nextIndex, CancellationToken.None, resetSlideshowTimer: false)
-                .ConfigureAwait(false);
+            if (ComparisonState.IsActive)
+            {
+                await AdvanceComparisonSlideshowAsync(nextIndex).ConfigureAwait(false);
+            }
+            else if (LayoutState is { IsActive: true, Mode: LayoutMode.Grid })
+            {
+                await AdvanceGridSlideshowAsync(nextIndex).ConfigureAwait(false);
+            }
+            else if (LayoutState is { IsActive: true, Mode: LayoutMode.Filmstrip })
+            {
+                await ApplyFilmstripLayoutAsync(
+                        nextIndex,
+                        persistPreference: false,
+                        cancellationToken: CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await NavigateToIndexAsync(nextIndex, CancellationToken.None, resetSlideshowTimer: false)
+                    .ConfigureAwait(false);
+            }
 
+            PreloadNextSlideshowImage();
             if (transition.Duration > TimeSpan.Zero)
             {
                 await Task.Delay(transition.Duration).ConfigureAwait(false);
@@ -1154,6 +1531,77 @@ public sealed class MainViewModel : ObservableObject
         finally
         {
             EndSlideshowTransition();
+        }
+    }
+
+    private void PreloadNextSlideshowImage()
+    {
+        if (!SlideshowState.IsActive || PlaylistState.TotalCount < 2)
+        {
+            return;
+        }
+
+        var preloadIndex = Mod(SlideshowState.CurrentImageIndex + 1, PlaylistState.TotalCount);
+        var preloadPath = PlaylistState.Items[preloadIndex].FilePath;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _imageDecodeService.DecodeImageAsync(preloadPath, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+            }
+        });
+    }
+
+    private async Task AdvanceComparisonSlideshowAsync(int nextIndex)
+    {
+        var currentPrimaryIndex = ComparisonState.VisibleImages.FirstOrDefault()?.PlaylistIndex ?? PlaylistState.CurrentIndex;
+        var offset = nextIndex - currentPrimaryIndex;
+        var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
+        var currentIndices = ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray();
+        var result = await _comparisonService.ShiftComparisonAsync(
+                playlist,
+                currentIndices,
+                offset,
+                ComparisonState.Layout,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            await HandleErrorAsync(result.Error, CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+
+        ApplyComparisonSet(result.Value);
+        ShowChrome();
+    }
+
+    private async Task AdvanceGridSlideshowAsync(int nextIndex)
+    {
+        var applied = await ApplyGridLayoutAsync(
+                LayoutState.Config,
+                nextIndex,
+                persistPreference: false,
+                cancellationToken: CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!applied)
+        {
+            return;
+        }
+
+        if (LayoutState.ActiveImage is { } activeImage)
+        {
+            PlaylistState.SetCurrentIndex(activeImage.PlaylistIndex);
+            ViewerState.SetImage(activeImage.Image);
+            SlideshowState.SetCurrentImageIndex(activeImage.PlaylistIndex);
+            TransformState.DiscardTransforms();
         }
     }
 
