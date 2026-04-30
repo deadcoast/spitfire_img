@@ -17,8 +17,10 @@
         PointerMoved="OnRootPointerMoved">
         <views:ImageCanvas x:Name="ImageCanvas" />
         <views:ThumbnailStrip x:Name="ThumbnailStrip" />
+        <views:ComparisonView x:Name="ComparisonView" />
         <views:FadingChrome x:Name="Chrome" />
         <views:SearchOverlay x:Name="SearchOverlay" />
+        <views:CommandPalette x:Name="CommandPalette" />
         <views:MetadataPanel x:Name="MetadataPanel" />
         <views:DropIndicator x:Name="DropIndicator" />
 

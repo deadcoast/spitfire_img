@@ -15,6 +15,8 @@ public sealed class ViewerSettingsTests
         Assert.Equal(800, settings.WindowHeight);
         Assert.Equal(2000, settings.FadeDelayMs);
         Assert.Equal(300, settings.FadeDurationMs);
+        Assert.Equal(3, settings.SlideshowIntervalSeconds);
+        Assert.Equal(TransitionEffect.Fade, settings.SlideshowTransition);
     }
 
     [Fact]
@@ -36,5 +38,19 @@ public sealed class ViewerSettingsTests
         Assert.Equal(600, normalized.WindowHeight);
         Assert.Equal(500, normalized.FadeDelayMs);
         Assert.Equal(100, normalized.FadeDurationMs);
+    }
+
+    [Theory]
+    [InlineData(-5, 1)]
+    [InlineData(0, 1)]
+    [InlineData(7, 7)]
+    [InlineData(90, 60)]
+    public void Normalize_ClampsSlideshowIntervalToSupportedRange(int intervalSeconds, int expectedSeconds)
+    {
+        var settings = ViewerSettings.Default with { SlideshowIntervalSeconds = intervalSeconds };
+
+        var normalized = settings.Normalize();
+
+        Assert.Equal(expectedSeconds, normalized.SlideshowIntervalSeconds);
     }
 }

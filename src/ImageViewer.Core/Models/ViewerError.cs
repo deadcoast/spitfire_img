@@ -13,7 +13,11 @@ public enum ErrorCategory
     ExportError,
     TransformError,
     TransformSaveError,
-    MetadataExtractionError
+    MetadataExtractionError,
+    ComparisonError,
+    AnimationError,
+    CodecDetectionError,
+    CodecUnavailableError
 }
 
 public enum ErrorSeverity
@@ -126,9 +130,41 @@ public sealed record ViewerError(
         return Create(ErrorCategory.MetadataExtractionError, operation, filePath, exception);
     }
 
+    public static ViewerError ComparisonError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.ComparisonError, operation, filePath, exception);
+    }
+
+    public static ViewerError AnimationError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.AnimationError, operation, filePath, exception);
+    }
+
+    public static ViewerError CodecDetectionError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.CodecDetectionError, operation, filePath, exception);
+    }
+
+    public static ViewerError CodecUnavailableError(string operation, string? filePath, Exception? exception = null)
+    {
+        return new ViewerError(
+            DateTimeOffset.UtcNow,
+            ErrorSeverity.Error,
+            ErrorCategory.CodecUnavailableError,
+            GetCodecUnavailableMessage(filePath),
+            operation,
+            filePath,
+            exception?.GetType().Name,
+            exception?.StackTrace);
+    }
+
     private static ErrorSeverity GetSeverity(ErrorCategory category)
     {
-        return category is ErrorCategory.PlaylistScanError or ErrorCategory.SettingsPersistenceError or ErrorCategory.ThumbnailGenerationError
+        return category is ErrorCategory.PlaylistScanError
+            or ErrorCategory.SettingsPersistenceError
+            or ErrorCategory.ThumbnailGenerationError
+            or ErrorCategory.AnimationError
+            or ErrorCategory.CodecDetectionError
             ? ErrorSeverity.Warning
             : ErrorSeverity.Error;
     }
@@ -149,7 +185,21 @@ public sealed record ViewerError(
             ErrorCategory.TransformError => "Unable to apply the requested image change.",
             ErrorCategory.TransformSaveError => "Unable to save changes to this image.",
             ErrorCategory.MetadataExtractionError => "Unable to read detailed metadata for this image.",
+            ErrorCategory.ComparisonError => "Comparison mode requires at least two images",
+            ErrorCategory.AnimationError => "Unable to load animated GIF frames. Displaying the first frame.",
+            ErrorCategory.CodecDetectionError => "Unable to detect codec availability.",
+            ErrorCategory.CodecUnavailableError => "This format requires an additional Windows codec from the Microsoft Store.",
             _ => "An unexpected error occurred. The application will attempt to continue."
+        };
+    }
+
+    private static string GetCodecUnavailableMessage(string? filePath)
+    {
+        return (Path.GetExtension(filePath) ?? string.Empty).ToLowerInvariant() switch
+        {
+            ".heic" or ".heif" => "HEIC format requires the HEIF Image Extensions from the Microsoft Store. Would you like to open the Store page?",
+            ".avif" => "AVIF format requires the AV1 Video Extension from the Microsoft Store. Would you like to open the Store page?",
+            _ => "This format requires an additional Windows codec from the Microsoft Store."
         };
     }
 }

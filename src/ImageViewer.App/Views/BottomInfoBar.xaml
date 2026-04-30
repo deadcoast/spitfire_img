@@ -8,12 +8,31 @@
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="FilenameText" Foreground="{ThemeResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis" />
             <TextBlock x:Name="PositionText" Grid.Column="1" Foreground="{ThemeResource SecondaryTextBrush}" />
             <TextBlock x:Name="DimensionsText" Grid.Column="2" Foreground="{ThemeResource SecondaryTextBrush}" />
-            <TextBlock x:Name="FolderText" Grid.Column="3" Foreground="{ThemeResource MutedTextBrush}" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
+            <TextBlock
+                x:Name="SlideshowText"
+                Grid.Column="3"
+                Foreground="{ThemeResource SecondaryTextBrush}"
+                Text="Slideshow"
+                Visibility="Collapsed" />
+            <TextBlock
+                x:Name="ComparisonText"
+                Grid.Column="4"
+                Foreground="{ThemeResource SecondaryTextBrush}"
+                Visibility="Collapsed" />
+            <TextBlock
+                x:Name="AnimationText"
+                Grid.Column="5"
+                Foreground="{ThemeResource SecondaryTextBrush}"
+                Visibility="Collapsed" />
+            <TextBlock x:Name="FolderText" Grid.Column="6" Foreground="{ThemeResource MutedTextBrush}" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
         </Grid>
     </Border>
 </UserControl>

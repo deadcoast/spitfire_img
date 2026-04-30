@@ -21,6 +21,8 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        _ = InitializeStartupServicesAsync(_services);
+
         var window = _services.GetRequiredService<MainWindow>();
         window.Activate();
 
@@ -43,21 +45,51 @@ public partial class App : Application
             : null;
     }
 
+    public static async Task InitializeStartupServicesAsync(
+        IServiceProvider services,
+        CancellationToken cancellationToken = default)
+    {
+        var codecDetectionService = services.GetService<ICodecDetectionService>();
+        if (codecDetectionService is null)
+        {
+            return;
+        }
+
+        var result = await codecDetectionService.DetectCodecsAsync(cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure && services.GetService<IErrorLogService>() is { } errorLogService)
+        {
+            await errorLogService.LogErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     private static void ConfigureServices(IServiceCollection services)
     {
         var localDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "spitfire.img");
 
-        services.AddSingleton<IFileOpenService, FileOpenService>();
-        services.AddSingleton<IImageDecodeService, ImageDecodeService>();
-        services.AddSingleton<IFolderPlaylistService, FolderPlaylistService>();
+        services.AddSingleton<ICodecRegistryProbe, WindowsCodecRegistryProbe>();
+        services.AddSingleton<ICodecDetectionService, WindowsCodecDetectionService>();
+        services.AddSingleton<IWindowsImageMetadataReader, WindowsImageMetadataReader>();
+        services.AddSingleton<IFileOpenService>(provider =>
+            new FileOpenService(provider.GetRequiredService<ICodecDetectionService>()));
+        services.AddSingleton<IImageDecodeService>(provider =>
+            new WindowsImageDecodeService(
+                provider.GetRequiredService<ICodecDetectionService>(),
+                provider.GetRequiredService<IWindowsImageMetadataReader>()));
+        services.AddSingleton<IFolderPlaylistService>(provider =>
+            new FolderPlaylistService(provider.GetRequiredService<ICodecDetectionService>()));
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<ISettingsService>(_ => new SettingsService(localDataFolder));
         services.AddSingleton<IErrorLogService>(_ => new ErrorLogService(localDataFolder));
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IThumbnailService, WindowsThumbnailService>();
         services.AddSingleton<IRecentFilesService>(_ => new RecentFilesService(localDataFolder));
+        services.AddSingleton<ISlideshowService, SlideshowService>();
+        services.AddSingleton<IComparisonService>(provider =>
+            new ComparisonService(provider.GetRequiredService<IImageDecodeService>()));
+        services.AddSingleton<ICommandPaletteService, CommandPaletteService>();
+        services.AddSingleton<IAnimationService, WindowsAnimationService>();
         services.AddSingleton<WindowsImageProcessingService>();
         services.AddSingleton<IExportService>(provider => provider.GetRequiredService<WindowsImageProcessingService>());
         services.AddSingleton<ITransformService>(provider => provider.GetRequiredService<WindowsImageProcessingService>());

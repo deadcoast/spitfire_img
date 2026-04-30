@@ -8,26 +8,26 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
 
 ## Tasks
 
-- [ ] 1. Implement slideshow mode foundation
+- [x] 1. Implement slideshow mode foundation
   - Create SlideshowService with timing and state management
   - Create SlideshowState ViewModel for playback state
   - Implement slideshow activation, pause, resume, and stop
   - Add slideshow commands to MainViewModel
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [ ]* 1.1 Write property test for slideshow timing accuracy
+- [x]* 1.1 Write property test for slideshow timing accuracy
   - **Property 1: Slideshow Timing Accuracy**
   - **Validates: Requirements 1.2, 2.1, 2.4**
 
-- [ ]* 1.2 Write property test for slideshow looping behavior
+- [x]* 1.2 Write property test for slideshow looping behavior
   - **Property 2: Slideshow Looping Behavior**
   - **Validates: Requirements 1.7**
 
-- [ ]* 1.3 Write property test for slideshow timer reset on manual navigation
+- [x]* 1.3 Write property test for slideshow timer reset on manual navigation
   - **Property 3: Slideshow Timer Reset on Manual Navigation**
   - **Validates: Requirements 1.8**
 
-- [ ] 2. Implement slideshow timing configuration
+- [x] 2. Implement slideshow timing configuration
   - Add slideshow interval configuration (1s to 60s)
   - Implement interval stepping with Plus/Minus keys
   - Add slideshow settings to ViewerSettings model
@@ -35,11 +35,11 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Display interval changes in Chrome UI
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8_
 
-- [ ]* 2.1 Write property test for slideshow interval stepping
+- [x]* 2.1 Write property test for slideshow interval stepping
   - **Property 4: Slideshow Interval Stepping**
   - **Validates: Requirements 2.6, 2.7**
 
-- [ ] 3. Implement slideshow transition effects
+- [x] 3. Implement slideshow transition effects
   - Create TransitionEffect enum (None, Fade, Slide, Zoom)
   - Implement None transition (instant swap)
   - Implement Fade transition (300ms fade out/in)
@@ -49,20 +49,20 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Render transitions at 60 FPS with hardware acceleration
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9_
 
-- [ ]* 3.1 Write property test for transition navigation blocking
+- [x]* 3.1 Write property test for transition navigation blocking
   - **Property 5: Transition Navigation Blocking**
   - **Validates: Requirements 3.8**
 
-- [ ]* 3.2 Write integration tests for slideshow transitions
+- [x]* 3.2 Write integration tests for slideshow transitions
   - Test all transition effects with real images
   - Verify transition timing accuracy
   - Test transition cancellation on manual navigation
   - Test memory usage during transitions
 
-- [ ] 4. Checkpoint - Ensure slideshow mode tests pass
+- [x] 4. Checkpoint - Ensure slideshow mode tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Implement comparison mode foundation
+- [x] 5. Implement comparison mode foundation
   - Create ComparisonService with layout calculations
   - Create ComparisonState ViewModel for comparison state
   - Create ComparisonView XAML component
@@ -71,11 +71,11 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Add comparison commands to MainViewModel
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9_
 
-- [ ]* 5.1 Write property test for comparison synchronized navigation
+- [x]* 5.1 Write property test for comparison synchronized navigation
   - **Property 6: Comparison Synchronized Navigation**
   - **Validates: Requirements 4.4, 4.5**
 
-- [ ] 6. Implement side-by-side comparison layout
+- [x] 6. Implement side-by-side comparison layout
   - Create ComparisonLayout enum (SideBySide, Overlay)
   - Implement 2-image side-by-side layout (50/50 split)
   - Implement 3-image side-by-side layout (33/33/33 split)
@@ -85,11 +85,11 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Preserve aspect ratios for all displayed images
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9_
 
-- [ ]* 6.1 Write property test for aspect ratio preservation in layouts
+- [x]* 6.1 Write property test for aspect ratio preservation in layouts
   - **Property 7: Aspect Ratio Preservation in Layouts**
   - **Validates: Requirements 5.6, 14.6**
 
-- [ ] 7. Implement overlay comparison layout
+- [x] 7. Implement overlay comparison layout
   - Implement overlay layout with image layering
   - Add opacity slider control (0-100%)
   - Implement opacity adjustment with Up/Down arrows
@@ -98,11 +98,11 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Add Ctrl+Shift+D shortcut for overlay mode
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9_
 
-- [ ]* 7.1 Write property test for overlay opacity range
+- [x]* 7.1 Write property test for overlay opacity range
   - **Property 8: Overlay Opacity Range**
   - **Validates: Requirements 6.3, 6.4, 6.5**
 
-- [ ] 8. Implement synchronized zoom and pan in comparison mode
+- [x] 8. Implement synchronized zoom and pan in comparison mode
   - Implement zoom synchronization across all displayed images
   - Implement pan synchronization with relative coordinates
   - Add Ctrl+L shortcut to toggle sync zoom
@@ -111,20 +111,20 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Display sync indicator in Chrome when enabled
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
 
-- [ ]* 8.1 Write property test for synchronized zoom with relative positioning
+- [x]* 8.1 Write property test for synchronized zoom with relative positioning
   - **Property 9: Synchronized Zoom with Relative Positioning**
   - **Validates: Requirements 7.1, 7.2, 7.6**
 
-- [ ]* 8.2 Write integration tests for comparison layouts
+- [x]* 8.2 Write integration tests for comparison layouts
   - Test side-by-side with 2, 3, 4 images
   - Test overlay with different image dimensions
   - Test synchronized zoom with real images
   - Test memory usage with multiple images
 
-- [ ] 9. Checkpoint - Ensure comparison mode tests pass
+- [x] 9. Checkpoint - Ensure comparison mode tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Implement command palette foundation
+- [x] 10. Implement command palette foundation
   - Create CommandPaletteService with command registry
   - Create CommandPaletteState ViewModel
   - Create CommandPalette XAML overlay component
@@ -133,7 +133,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Build command registry with Phase 1, 2, and 3 commands
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8_
 
-- [ ] 11. Implement command palette fuzzy search
+- [x] 11. Implement command palette fuzzy search
   - Create CommandItem model with Id, Title, Category, Shortcut
   - Implement fuzzy matching algorithm with character order
   - Implement match score calculation and ranking
@@ -142,15 +142,15 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Display "No matching commands found" for empty results
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 9.10_
 
-- [ ]* 11.1 Write property test for fuzzy matching character order
+- [x]* 11.1 Write property test for fuzzy matching character order
   - **Property 10: Fuzzy Matching Character Order**
   - **Validates: Requirements 9.2**
 
-- [ ]* 11.2 Write property test for fuzzy match ranking consistency
+- [x]* 11.2 Write property test for fuzzy match ranking consistency
   - **Property 11: Fuzzy Match Ranking Consistency**
   - **Validates: Requirements 9.5**
 
-- [ ] 12. Implement command palette execution and recent commands
+- [x] 12. Implement command palette execution and recent commands
   - Implement command execution on Enter key
   - Track recent commands (last 10)
   - Display recent commands at top of palette
@@ -159,16 +159,16 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Display keyboard shortcuts next to commands
   - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5_
 
-- [ ]* 12.1 Write integration tests for command palette
+- [x]* 12.1 Write integration tests for command palette
   - Test fuzzy search with real command list
   - Test command execution
   - Test recent commands persistence
   - Test performance with 200+ commands
 
-- [ ] 13. Checkpoint - Ensure command palette tests pass
+- [x] 13. Checkpoint - Ensure command palette tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Implement animated GIF detection and loading
+- [x] 14. Implement animated GIF detection and loading
   - Create AnimationService with frame extraction
   - Create AnimatedGif model with frames and delays
   - Create AnimationState ViewModel for playback state
@@ -178,7 +178,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Cache all frames in memory at load time
   - _Requirements: 10.1, 10.2, 10.3, 10.8, 10.10_
 
-- [ ] 15. Implement GIF animation playback
+- [x] 15. Implement GIF animation playback
   - Implement automatic animation playback on load
   - Implement play/pause toggle with P key
   - Respect frame delays embedded in GIF
@@ -188,15 +188,15 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Display current frame number and total in Chrome
   - _Requirements: 10.4, 10.5, 10.6, 10.7, 10.9_
 
-- [ ]* 15.1 Write property test for GIF frame timing accuracy
+- [x]* 15.1 Write property test for GIF frame timing accuracy
   - **Property 12: GIF Frame Timing Accuracy**
   - **Validates: Requirements 10.3**
 
-- [ ]* 15.2 Write property test for GIF animation looping
+- [x]* 15.2 Write property test for GIF animation looping
   - **Property 13: GIF Animation Looping**
   - **Validates: Requirements 10.8**
 
-- [ ] 16. Implement GIF frame control UI
+- [x] 16. Implement GIF frame control UI
   - Create FrameControl XAML component
   - Add play/pause button with icon toggle
   - Add previous frame button
@@ -207,16 +207,16 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Apply Chrome fade rules to frame controls
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9_
 
-- [ ]* 16.1 Write integration tests for GIF animation
+- [x]* 16.1 Write integration tests for GIF animation
   - Load real animated GIFs with various frame counts
   - Verify frame extraction and delay parsing
   - Test playback timing with real GIFs
   - Test with single-frame GIFs
 
-- [ ] 17. Checkpoint - Ensure GIF animation tests pass
+- [x] 17. Checkpoint - Ensure GIF animation tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 18. Implement codec detection service
+- [x] 18. Implement codec detection service
   - Create CodecDetectionService with registry checks
   - Create CodecAvailability model
   - Implement HEIC codec detection at startup
@@ -226,11 +226,11 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Handle registry access errors gracefully
   - _Requirements: 12.1, 12.7, 12.8, 13.1, 13.7, 13.10_
 
-- [ ]* 18.1 Write property test for codec detection caching
+- [x]* 18.1 Write property test for codec detection caching
   - **Property 18: Codec Detection Caching**
   - **Validates: Requirements 20.5**
 
-- [ ] 19. Implement HEIC format support with codec detection
+- [x] 19. Implement HEIC format support with codec detection
   - Extend ImageDecodeService with HEIC support
   - Add ".heic" to supported formats when codec available
   - Implement CodecUnavailableError for missing HEIC codec
@@ -240,7 +240,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Don't repeat codec prompt during same session
   - _Requirements: 12.2, 12.3, 12.4, 12.5, 12.6, 12.9, 12.10_
 
-- [ ] 20. Implement AVIF format support with codec detection
+- [x] 20. Implement AVIF format support with codec detection
   - Extend ImageDecodeService with AVIF support
   - Add ".avif" to supported formats when codec available
   - Implement CodecUnavailableError for missing AVIF codec

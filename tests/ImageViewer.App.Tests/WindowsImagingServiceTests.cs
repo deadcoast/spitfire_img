@@ -4,7 +4,9 @@ using ImageViewer.App.Services;
 using ImageViewer.App.Views;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
+using ImageViewer.Core.ViewModels;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Gif;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SixLabors.ImageSharp.PixelFormats;
 using Windows.Graphics.Imaging;
@@ -286,6 +288,309 @@ public sealed class WindowsImagingServiceTests : IDisposable
         Assert.Equal("49.282700 N, 123.120700 W", result.Value.FormattedGpsCoordinates);
     }
 
+    [Fact]
+    public async Task WindowsAnimationService_LoadAnimatedGifAsync_ExtractsFramesAndDelaysWithWic()
+    {
+        var path = Path.Combine(_tempDirectory, "animated.gif");
+        await WriteAnimatedGifAsync(path, width: 3, height: 2, frameDelaysMs: [40, 120, 250]);
+        var service = new WindowsAnimationService();
+
+        var result = await service.LoadAnimatedGifAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value.IsAnimated);
+        Assert.Equal(3, result.Value.TotalFrames);
+        Assert.Equal(3, result.Value.Metadata.PixelWidth);
+        Assert.Equal(2, result.Value.Metadata.PixelHeight);
+        Assert.Equal(
+            [TimeSpan.FromMilliseconds(40), TimeSpan.FromMilliseconds(120), TimeSpan.FromMilliseconds(250)],
+            result.Value.Frames.Select(frame => frame.Delay).ToArray());
+        Assert.All(result.Value.Frames, frame => Assert.Equal(3 * 2 * 4, frame.EncodedBytes.Length));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(5)]
+    [InlineData(10)]
+    public async Task WindowsAnimationService_LoadAnimatedGifAsync_ExtractsRealAnimatedGifsWithVariousFrameCounts(
+        int frameCount)
+    {
+        var path = Path.Combine(_tempDirectory, $"animated-{frameCount}.gif");
+        var delays = Enumerable.Range(0, frameCount)
+            .Select(index => 30 + index * 40)
+            .ToArray();
+        await WriteAnimatedGifAsync(path, width: 4, height: 3, frameDelaysMs: delays);
+        var service = new WindowsAnimationService();
+
+        var result = await service.LoadAnimatedGifAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value.IsAnimated);
+        Assert.Equal(frameCount, result.Value.TotalFrames);
+        Assert.Equal(
+            delays.Select(delay => TimeSpan.FromMilliseconds(delay)),
+            result.Value.Frames.Select(frame => frame.Delay));
+        Assert.All(result.Value.Frames, frame => Assert.Equal(4 * 3 * 4, frame.EncodedBytes.Length));
+    }
+
+    [Fact]
+    public async Task MainViewModel_OpenFileAsync_WithRealAnimatedGif_LoadsPlaybackStateFromWicFrames()
+    {
+        var path = Path.Combine(_tempDirectory, "playback.gif");
+        await WriteAnimatedGifAsync(path, width: 5, height: 4, frameDelaysMs: [50, 110, 230]);
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+
+        await viewModel.OpenFileAsync(path);
+
+        Assert.True(viewModel.AnimationState.IsAnimationActive);
+        Assert.True(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(3, viewModel.AnimationState.TotalFrames);
+        Assert.Equal(TimeSpan.FromMilliseconds(50), viewModel.AnimationState.CurrentFrameDelay);
+        Assert.Equal(5 * 4 * 4, viewModel.AnimationState.CurrentFrame?.EncodedBytes.Length);
+
+        viewModel.AdvanceAnimationPlaybackFrame();
+
+        Assert.Equal(1, viewModel.AnimationState.CurrentFrameIndex);
+        Assert.Equal(TimeSpan.FromMilliseconds(110), viewModel.AnimationState.CurrentFrameDelay);
+    }
+
+    [Fact]
+    public async Task MainViewModel_OpenFileAsync_WithRealSingleFrameGif_HidesAnimationState()
+    {
+        var path = Path.Combine(_tempDirectory, "single-frame.gif");
+        await WriteAnimatedGifAsync(path, width: 5, height: 4, frameDelaysMs: [90]);
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+
+        await viewModel.OpenFileAsync(path);
+
+        Assert.False(viewModel.AnimationState.IsAnimationActive);
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(0, viewModel.AnimationState.TotalFrames);
+    }
+
+    [Theory]
+    [InlineData(TransitionEffect.Fade, 300)]
+    [InlineData(TransitionEffect.Slide, 400)]
+    [InlineData(TransitionEffect.Zoom, 350)]
+    public async Task SlideshowTransition_WithRealImages_BlocksManualNavigationUntilTransitionCompletes(
+        TransitionEffect transition,
+        int expectedDurationMs)
+    {
+        var first = Path.Combine(_tempDirectory, "alpha.png");
+        var second = Path.Combine(_tempDirectory, "bravo.png");
+        var third = Path.Combine(_tempDirectory, "charlie.png");
+        await WritePngAsync(first, width: 20, height: 10);
+        await WritePngAsync(second, width: 24, height: 12);
+        await WritePngAsync(third, width: 28, height: 14);
+        var slideshowService = new ManualSlideshowService();
+        var viewModel = CreateRealImageViewModel(
+            ViewerSettings.Default with { SlideshowTransition = transition },
+            slideshowService);
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(first);
+        viewModel.ToggleSlideshow();
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        slideshowService.RaiseAdvanceRequested(nextIndex: 1, new ImageItem(second));
+        await WaitUntilAsync(() => viewModel.PlaylistState.CurrentIndex == 1 && viewModel.SlideshowState.IsTransitioning);
+        await viewModel.NavigateNextAsync();
+        Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
+
+        await WaitUntilAsync(() => !viewModel.SlideshowState.IsTransitioning);
+        stopwatch.Stop();
+        Assert.InRange(stopwatch.ElapsedMilliseconds, expectedDurationMs - 25, expectedDurationMs + 1500);
+
+        await viewModel.NavigateNextAsync();
+        Assert.Equal(2, viewModel.PlaylistState.CurrentIndex);
+    }
+
+    [Fact]
+    public async Task SlideshowTransition_None_WithRealImages_AdvancesWithoutTransitionDelay()
+    {
+        var first = Path.Combine(_tempDirectory, "none-alpha.png");
+        var second = Path.Combine(_tempDirectory, "none-bravo.png");
+        await WritePngAsync(first, width: 20, height: 10);
+        await WritePngAsync(second, width: 24, height: 12);
+        var slideshowService = new ManualSlideshowService();
+        var viewModel = CreateRealImageViewModel(
+            ViewerSettings.Default with { SlideshowTransition = TransitionEffect.None },
+            slideshowService);
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(first);
+        viewModel.ToggleSlideshow();
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        slideshowService.RaiseAdvanceRequested(nextIndex: 1, new ImageItem(second));
+        await WaitUntilAsync(() => viewModel.PlaylistState.CurrentIndex == 1);
+        await WaitUntilAsync(() => !viewModel.SlideshowState.IsTransitioning);
+        stopwatch.Stop();
+
+        Assert.InRange(stopwatch.ElapsedMilliseconds, 0, 500);
+    }
+
+    [Fact]
+    public async Task SlideshowTransition_WithRealImages_RepeatedTransitionsKeepMemoryBounded()
+    {
+        var first = Path.Combine(_tempDirectory, "memory-alpha.png");
+        var second = Path.Combine(_tempDirectory, "memory-bravo.png");
+        await WritePngAsync(first, width: 32, height: 18);
+        await WritePngAsync(second, width: 34, height: 20);
+        var slideshowService = new ManualSlideshowService();
+        var viewModel = CreateRealImageViewModel(
+            ViewerSettings.Default with { SlideshowTransition = TransitionEffect.Fade },
+            slideshowService);
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(first);
+        viewModel.ToggleSlideshow();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var beforeBytes = GC.GetTotalMemory(forceFullCollection: true);
+
+        for (var index = 0; index < 12; index++)
+        {
+            var targetIndex = index % 2 == 0 ? 1 : 0;
+            var targetPath = targetIndex == 1 ? second : first;
+            slideshowService.RaiseAdvanceRequested(targetIndex, new ImageItem(targetPath));
+            await WaitUntilAsync(() => viewModel.PlaylistState.CurrentIndex == targetIndex);
+            await WaitUntilAsync(() => !viewModel.SlideshowState.IsTransitioning);
+        }
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var afterBytes = GC.GetTotalMemory(forceFullCollection: true);
+        Assert.InRange(afterBytes - beforeBytes, long.MinValue, 20L * 1024 * 1024);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task ComparisonSideBySide_WithRealImages_LoadsRequestedVisibleImageCount(int imageCount)
+    {
+        var first = Path.Combine(_tempDirectory, "comparison-0.png");
+        var second = Path.Combine(_tempDirectory, "comparison-1.png");
+        var third = Path.Combine(_tempDirectory, "comparison-2.png");
+        var fourth = Path.Combine(_tempDirectory, "comparison-3.png");
+        await WritePngAsync(first, width: 20, height: 10);
+        await WritePngAsync(second, width: 24, height: 12);
+        await WritePngAsync(third, width: 28, height: 14);
+        await WritePngAsync(fourth, width: 32, height: 16);
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(first);
+
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide, imageCount);
+
+        Assert.True(viewModel.ComparisonState.IsActive);
+        Assert.Equal(ComparisonLayout.SideBySide, viewModel.ComparisonState.Layout);
+        Assert.Equal(imageCount, viewModel.ComparisonState.VisibleImages.Count);
+        Assert.Equal(
+            Enumerable.Range(0, imageCount).ToArray(),
+            viewModel.ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray());
+        Assert.All(viewModel.ComparisonState.VisibleImages, image => Assert.EndsWith(".png", image.Image.FilePath));
+    }
+
+    [Fact]
+    public async Task ComparisonOverlay_WithDifferentRealImageDimensions_LoadsCenteredLayers()
+    {
+        var first = Path.Combine(_tempDirectory, "overlay-0.png");
+        var second = Path.Combine(_tempDirectory, "overlay-1.png");
+        await WritePngAsync(first, width: 80, height: 30);
+        await WritePngAsync(second, width: 25, height: 70);
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(first);
+
+        await viewModel.EnterComparisonAsync(ComparisonLayout.Overlay);
+
+        Assert.Equal(ComparisonLayout.Overlay, viewModel.ComparisonState.Layout);
+        Assert.Equal(0.5, viewModel.ComparisonState.OverlayOpacity);
+        Assert.Equal([80, 25], viewModel.ComparisonState.VisibleImages.Select(image => image.Image.Metadata.PixelWidth).ToArray());
+        Assert.All(
+            viewModel.ComparisonState.Viewports,
+            viewport => Assert.Equal(new RelativePanOffset(0.5, 0.5), viewport.RelativePan));
+    }
+
+    [Fact]
+    public async Task ComparisonSynchronizedZoom_WithDifferentRealImages_UsesRelativePan()
+    {
+        var first = Path.Combine(_tempDirectory, "sync-0.png");
+        var second = Path.Combine(_tempDirectory, "sync-1.png");
+        await WritePngAsync(first, width: 120, height: 60);
+        await WritePngAsync(second, width: 33, height: 91);
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(first);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+        var pan = new RelativePanOffset(0.2, 0.8);
+
+        viewModel.ZoomIn();
+        viewModel.SetComparisonRelativePan(pan);
+
+        Assert.True(viewModel.ComparisonState.IsSyncZoomEnabled);
+        Assert.All(viewModel.ComparisonState.Viewports, viewport =>
+        {
+            Assert.Equal(125, viewport.ZoomLevel);
+            Assert.Equal(pan, viewport.RelativePan);
+        });
+    }
+
+    [Fact]
+    public async Task ComparisonLayouts_WithRealImages_RepeatedSwitchesKeepMemoryBounded()
+    {
+        var first = Path.Combine(_tempDirectory, "layout-memory-0.png");
+        var second = Path.Combine(_tempDirectory, "layout-memory-1.png");
+        var third = Path.Combine(_tempDirectory, "layout-memory-2.png");
+        var fourth = Path.Combine(_tempDirectory, "layout-memory-3.png");
+        await WritePngAsync(first, width: 48, height: 24);
+        await WritePngAsync(second, width: 52, height: 26);
+        await WritePngAsync(third, width: 56, height: 28);
+        await WritePngAsync(fourth, width: 60, height: 30);
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+        await viewModel.OpenFileAsync(first);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var beforeBytes = GC.GetTotalMemory(forceFullCollection: true);
+
+        for (var iteration = 0; iteration < 10; iteration++)
+        {
+            await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide, 2 + (iteration % 3));
+            await viewModel.EnterComparisonAsync(ComparisonLayout.Overlay);
+            viewModel.ZoomIn();
+            viewModel.SetComparisonRelativePan(new RelativePanOffset(0.25, 0.75));
+        }
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var afterBytes = GC.GetTotalMemory(forceFullCollection: true);
+        Assert.InRange(afterBytes - beforeBytes, long.MinValue, 20L * 1024 * 1024);
+    }
+
+    [Fact]
+    public async Task CommandPalette_WithRealRegistry_SearchesExecutesAndTracksRecentCommand()
+    {
+        var viewModel = CreateRealImageViewModel(ViewerSettings.Default, new ManualSlideshowService());
+        await viewModel.InitializeAsync();
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SetSearchQuery("fullscreen");
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.ToggleFullscreen);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+        viewModel.ShowCommandPalette();
+
+        Assert.True(viewModel.ViewerState.IsFullscreen);
+        Assert.Equal(CommandIds.ToggleFullscreen, viewModel.CommandPaletteState.RecentCommands[0].Id);
+        Assert.Equal("Recent", viewModel.CommandPaletteState.DisplayItems[0].Header);
+        Assert.Contains(viewModel.CommandPaletteState.DisplayItems, item => item.Header == CommandCategory.View.ToString());
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -317,6 +622,40 @@ public sealed class WindowsImagingServiceTests : IDisposable
             96,
             pixels);
         await encoder.FlushAsync();
+    }
+
+    private static MainViewModel CreateRealImageViewModel(
+        ViewerSettings settings,
+        ISlideshowService slideshowService)
+    {
+        var decoder = new ImageDecodeService();
+        return new MainViewModel(
+            new FileOpenService(),
+            decoder,
+            new FolderPlaylistService(),
+            new NavigationService(decoder),
+            new StubSettingsService(settings),
+            new RecordingErrorLogService(),
+            new SearchService(),
+            new ThumbnailService(decoder),
+            new RecentFilesService(Path.Combine(Path.GetTempPath(), "spitfire-img-app-test-recent", Guid.NewGuid().ToString("N"))),
+            new ExportService(),
+            new TransformService(),
+            new WindowsMetadataService(),
+            slideshowService,
+            new ComparisonService(decoder),
+            new CommandPaletteService(),
+            new WindowsAnimationService());
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        while (!condition())
+        {
+            timeout.Token.ThrowIfCancellationRequested();
+            await Task.Delay(10, timeout.Token);
+        }
     }
 
     private static async Task WriteJpegWithExifAsync(
@@ -351,6 +690,41 @@ public sealed class WindowsImagingServiceTests : IDisposable
 
         image.Metadata.ExifProfile = exif;
         await image.SaveAsJpegAsync(path);
+    }
+
+    private static async Task WriteAnimatedGifAsync(
+        string path,
+        int width,
+        int height,
+        IReadOnlyList<int> frameDelaysMs)
+    {
+        using var image = CreateSolidImage(width, height, new Rgba32(255, 0, 0));
+        image.Metadata.GetGifMetadata().RepeatCount = 0;
+        image.Frames.RootFrame.Metadata.GetGifMetadata().FrameDelay = frameDelaysMs[0] / 10;
+
+        for (var index = 1; index < frameDelaysMs.Count; index++)
+        {
+            using var frameImage = CreateSolidImage(width, height, new Rgba32(0, (byte)(80 + index * 40), 255));
+            frameImage.Frames.RootFrame.Metadata.GetGifMetadata().FrameDelay = frameDelaysMs[index] / 10;
+            image.Frames.AddFrame(frameImage.Frames.RootFrame);
+        }
+
+        await image.SaveAsGifAsync(path);
+    }
+
+    private static Image<Rgba32> CreateSolidImage(int width, int height, Rgba32 color)
+    {
+        var image = new Image<Rgba32>(width, height);
+        image.ProcessPixelRows(accessor =>
+        {
+            for (var y = 0; y < accessor.Height; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+                row.Fill(color);
+            }
+        });
+
+        return image;
     }
 
     private static Rational[] ToGpsRationals(double decimalDegrees)
@@ -407,4 +781,87 @@ public sealed class WindowsImagingServiceTests : IDisposable
     }
 
     private sealed record ExifSnapshot(string? Make, string? Model, string? Software, ushort? Iso, ushort? Orientation);
+
+    private sealed class StubSettingsService : ISettingsService
+    {
+        private readonly ViewerSettings _settings;
+
+        public StubSettingsService(ViewerSettings settings)
+        {
+            _settings = settings;
+        }
+
+        public Task<Result<ViewerSettings>> LoadSettingsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<ViewerSettings>.Success(_settings));
+        }
+
+        public Task<Result> SaveSettingsAsync(ViewerSettings settings, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result.Success());
+        }
+    }
+
+    private sealed class RecordingErrorLogService : IErrorLogService
+    {
+        public Task<Result> LogErrorAsync(ViewerError error, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result.Success());
+        }
+
+        public Task<Result> CleanupOldLogsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result.Success());
+        }
+    }
+
+    private sealed class ManualSlideshowService : ISlideshowService
+    {
+        public event EventHandler<SlideshowAdvanceRequestedEventArgs>? AdvanceRequested;
+
+        public bool IsActive { get; private set; }
+
+        public bool IsPaused { get; private set; }
+
+        public Result StartSlideshow(Playlist playlist, int currentIndex, SlideshowConfig config)
+        {
+            IsActive = true;
+            IsPaused = false;
+            return Result.Success();
+        }
+
+        public Result StopSlideshow()
+        {
+            IsActive = false;
+            IsPaused = false;
+            return Result.Success();
+        }
+
+        public Result PauseSlideshow()
+        {
+            IsPaused = true;
+            return Result.Success();
+        }
+
+        public Result ResumeSlideshow()
+        {
+            IsPaused = false;
+            return Result.Success();
+        }
+
+        public Result UpdateConfig(SlideshowConfig config)
+        {
+            return Result.Success();
+        }
+
+        public Result ResetTimer()
+        {
+            return Result.Success();
+        }
+
+        public void RaiseAdvanceRequested(int nextIndex, ImageItem nextItem)
+        {
+            AdvanceRequested?.Invoke(this, new SlideshowAdvanceRequestedEventArgs(nextIndex, nextItem));
+        }
+    }
 }

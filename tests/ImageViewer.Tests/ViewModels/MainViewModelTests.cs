@@ -27,6 +27,90 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task OpenFileAsync_AnimatedGif_LoadsAnimationState()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(320, 240, 100));
+        var playlist = new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos");
+        var animation = new AnimatedGif(
+            image.FilePath,
+            image.Metadata,
+            [
+                new AnimationFrame(0, TimeSpan.FromMilliseconds(40), [0x01], 320, 240),
+                new AnimationFrame(1, TimeSpan.FromMilliseconds(80), [0x02], 320, 240)
+            ]);
+        var animationService = new RecordingAnimationService(Result<AnimatedGif>.Success(animation));
+        var services = TestServices.Success(image, playlist, animationService);
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        Assert.True(viewModel.AnimationState.IsAnimationActive);
+        Assert.Same(animation, viewModel.AnimationState.CurrentAnimation);
+        Assert.Equal(2, viewModel.AnimationState.TotalFrames);
+        Assert.Equal(image.FilePath, animationService.LoadedFilePaths.Single());
+    }
+
+    [Fact]
+    public async Task ToggleAnimationPlayback_WhenAnimatedGifIsActive_TogglesAnimationState()
+    {
+        var viewModel = await CreateAnimatedGifViewModelAsync();
+
+        viewModel.ToggleAnimationPlayback();
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+
+        viewModel.ToggleAnimationPlayback();
+
+        Assert.True(viewModel.AnimationState.IsPlaying);
+    }
+
+    [Fact]
+    public async Task AdvanceAnimationFrame_WhenPaused_AdvancesCurrentFrame()
+    {
+        var viewModel = await CreateAnimatedGifViewModelAsync();
+        viewModel.ToggleAnimationPlayback();
+
+        viewModel.AdvanceAnimationFrame();
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(1, viewModel.AnimationState.CurrentFrameIndex);
+    }
+
+    [Fact]
+    public async Task RewindAnimationFrame_WhenPaused_RewindsCurrentFrame()
+    {
+        var viewModel = await CreateAnimatedGifViewModelAsync();
+        viewModel.ToggleAnimationPlayback();
+
+        viewModel.RewindAnimationFrame();
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(1, viewModel.AnimationState.CurrentFrameIndex);
+    }
+
+    [Fact]
+    public async Task SeekAnimationFrame_FromFrameControl_JumpsToFrameAndPauses()
+    {
+        var viewModel = await CreateAnimatedGifViewModelAsync();
+
+        viewModel.SeekAnimationFrame(1);
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(1, viewModel.AnimationState.CurrentFrameIndex);
+    }
+
+    [Fact]
+    public async Task StepAnimationFrameFromControl_WhenPlaying_AdvancesAndPauses()
+    {
+        var viewModel = await CreateAnimatedGifViewModelAsync();
+
+        viewModel.StepAnimationFrameFromControl(1);
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(1, viewModel.AnimationState.CurrentFrameIndex);
+    }
+
+    [Fact]
     public async Task OpenFileAsync_ValidationFailure_LogsErrorAndSetsUserMessage()
     {
         var error = ViewerError.FileAccessError("ValidateFilePath", @"C:\missing.png");
@@ -43,6 +127,52 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task OpenFileAsync_HeicCodecUnavailable_RaisesInstallPromptOncePerSession()
+    {
+        var filePath = @"C:\Photos\phone.heic";
+        var error = ViewerError.CodecUnavailableError("ValidateFilePath", filePath);
+        var codecService = new StubCodecDetectionService(heicSupported: false);
+        var services = TestServices.WithFileValidationFailure(error, codecService);
+        var viewModel = services.CreateViewModel();
+        var prompts = new List<CodecInstallPrompt>();
+        viewModel.CodecInstallPromptRequested += (_, prompt) => prompts.Add(prompt);
+
+        await viewModel.OpenFileAsync(filePath);
+        await viewModel.OpenFileAsync(filePath);
+
+        Assert.Equal(error.UserMessage, viewModel.ErrorMessage);
+        var prompt = Assert.Single(prompts);
+        Assert.Equal("HEIC", prompt.FormatName);
+        Assert.Equal("HEIF Image Extensions", prompt.CodecName);
+        Assert.Equal("ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG", prompt.StoreUrl);
+        Assert.Equal(error.UserMessage, prompt.Message);
+        Assert.Equal(2, services.ErrorLogService.LoggedErrors.Count);
+    }
+
+    [Fact]
+    public async Task OpenFileAsync_AvifCodecUnavailable_RaisesInstallPromptOncePerSession()
+    {
+        var filePath = @"C:\Photos\modern.avif";
+        var error = ViewerError.CodecUnavailableError("ValidateFilePath", filePath);
+        var codecService = new StubCodecDetectionService(avifSupported: false);
+        var services = TestServices.WithFileValidationFailure(error, codecService);
+        var viewModel = services.CreateViewModel();
+        var prompts = new List<CodecInstallPrompt>();
+        viewModel.CodecInstallPromptRequested += (_, prompt) => prompts.Add(prompt);
+
+        await viewModel.OpenFileAsync(filePath);
+        await viewModel.OpenFileAsync(filePath);
+
+        Assert.Equal(error.UserMessage, viewModel.ErrorMessage);
+        var prompt = Assert.Single(prompts);
+        Assert.Equal("AVIF", prompt.FormatName);
+        Assert.Equal("AV1 Video Extension", prompt.CodecName);
+        Assert.Equal("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V", prompt.StoreUrl);
+        Assert.Equal(error.UserMessage, prompt.Message);
+        Assert.Equal(2, services.ErrorLogService.LoggedErrors.Count);
+    }
+
+    [Fact]
     public async Task NavigateNextAsync_UpdatesCurrentIndexAndImage()
     {
         var playlist = CreateTwoItemPlaylist();
@@ -55,6 +185,402 @@ public sealed class MainViewModelTests
         Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
         Assert.Equal(@"C:\Photos\b.png", viewModel.ViewerState.CurrentImage?.FilePath);
         Assert.True(viewModel.IsChromeVisible);
+    }
+
+    [Fact]
+    public void ToggleSlideshow_StartsAndStopsSlideshowWithCurrentPlaylist()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithPlaylist(playlist, slideshowService: slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        viewModel.ToggleSlideshow();
+        viewModel.ToggleSlideshow();
+
+        Assert.Equal(1, slideshowService.StartCount);
+        Assert.Equal(1, slideshowService.StopCount);
+        Assert.False(viewModel.SlideshowState.IsActive);
+        Assert.True(viewModel.IsChromeVisible);
+    }
+
+    [Fact]
+    public async Task ToggleSlideshow_UsesSavedIntervalSetting()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithSettings(
+            ViewerSettings.Default with { SlideshowIntervalSeconds = 10 },
+            slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.InitializeAsync();
+
+        viewModel.ToggleSlideshow();
+
+        Assert.Equal(TimeSpan.FromSeconds(10), slideshowService.StartedConfig?.Interval);
+        Assert.Equal(TimeSpan.FromSeconds(10), viewModel.SlideshowState.Interval);
+    }
+
+    [Fact]
+    public async Task IncreaseSlideshowInterval_WhenActive_StepsAndPersistsSetting()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithSettings(
+            ViewerSettings.Default with { SlideshowIntervalSeconds = 3 },
+            slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.InitializeAsync();
+        viewModel.ToggleSlideshow();
+
+        await viewModel.IncreaseSlideshowIntervalAsync();
+
+        Assert.Equal(5, viewModel.Settings.SlideshowIntervalSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(5), viewModel.SlideshowState.Interval);
+        Assert.Equal(5, services.SettingsService.SavedSettings.Single().SlideshowIntervalSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(5), slideshowService.UpdatedConfigs.Single().Interval);
+    }
+
+    [Fact]
+    public async Task DecreaseSlideshowInterval_WhenActive_StepsAndPersistsSetting()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithSettings(
+            ViewerSettings.Default with { SlideshowIntervalSeconds = 3 },
+            slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.InitializeAsync();
+        viewModel.ToggleSlideshow();
+
+        await viewModel.DecreaseSlideshowIntervalAsync();
+
+        Assert.Equal(2, viewModel.Settings.SlideshowIntervalSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(2), viewModel.SlideshowState.Interval);
+        Assert.Equal(2, services.SettingsService.SavedSettings.Single().SlideshowIntervalSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(2), slideshowService.UpdatedConfigs.Single().Interval);
+    }
+
+    [Fact]
+    public async Task SetSlideshowInterval_WhenActive_PersistsSupportedInterval()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithSettings(ViewerSettings.Default, slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.InitializeAsync();
+        viewModel.ToggleSlideshow();
+
+        await viewModel.SetSlideshowIntervalAsync(15);
+
+        Assert.Equal(15, viewModel.Settings.SlideshowIntervalSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(15), viewModel.SlideshowState.Interval);
+        Assert.Equal(15, services.SettingsService.SavedSettings.Single().SlideshowIntervalSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(15), slideshowService.UpdatedConfigs.Single().Interval);
+    }
+
+    [Fact]
+    public async Task ToggleSlideshow_UsesSavedTransitionSetting()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithSettings(
+            ViewerSettings.Default with { SlideshowTransition = TransitionEffect.Zoom },
+            slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.InitializeAsync();
+
+        viewModel.ToggleSlideshow();
+
+        Assert.Equal(TransitionEffect.Zoom, slideshowService.StartedConfig?.Transition);
+        Assert.Equal(TransitionEffect.Zoom, viewModel.SlideshowState.Transition);
+    }
+
+    [Fact]
+    public async Task SetSlideshowTransition_WhenActive_PersistsAndUpdatesServiceConfig()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithSettings(ViewerSettings.Default, slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.InitializeAsync();
+        viewModel.ToggleSlideshow();
+
+        await viewModel.SetSlideshowTransitionAsync(TransitionEffect.Slide);
+
+        Assert.Equal(TransitionEffect.Slide, viewModel.Settings.SlideshowTransition);
+        Assert.Equal(TransitionEffect.Slide, viewModel.SlideshowState.Transition);
+        Assert.Equal(TransitionEffect.Slide, services.SettingsService.SavedSettings.Single().SlideshowTransition);
+        Assert.Equal(TransitionEffect.Slide, slideshowService.UpdatedConfigs.Single().Transition);
+    }
+
+    [Fact]
+    public async Task NavigateNextAsync_DuringSlideshowTransition_BlocksManualNavigation()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        viewModel.BeginSlideshowTransition(TransitionEffect.Fade);
+
+        await viewModel.NavigateNextAsync();
+
+        Assert.Equal(0, viewModel.PlaylistState.CurrentIndex);
+        Assert.True(viewModel.SlideshowState.IsTransitioning);
+    }
+
+    [Fact]
+    public void ToggleSlideshowPause_PausesAndResumesActiveSlideshow()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithPlaylist(playlist, slideshowService: slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        viewModel.ToggleSlideshow();
+        viewModel.ToggleSlideshowPause();
+        viewModel.ToggleSlideshowPause();
+
+        Assert.Equal(1, slideshowService.PauseCount);
+        Assert.Equal(1, slideshowService.ResumeCount);
+        Assert.True(viewModel.SlideshowState.IsActive);
+        Assert.False(viewModel.SlideshowState.IsPaused);
+    }
+
+    [Fact]
+    public async Task NavigateNextAsync_ActiveSlideshow_ResetsTimer()
+    {
+        var playlist = CreateTwoItemPlaylist();
+        var slideshowService = new RecordingSlideshowService();
+        var services = TestServices.WithPlaylist(playlist, slideshowService: slideshowService);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        viewModel.ToggleSlideshow();
+
+        await viewModel.NavigateNextAsync();
+
+        Assert.Equal(1, slideshowService.ResetCount);
+        Assert.Equal(1, viewModel.SlideshowState.TimerResetCount);
+    }
+
+    [Fact]
+    public async Task EnterComparisonAsync_WithTwoImages_DisplaysCurrentAndNextImages()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+
+        Assert.True(viewModel.ComparisonState.IsActive);
+        Assert.Equal(ComparisonLayout.SideBySide, viewModel.ComparisonState.Layout);
+        Assert.Equal([0, 1], viewModel.ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray());
+    }
+
+    [Fact]
+    public async Task EnterComparisonAsync_WithSingleImage_ShowsComparisonError()
+    {
+        var playlist = new Playlist([new ImageItem(@"C:\Photos\a.png")], 0, @"C:\Photos");
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+
+        Assert.False(viewModel.ComparisonState.IsActive);
+        Assert.Equal("Comparison mode requires at least two images", viewModel.ErrorMessage);
+        Assert.Equal(ErrorCategory.ComparisonError, services.ErrorLogService.LoggedErrors.Single().Category);
+    }
+
+    [Fact]
+    public async Task NavigateNextAsync_InComparisonMode_ShiftsVisibleImagesTogether()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+
+        await viewModel.NavigateNextAsync();
+
+        Assert.Equal([1, 2], viewModel.ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray());
+        Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
+    }
+
+    [Fact]
+    public async Task ExitComparison_ReturnsToSingleImageView()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+
+        viewModel.ExitComparison();
+
+        Assert.False(viewModel.ComparisonState.IsActive);
+        Assert.Empty(viewModel.ComparisonState.VisibleImages);
+        Assert.True(viewModel.IsChromeVisible);
+    }
+
+    [Fact]
+    public async Task EnterComparisonAsync_WithOverlayLayout_UsesOverlayLayout()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterComparisonAsync(ComparisonLayout.Overlay);
+
+        Assert.True(viewModel.ComparisonState.IsActive);
+        Assert.Equal(ComparisonLayout.Overlay, viewModel.ComparisonState.Layout);
+        Assert.Equal([0, 1], viewModel.ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray());
+    }
+
+    [Fact]
+    public async Task ChangeComparisonImageCountAsync_InComparisonMode_DisplaysRequestedImageCount()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+
+        await viewModel.ChangeComparisonImageCountAsync(4);
+
+        Assert.True(viewModel.ComparisonState.IsActive);
+        Assert.Equal(ComparisonLayout.SideBySide, viewModel.ComparisonState.Layout);
+        Assert.Equal([0, 1, 2, 3], viewModel.ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray());
+    }
+
+    [Fact]
+    public async Task SelectNextComparisonImage_CyclesActiveSelection()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide, imageCount: 3);
+
+        viewModel.SelectNextComparisonImage();
+        viewModel.SelectNextComparisonImage();
+        viewModel.SelectNextComparisonImage();
+
+        Assert.Equal(0, viewModel.ComparisonState.ActiveImageIndex);
+    }
+
+    [Fact]
+    public async Task OpenSelectedComparisonImageAsync_ExitsComparisonAndDisplaysSelectedImage()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide, imageCount: 3);
+        viewModel.SelectComparisonImage(2);
+
+        await viewModel.OpenSelectedComparisonImageAsync();
+
+        Assert.False(viewModel.ComparisonState.IsActive);
+        Assert.Equal(2, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(@"C:\Photos\c.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
+    public async Task OverlayCommands_AdjustOpacityAndSwapLayers()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.Overlay);
+
+        viewModel.IncreaseOverlayOpacity();
+        viewModel.SwapOverlayLayers();
+
+        Assert.Equal(0.6, viewModel.ComparisonState.OverlayOpacity, precision: 5);
+        Assert.Equal([1, 0], viewModel.ComparisonState.VisibleImages.Select(image => image.PlaylistIndex).ToArray());
+    }
+
+    [Fact]
+    public async Task ZoomIn_InComparisonMode_SynchronizesAllVisibleImages()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide, imageCount: 3);
+
+        viewModel.ZoomIn();
+
+        Assert.All(viewModel.ComparisonState.Viewports, viewport => Assert.Equal(125, viewport.ZoomLevel));
+    }
+
+    [Fact]
+    public async Task ToggleComparisonSyncZoom_DisablesSynchronizedViewportUpdates()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide, imageCount: 3);
+        viewModel.SelectComparisonImage(1);
+
+        viewModel.ToggleComparisonSyncZoom();
+        viewModel.ZoomIn();
+
+        Assert.False(viewModel.ComparisonState.IsSyncZoomEnabled);
+        Assert.Equal([100d, 125d, 100d], viewModel.ComparisonState.Viewports.Select(viewport => viewport.ZoomLevel).ToArray());
+    }
+
+    [Fact]
+    public void ShowAndHideCommandPalette_UpdatesPaletteStateAndChrome()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+
+        viewModel.ShowCommandPalette();
+        viewModel.HideCommandPalette();
+
+        Assert.False(viewModel.CommandPaletteState.IsOpen);
+        Assert.True(viewModel.IsChromeVisible);
+        Assert.NotEmpty(viewModel.CommandPaletteState.Commands);
+    }
+
+    [Fact]
+    public async Task ExecuteSelectedCommandAsync_RunsCommandAndClosesPalette()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.ToggleFullscreen);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+
+        Assert.True(viewModel.ViewerState.IsFullscreen);
+        Assert.False(viewModel.CommandPaletteState.IsOpen);
+    }
+
+    [Fact]
+    public async Task ExecuteSelectedCommandAsync_TracksRecentCommand()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommand(CommandIds.ToggleFullscreen);
+
+        await viewModel.ExecuteSelectedCommandAsync();
+        viewModel.ShowCommandPalette();
+
+        Assert.Equal(CommandIds.ToggleFullscreen, viewModel.CommandPaletteState.RecentCommands[0].Id);
+        Assert.Equal("Recent", viewModel.CommandPaletteState.DisplayItems[0].Header);
     }
 
     [Fact]
@@ -423,6 +949,51 @@ public sealed class MainViewModelTests
             @"C:\Photos");
     }
 
+    private static Playlist CreateThreeItemPlaylist()
+    {
+        return new Playlist(
+            [
+                new ImageItem(@"C:\Photos\a.png"),
+                new ImageItem(@"C:\Photos\b.png"),
+                new ImageItem(@"C:\Photos\c.png")
+            ],
+            0,
+            @"C:\Photos");
+    }
+
+    private static Playlist CreateFourItemPlaylist()
+    {
+        return new Playlist(
+            [
+                new ImageItem(@"C:\Photos\a.png"),
+                new ImageItem(@"C:\Photos\b.png"),
+                new ImageItem(@"C:\Photos\c.png"),
+                new ImageItem(@"C:\Photos\d.png")
+            ],
+            0,
+            @"C:\Photos");
+    }
+
+    private static async Task<MainViewModel> CreateAnimatedGifViewModelAsync()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(320, 240, 100));
+        var playlist = new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos");
+        var animation = new AnimatedGif(
+            image.FilePath,
+            image.Metadata,
+            [
+                new AnimationFrame(0, TimeSpan.FromMilliseconds(40), [0x01], 320, 240),
+                new AnimationFrame(1, TimeSpan.FromMilliseconds(80), [0x02], 320, 240)
+            ]);
+        var services = TestServices.Success(
+            image,
+            playlist,
+            new RecordingAnimationService(Result<AnimatedGif>.Success(animation)));
+        var viewModel = services.CreateViewModel();
+        await viewModel.OpenFileAsync(image.FilePath);
+        return viewModel;
+    }
+
     private sealed class TestServices
     {
         private TestServices(
@@ -435,7 +1006,12 @@ public sealed class MainViewModelTests
             RecordingRecentFilesService? recentFilesService = null,
             RecordingMetadataService? metadataService = null,
             RecordingExportService? exportService = null,
-            RecordingTransformService? transformService = null)
+            RecordingTransformService? transformService = null,
+            ISlideshowService? slideshowService = null,
+            IComparisonService? comparisonService = null,
+            ICommandPaletteService? commandPaletteService = null,
+            IAnimationService? animationService = null,
+            ICodecDetectionService? codecDetectionService = null)
         {
             FileOpenService = fileOpenService;
             ImageDecodeService = imageDecodeService;
@@ -447,6 +1023,12 @@ public sealed class MainViewModelTests
             MetadataService = metadataService ?? new RecordingMetadataService();
             ExportService = exportService ?? new RecordingExportService();
             TransformService = transformService ?? new RecordingTransformService();
+            SlideshowService = slideshowService ?? new RecordingSlideshowService();
+            ComparisonService = comparisonService ?? new ComparisonService(ImageDecodeService);
+            CommandPaletteService = commandPaletteService ?? new CommandPaletteService();
+            AnimationService = animationService ?? new RecordingAnimationService(Result<AnimatedGif>.Failure(
+                ViewerError.UnsupportedFormatError("LoadAnimatedGif", null)));
+            CodecDetectionService = codecDetectionService;
         }
 
         public IFileOpenService FileOpenService { get; }
@@ -469,7 +1051,20 @@ public sealed class MainViewModelTests
 
         public RecordingTransformService TransformService { get; }
 
-        public static TestServices Success(DecodedImage image, Playlist playlist)
+        public ISlideshowService SlideshowService { get; }
+
+        public IComparisonService ComparisonService { get; }
+
+        public ICommandPaletteService CommandPaletteService { get; }
+
+        public IAnimationService AnimationService { get; }
+
+        public ICodecDetectionService? CodecDetectionService { get; }
+
+        public static TestServices Success(
+            DecodedImage image,
+            Playlist playlist,
+            IAnimationService? animationService = null)
         {
             var decoder = new StubImageDecodeService(Result<DecodedImage>.Success(image));
             return new TestServices(
@@ -478,7 +1073,8 @@ public sealed class MainViewModelTests
                 new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
                 new NavigationService(decoder),
                 new StubSettingsService(),
-                new RecordingErrorLogService());
+                new RecordingErrorLogService(),
+                animationService: animationService);
         }
 
         public static TestServices WithPlaylist(
@@ -486,7 +1082,8 @@ public sealed class MainViewModelTests
             string? failDecodePath = null,
             RecordingTransformService? transformService = null,
             RecordingExportService? exportService = null,
-            RecordingMetadataService? metadataService = null)
+            RecordingMetadataService? metadataService = null,
+            ISlideshowService? slideshowService = null)
         {
             var decoder = new PathImageDecodeService(failDecodePath);
             return new TestServices(
@@ -498,10 +1095,11 @@ public sealed class MainViewModelTests
                 new RecordingErrorLogService(),
                 metadataService: metadataService,
                 exportService: exportService,
-                transformService: transformService);
+                transformService: transformService,
+                slideshowService: slideshowService);
         }
 
-        public static TestServices WithSettings(ViewerSettings settings)
+        public static TestServices WithSettings(ViewerSettings settings, ISlideshowService? slideshowService = null)
         {
             var decoder = new PathImageDecodeService();
             return new TestServices(
@@ -510,10 +1108,13 @@ public sealed class MainViewModelTests
                 new StubFolderPlaylistService(Result<Playlist>.Success(CreateTwoItemPlaylist())),
                 new NavigationService(decoder),
                 new StubSettingsService(settings),
-                new RecordingErrorLogService());
+                new RecordingErrorLogService(),
+                slideshowService: slideshowService);
         }
 
-        public static TestServices WithFileValidationFailure(ViewerError error)
+        public static TestServices WithFileValidationFailure(
+            ViewerError error,
+            ICodecDetectionService? codecDetectionService = null)
         {
             var decoder = new StubImageDecodeService(Result<DecodedImage>.Failure(ViewerError.DecodeError("DecodeImage", null)));
             return new TestServices(
@@ -522,7 +1123,8 @@ public sealed class MainViewModelTests
                 new StubFolderPlaylistService(Result<Playlist>.Failure(ViewerError.PlaylistScanError("BuildPlaylist", null))),
                 new NavigationService(decoder),
                 new StubSettingsService(),
-                new RecordingErrorLogService());
+                new RecordingErrorLogService(),
+                codecDetectionService: codecDetectionService);
         }
 
         public static TestServices WithDecoder(string filePath, IImageDecodeService decoder)
@@ -551,7 +1153,79 @@ public sealed class MainViewModelTests
                 RecentFilesService,
                 ExportService,
                 TransformService,
-                MetadataService);
+                MetadataService,
+                SlideshowService,
+                ComparisonService,
+                CommandPaletteService,
+                AnimationService,
+                CodecDetectionService);
+        }
+    }
+
+    private sealed class StubCodecDetectionService : ICodecDetectionService
+    {
+        private readonly bool _heicSupported;
+        private readonly bool _avifSupported;
+
+        public StubCodecDetectionService(bool heicSupported = false, bool avifSupported = false)
+        {
+            _heicSupported = heicSupported;
+            _avifSupported = avifSupported;
+        }
+
+        public Task<Result<CodecAvailability>> DetectCodecsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<CodecAvailability>.Success(
+                new CodecAvailability(_heicSupported, _avifSupported, DateTimeOffset.UtcNow)));
+        }
+
+        public Result<bool> IsHeicSupported()
+        {
+            return Result<bool>.Success(_heicSupported);
+        }
+
+        public Result<bool> IsAvifSupported()
+        {
+            return Result<bool>.Success(_avifSupported);
+        }
+
+        public Result<string> GetHeicStoreUrl()
+        {
+            return Result<string>.Success("ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG");
+        }
+
+        public Result<string> GetAvifStoreUrl()
+        {
+            return Result<string>.Success("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V");
+        }
+    }
+
+    private sealed class RecordingAnimationService : IAnimationService
+    {
+        private readonly Result<AnimatedGif> _loadResult;
+
+        public RecordingAnimationService(Result<AnimatedGif> loadResult)
+        {
+            _loadResult = loadResult;
+        }
+
+        public List<string> LoadedFilePaths { get; } = [];
+
+        public Task<Result<AnimatedGif>> LoadAnimatedGifAsync(
+            string filePath,
+            CancellationToken cancellationToken = default)
+        {
+            LoadedFilePaths.Add(filePath);
+            return Task.FromResult(_loadResult);
+        }
+
+        public Task<Result<bool>> IsAnimatedGifAsync(
+            string filePath,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(_loadResult.IsSuccess
+                ? Result<bool>.Success(_loadResult.Value.IsAnimated)
+                : Result<bool>.Failure(_loadResult.Error));
         }
     }
 
@@ -823,6 +1497,77 @@ public sealed class MainViewModelTests
             SavedFilePath = filePath;
             SavedOperations = operations.ToArray();
             return Task.FromResult(_saveResult);
+        }
+    }
+
+    private sealed class RecordingSlideshowService : ISlideshowService
+    {
+        public event EventHandler<SlideshowAdvanceRequestedEventArgs>? AdvanceRequested;
+
+        public int StartCount { get; private set; }
+
+        public int StopCount { get; private set; }
+
+        public int PauseCount { get; private set; }
+
+        public int ResumeCount { get; private set; }
+
+        public int ResetCount { get; private set; }
+
+        public bool IsActive { get; private set; }
+
+        public bool IsPaused { get; private set; }
+
+        public SlideshowConfig? StartedConfig { get; private set; }
+
+        public List<SlideshowConfig> UpdatedConfigs { get; } = [];
+
+        public Result StartSlideshow(Playlist playlist, int currentIndex, SlideshowConfig config)
+        {
+            StartCount++;
+            StartedConfig = config;
+            IsActive = true;
+            IsPaused = false;
+            return Result.Success();
+        }
+
+        public Result StopSlideshow()
+        {
+            StopCount++;
+            IsActive = false;
+            IsPaused = false;
+            return Result.Success();
+        }
+
+        public Result PauseSlideshow()
+        {
+            PauseCount++;
+            IsPaused = true;
+            return Result.Success();
+        }
+
+        public Result ResumeSlideshow()
+        {
+            ResumeCount++;
+            IsPaused = false;
+            return Result.Success();
+        }
+
+        public Result UpdateConfig(SlideshowConfig config)
+        {
+            UpdatedConfigs.Add(config);
+            return Result.Success();
+        }
+
+        public Result ResetTimer()
+        {
+            ResetCount++;
+            return Result.Success();
+        }
+
+        public void RaiseAdvanceRequested(int nextIndex, ImageItem nextItem)
+        {
+            AdvanceRequested?.Invoke(this, new SlideshowAdvanceRequestedEventArgs(nextIndex, nextItem));
         }
     }
 }

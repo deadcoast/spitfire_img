@@ -1,6 +1,9 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices.WindowsRuntime;
 using ImageViewer.Core.Models;
+using ImageViewer.Core.Services;
 using ImageViewer.Core.ViewModels;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -32,6 +35,7 @@ public sealed partial class ImageCanvas : UserControl
         _viewerState = viewModel.ViewerState;
         _viewerState.PropertyChanged += OnViewerStateChanged;
         viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
+        viewModel.AnimationState.PropertyChanged += OnAnimationStateChanged;
         UpdateImage();
         UpdateDisplayMode();
     }
@@ -53,6 +57,14 @@ public sealed partial class ImageCanvas : UserControl
     {
         DispatcherQueue.TryEnqueue(UpdateDisplayMode);
         DispatcherQueue.TryEnqueue(PulseTransformPreview);
+    }
+
+    private void OnAnimationStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AnimationState.CurrentFrame))
+        {
+            DispatcherQueue.TryEnqueue(UpdateAnimationFrame);
+        }
     }
 
     private void UpdateImage()
@@ -81,7 +93,10 @@ public sealed partial class ImageCanvas : UserControl
 
             if (loadVersion == _imageLoadVersion)
             {
+                var transition = _viewModel?.SlideshowState.CurrentTransition;
+                PrepareSlideshowTransition(transition);
                 DisplayedImage.Source = bitmap;
+                PlaySlideshowTransition(transition);
             }
         }
         catch
@@ -90,6 +105,39 @@ public sealed partial class ImageCanvas : UserControl
             {
                 DisplayedImage.Source = null;
             }
+        }
+    }
+
+    private void UpdateAnimationFrame()
+    {
+        var frame = _viewModel?.AnimationState.CurrentFrame;
+        if (frame is null)
+        {
+            return;
+        }
+
+        var loadVersion = ++_imageLoadVersion;
+        _ = LoadAnimationFrameAsync(frame, loadVersion);
+    }
+
+    private async Task LoadAnimationFrameAsync(AnimationFrame frame, int loadVersion)
+    {
+        var expectedBytes = frame.PixelWidth * frame.PixelHeight * 4;
+        if (frame.EncodedBytes.Length != expectedBytes)
+        {
+            return;
+        }
+
+        var bitmap = new WriteableBitmap(frame.PixelWidth, frame.PixelHeight);
+        using (var stream = bitmap.PixelBuffer.AsStream())
+        {
+            await stream.WriteAsync(frame.EncodedBytes.AsMemory(0, expectedBytes));
+        }
+
+        bitmap.Invalidate();
+        if (loadVersion == _imageLoadVersion)
+        {
+            DisplayedImage.Source = bitmap;
         }
     }
 
@@ -103,6 +151,7 @@ public sealed partial class ImageCanvas : UserControl
         DisplayedImage.Stretch = _viewerState.DisplayMode == DisplayMode.FitToWindow
             ? Microsoft.UI.Xaml.Media.Stretch.Uniform
             : Microsoft.UI.Xaml.Media.Stretch.None;
+        PreviousImage.Stretch = DisplayedImage.Stretch;
 
         var scale = _viewerState.DisplayMode == DisplayMode.Custom
             ? _viewerState.ZoomLevel / 100d
@@ -114,6 +163,11 @@ public sealed partial class ImageCanvas : UserControl
         ImageTransform.Rotation = transformPreview.RotationDegrees;
         ImageTransform.TranslateX = _viewerState.PanOffset.X;
         ImageTransform.TranslateY = _viewerState.PanOffset.Y;
+        PreviousImageTransform.ScaleX = ImageTransform.ScaleX;
+        PreviousImageTransform.ScaleY = ImageTransform.ScaleY;
+        PreviousImageTransform.Rotation = ImageTransform.Rotation;
+        PreviousImageTransform.TranslateX = ImageTransform.TranslateX;
+        PreviousImageTransform.TranslateY = ImageTransform.TranslateY;
     }
 
     private (double RotationDegrees, double ScaleX, double ScaleY) CalculateTransformPreview()
@@ -165,6 +219,102 @@ public sealed partial class ImageCanvas : UserControl
         var storyboard = new Storyboard();
         storyboard.Children.Add(animation);
         storyboard.Begin();
+    }
+
+    private void PrepareSlideshowTransition(SlideshowTransitionSpec? transition)
+    {
+        ResetTransitionVisuals();
+        if (transition is null || transition.Effect == TransitionEffect.None)
+        {
+            return;
+        }
+
+        PreviousImage.Source = DisplayedImage.Source;
+        PreviousImageTransitionHost.Visibility = PreviousImage.Source is null
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        switch (transition.Effect)
+        {
+            case TransitionEffect.Fade:
+                ImageTransitionHost.Opacity = 0;
+                break;
+            case TransitionEffect.Slide:
+                TransitionTransform.TranslateX = ActualWidth > 0 ? ActualWidth : 80;
+                break;
+            case TransitionEffect.Zoom:
+                ImageTransitionHost.Opacity = 0;
+                PreviousTransitionTransform.ScaleX = 1;
+                PreviousTransitionTransform.ScaleY = 1;
+                break;
+        }
+    }
+
+    private void PlaySlideshowTransition(SlideshowTransitionSpec? transition)
+    {
+        if (transition is null || transition.Effect == TransitionEffect.None || transition.Duration == TimeSpan.Zero)
+        {
+            ResetTransitionVisuals();
+            return;
+        }
+
+        var storyboard = new Storyboard();
+        switch (transition.Effect)
+        {
+            case TransitionEffect.Fade:
+                storyboard.Children.Add(CreateDoubleAnimation(ImageTransitionHost, "Opacity", 1, transition.Duration));
+                storyboard.Children.Add(CreateDoubleAnimation(PreviousImageTransitionHost, "Opacity", 0, transition.Duration));
+                break;
+            case TransitionEffect.Slide:
+                storyboard.Children.Add(CreateDoubleAnimation(TransitionTransform, "TranslateX", 0, transition.Duration));
+                break;
+            case TransitionEffect.Zoom:
+                storyboard.Children.Add(CreateDoubleAnimation(ImageTransitionHost, "Opacity", 1, transition.Duration));
+                storyboard.Children.Add(CreateDoubleAnimation(PreviousImageTransitionHost, "Opacity", 0, transition.Duration));
+                storyboard.Children.Add(CreateDoubleAnimation(PreviousTransitionTransform, "ScaleX", 0.92, transition.Duration));
+                storyboard.Children.Add(CreateDoubleAnimation(PreviousTransitionTransform, "ScaleY", 0.92, transition.Duration));
+                break;
+        }
+
+        storyboard.Completed += (_, _) =>
+        {
+            PreviousImage.Source = null;
+            PreviousImageTransitionHost.Visibility = Visibility.Collapsed;
+            ResetTransitionVisuals();
+        };
+        storyboard.Begin();
+    }
+
+    private static DoubleAnimation CreateDoubleAnimation(
+        DependencyObject target,
+        string property,
+        double to,
+        TimeSpan duration)
+    {
+        var animation = new DoubleAnimation
+        {
+            To = to,
+            Duration = duration,
+            EnableDependentAnimation = true
+        };
+
+        Storyboard.SetTarget(animation, target);
+        Storyboard.SetTargetProperty(animation, property);
+        return animation;
+    }
+
+    private void ResetTransitionVisuals()
+    {
+        ImageTransitionHost.Opacity = 1;
+        PreviousImageTransitionHost.Opacity = 1;
+        TransitionTransform.TranslateX = 0;
+        TransitionTransform.TranslateY = 0;
+        TransitionTransform.ScaleX = 1;
+        TransitionTransform.ScaleY = 1;
+        PreviousTransitionTransform.TranslateX = 0;
+        PreviousTransitionTransform.TranslateY = 0;
+        PreviousTransitionTransform.ScaleX = 1;
+        PreviousTransitionTransform.ScaleY = 1;
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)

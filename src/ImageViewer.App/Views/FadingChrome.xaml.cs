@@ -1,4 +1,5 @@
 using ImageViewer.Core.ViewModels;
+using ImageViewer.Core.Models;
 using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -33,6 +34,7 @@ public sealed partial class FadingChrome : UserControl
     {
         _viewModel = viewModel;
         InfoBar.Attach(viewModel);
+        FrameControls.Attach(viewModel);
         viewModel.RecentFiles.CollectionChanged += OnRecentFilesChanged;
         viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
         RebuildRecentFilesMenu();
@@ -57,6 +59,17 @@ public sealed partial class FadingChrome : UserControl
         _fadeTimer.Stop();
         AnimateOpacity(1.0, 100);
         _fadeTimer.Start();
+    }
+
+    public void PauseAutoFade()
+    {
+        _fadeTimer.Stop();
+        AnimateOpacity(1.0, 100);
+    }
+
+    public void ResumeAutoFade()
+    {
+        ShowChrome();
     }
 
     private void FadeOutChrome()
@@ -135,6 +148,24 @@ public sealed partial class FadingChrome : UserControl
         if (_viewModel is not null)
         {
             await _viewModel.ToggleThemeAsync();
+        }
+    }
+
+    private async void OnSlideshowIntervalClicked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is MenuFlyoutItem item && int.TryParse(item.Tag?.ToString(), out var intervalSeconds))
+        {
+            await _viewModel.SetSlideshowIntervalAsync(intervalSeconds);
+        }
+    }
+
+    private async void OnSlideshowTransitionClicked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null
+            && sender is MenuFlyoutItem item
+            && Enum.TryParse<TransitionEffect>(item.Tag?.ToString(), out var transition))
+        {
+            await _viewModel.SetSlideshowTransitionAsync(transition);
         }
     }
 

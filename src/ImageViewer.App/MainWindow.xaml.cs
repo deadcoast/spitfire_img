@@ -18,6 +18,7 @@ public sealed partial class MainWindow : Window
     private readonly AppWindow _appWindow;
     private readonly DispatcherTimer _loadingDelayTimer;
     private readonly DispatcherTimer _warningDismissTimer;
+    private readonly DispatcherTimer _animationTimer;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -28,11 +29,15 @@ public sealed partial class MainWindow : Window
         _loadingDelayTimer.Tick += OnLoadingDelayElapsed;
         _warningDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
         _warningDismissTimer.Tick += OnWarningDismissElapsed;
+        _animationTimer = new DispatcherTimer();
+        _animationTimer.Tick += OnAnimationTimerTick;
 
         RootGrid.DataContext = viewModel;
         ImageCanvas.Attach(viewModel);
         ThumbnailStrip.Attach(viewModel);
+        ComparisonView.Attach(viewModel);
         SearchOverlay.Attach(viewModel);
+        CommandPalette.Attach(viewModel);
         MetadataPanel.Attach(viewModel);
         Chrome.Attach(viewModel);
         Chrome.OpenFileRequested += async (_, _) => await OpenFileFromPickerAsync();
@@ -41,6 +46,9 @@ public sealed partial class MainWindow : Window
         Chrome.AboutRequested += (_, _) => ShowInfo("spitfire.img Phase 1 MVP Viewer");
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ViewerState.PropertyChanged += OnViewerStatePropertyChanged;
+        viewModel.CommandPaletteState.PropertyChanged += OnCommandPaletteStatePropertyChanged;
+        viewModel.AnimationState.PropertyChanged += OnAnimationStatePropertyChanged;
+        viewModel.CodecInstallPromptRequested += OnCodecInstallPromptRequested;
         Activated += OnActivated;
         Closed += OnClosed;
         _ = InitializeWindowAsync();
@@ -55,6 +63,10 @@ public sealed partial class MainWindow : Window
     {
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.ViewerState.PropertyChanged -= OnViewerStatePropertyChanged;
+        _viewModel.CommandPaletteState.PropertyChanged -= OnCommandPaletteStatePropertyChanged;
+        _viewModel.AnimationState.PropertyChanged -= OnAnimationStatePropertyChanged;
+        _viewModel.CodecInstallPromptRequested -= OnCodecInstallPromptRequested;
+        _animationTimer.Stop();
         await _viewModel.SaveWindowStateAsync(
             _appWindow.Size.Width,
             _appWindow.Size.Height,
@@ -96,9 +108,12 @@ public sealed partial class MainWindow : Window
             SuggestedStartLocation = PickerLocationId.PicturesLibrary
         };
 
-        foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp" })
+        foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff", ".tif", ".heic", ".avif" })
         {
-            picker.FileTypeFilter.Add(extension);
+            if (_viewModel.IsSupportedOpenExtension(extension))
+            {
+                picker.FileTypeFilter.Add(extension);
+            }
         }
 
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
@@ -118,6 +133,30 @@ public sealed partial class MainWindow : Window
         var isShiftPressed = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) &
                               Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
 
+        if (!isControlPressed && _viewModel.AnimationState.IsAnimationActive)
+        {
+            if (e.Key == VirtualKey.P)
+            {
+                _viewModel.ToggleAnimationPlayback();
+                e.Handled = true;
+                return;
+            }
+
+            if (IsPeriodKey(e.Key))
+            {
+                _viewModel.AdvanceAnimationFrame();
+                e.Handled = true;
+                return;
+            }
+
+            if (IsCommaKey(e.Key))
+            {
+                _viewModel.RewindAnimationFrame();
+                e.Handled = true;
+                return;
+            }
+        }
+
         switch (e.Key)
         {
             case VirtualKey.Right:
@@ -136,12 +175,87 @@ public sealed partial class MainWindow : Window
                 await _viewModel.NavigateLastAsync();
                 e.Handled = true;
                 break;
+            case VirtualKey.F5:
+                _viewModel.ToggleSlideshow();
+                e.Handled = true;
+                break;
+            case VirtualKey.D when isControlPressed && isShiftPressed:
+                await _viewModel.EnterComparisonAsync(ComparisonLayout.Overlay);
+                e.Handled = true;
+                break;
+            case VirtualKey.D when isControlPressed:
+                await _viewModel.EnterComparisonAsync(ComparisonLayout.SideBySide);
+                e.Handled = true;
+                break;
+            case VirtualKey.P when isControlPressed && isShiftPressed:
+                _viewModel.ShowCommandPalette();
+                e.Handled = true;
+                break;
+            case VirtualKey.Number2 when isControlPressed && _viewModel.ComparisonState.IsActive:
+                await _viewModel.ChangeComparisonImageCountAsync(2);
+                e.Handled = true;
+                break;
+            case VirtualKey.Number3 when isControlPressed && _viewModel.ComparisonState.IsActive:
+                await _viewModel.ChangeComparisonImageCountAsync(3);
+                e.Handled = true;
+                break;
+            case VirtualKey.Number4 when isControlPressed && _viewModel.ComparisonState.IsActive:
+                await _viewModel.ChangeComparisonImageCountAsync(4);
+                e.Handled = true;
+                break;
+            case VirtualKey.Tab when _viewModel.ComparisonState.IsActive:
+                _viewModel.SelectNextComparisonImage();
+                e.Handled = true;
+                break;
+            case VirtualKey.Enter when _viewModel.ComparisonState.IsActive:
+                await _viewModel.OpenSelectedComparisonImageAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.Up when _viewModel.ComparisonState is { IsActive: true, Layout: ComparisonLayout.Overlay }:
+                _viewModel.IncreaseOverlayOpacity();
+                e.Handled = true;
+                break;
+            case VirtualKey.Down when _viewModel.ComparisonState is { IsActive: true, Layout: ComparisonLayout.Overlay }:
+                _viewModel.DecreaseOverlayOpacity();
+                e.Handled = true;
+                break;
+            case VirtualKey.S when !isControlPressed && _viewModel.ComparisonState is { IsActive: true, Layout: ComparisonLayout.Overlay }:
+                _viewModel.SwapOverlayLayers();
+                e.Handled = true;
+                break;
+            case VirtualKey.Space when _viewModel.SlideshowState.IsActive:
+                _viewModel.ToggleSlideshowPause();
+                e.Handled = true;
+                break;
+            case VirtualKey.Add when _viewModel.SlideshowState.IsActive:
+                await _viewModel.IncreaseSlideshowIntervalAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.Subtract when _viewModel.SlideshowState.IsActive:
+                await _viewModel.DecreaseSlideshowIntervalAsync();
+                e.Handled = true;
+                break;
             case VirtualKey.F11:
                 _viewModel.ToggleFullscreen();
                 e.Handled = true;
                 break;
             case VirtualKey.Escape:
-                if (_viewModel.MetadataState.IsVisible)
+                if (_viewModel.CommandPaletteState.IsOpen)
+                {
+                    _viewModel.HideCommandPalette();
+                    e.Handled = true;
+                }
+                else if (_viewModel.SlideshowState.IsActive)
+                {
+                    _viewModel.StopSlideshow();
+                    e.Handled = true;
+                }
+                else if (_viewModel.ComparisonState.IsActive)
+                {
+                    _viewModel.ExitComparison();
+                    e.Handled = true;
+                }
+                else if (_viewModel.MetadataState.IsVisible)
                 {
                     _viewModel.MetadataState.HidePanel();
                     e.Handled = true;
@@ -191,6 +305,10 @@ public sealed partial class MainWindow : Window
                 break;
             case VirtualKey.I when isControlPressed:
                 await _viewModel.ToggleMetadataPanelAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.L when isControlPressed && _viewModel.ComparisonState.IsActive:
+                _viewModel.ToggleComparisonSyncZoom();
                 e.Handled = true;
                 break;
             case VirtualKey.L when isControlPressed:
@@ -246,6 +364,26 @@ public sealed partial class MainWindow : Window
         {
             DispatcherQueue.TryEnqueue(ApplyTheme);
         }
+
+    }
+
+    private void OnCommandPaletteStatePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CommandPaletteState.IsOpen))
+        {
+            DispatcherQueue.TryEnqueue(UpdateChromeFadeState);
+        }
+    }
+
+    private void OnAnimationStatePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AnimationState.IsPlaying)
+            or nameof(AnimationState.IsAnimationActive)
+            or nameof(AnimationState.CurrentFrameIndex)
+            or nameof(AnimationState.CurrentAnimation))
+        {
+            DispatcherQueue.TryEnqueue(UpdateAnimationTimer);
+        }
     }
 
     private void OnViewerStatePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -276,6 +414,53 @@ public sealed partial class MainWindow : Window
             ViewerTheme.Light => ElementTheme.Light,
             _ => ElementTheme.Default
         };
+    }
+
+    private void UpdateChromeFadeState()
+    {
+        if (_viewModel.CommandPaletteState.IsOpen)
+        {
+            Chrome.PauseAutoFade();
+        }
+        else
+        {
+            Chrome.ResumeAutoFade();
+        }
+    }
+
+    private void UpdateAnimationTimer()
+    {
+        _animationTimer.Stop();
+        if (!_viewModel.AnimationState.IsAnimationActive || !_viewModel.AnimationState.IsPlaying)
+        {
+            return;
+        }
+
+        var delay = _viewModel.AnimationState.CurrentFrameDelay;
+        if (delay <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        _animationTimer.Interval = delay;
+        _animationTimer.Start();
+    }
+
+    private void OnAnimationTimerTick(object? sender, object e)
+    {
+        _animationTimer.Stop();
+        _viewModel.AdvanceAnimationPlaybackFrame();
+        UpdateAnimationTimer();
+    }
+
+    private static bool IsPeriodKey(VirtualKey key)
+    {
+        return key == VirtualKey.Decimal || (int)key == 190;
+    }
+
+    private static bool IsCommaKey(VirtualKey key)
+    {
+        return (int)key == 188;
     }
 
     private AppWindow GetAppWindow()
@@ -373,7 +558,7 @@ public sealed partial class MainWindow : Window
 
         if (path is not null)
         {
-            isValid = new ImageViewer.Core.Services.ImageDecodeService().IsSupportedFormat(Path.GetExtension(path));
+            isValid = _viewModel.IsSupportedOpenExtension(Path.GetExtension(path));
         }
 
         DropIndicator.Show(isValid);
@@ -457,6 +642,25 @@ public sealed partial class MainWindow : Window
         if (result == Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary)
         {
             await _viewModel.SaveTransformsAsync();
+        }
+    }
+
+    private async void OnCodecInstallPromptRequested(object? sender, CodecInstallPrompt prompt)
+    {
+        var dialog = new Microsoft.UI.Xaml.Controls.ContentDialog
+        {
+            XamlRoot = RootGrid.XamlRoot,
+            Title = $"{prompt.FormatName} codec required",
+            Content = prompt.Message,
+            PrimaryButtonText = "Open Store",
+            CloseButtonText = "Not now",
+            DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Primary
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary)
+        {
+            await Launcher.LaunchUriAsync(new Uri(prompt.StoreUrl));
         }
     }
 
