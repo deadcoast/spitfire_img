@@ -66,6 +66,26 @@ public sealed class LayoutStateTests
     }
 
     [Fact]
+    public void PositionText_WithWrappedGridLayout_DisplaysSplitVisibleRanges()
+    {
+        var state = new LayoutState();
+        state.EnterLayout(new LayoutSet(
+            LayoutMode.Grid,
+            LayoutConfig.Default,
+            [
+                new LayoutImage(8, new DecodedImage(@"C:\Photos\i.png", new ImageMetadata(100, 80, 1))),
+                new LayoutImage(9, new DecodedImage(@"C:\Photos\j.png", new ImageMetadata(80, 100, 1))),
+                new LayoutImage(0, new DecodedImage(@"C:\Photos\a.png", new ImageMetadata(90, 90, 1))),
+                new LayoutImage(1, new DecodedImage(@"C:\Photos\b.png", new ImageMetadata(90, 90, 1)))
+            ],
+            WindowStartIndex: 8,
+            ActiveImageIndex: 0,
+            TotalImageCount: 10));
+
+        Assert.Equal("Grid 3x3 9-10, 1-2 / 10", state.PositionText);
+    }
+
+    [Fact]
     public void EnterLayout_WithFilmstripSet_UsesProvidedFocusImageIndex()
     {
         var state = new LayoutState();

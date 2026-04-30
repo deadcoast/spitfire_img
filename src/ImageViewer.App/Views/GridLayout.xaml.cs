@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Runtime.InteropServices.WindowsRuntime;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
@@ -155,8 +156,16 @@ public sealed partial class GridLayout : UserControl
     {
         try
         {
-            await using var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var randomAccessStream = fileStream.AsRandomAccessStream();
+            var encodedBytes = await File.ReadAllBytesAsync(filePath);
+            if (renderVersion != _renderVersion)
+            {
+                return;
+            }
+
+            using var randomAccessStream = new InMemoryRandomAccessStream();
+            await randomAccessStream.WriteAsync(encodedBytes.AsBuffer());
+            randomAccessStream.Seek(0);
+
             var bitmap = new BitmapImage();
             await bitmap.SetSourceAsync(randomAccessStream);
 

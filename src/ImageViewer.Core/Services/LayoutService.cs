@@ -22,17 +22,10 @@ public sealed class LayoutService : ILayoutService
             return Result<LayoutSet>.Failure(ViewerError.UnexpectedViewerError("EnterGrid", playlist.FolderPath));
         }
 
-        var normalizedConfig = NormalizeGridConfig(config);
+        var currentConfig = NormalizeGridConfig(config);
         var windowStartIndex = Mod(startIndex ?? playlist.CurrentIndex, playlist.Items.Count);
-        for (var gridSize = Math.Max(normalizedConfig.Rows, normalizedConfig.Columns);
-             gridSize >= LayoutConfig.MinGridSize;
-             gridSize--)
+        while (true)
         {
-            var currentConfig = normalizedConfig with
-            {
-                Rows = gridSize,
-                Columns = gridSize
-            };
             var visibleCount = Math.Min(currentConfig.VisibleCellCount, playlist.Items.Count);
             var decodeResults = await DecodeVisibleImagesAsync(
                     playlist,
@@ -44,8 +37,9 @@ public sealed class LayoutService : ILayoutService
             var failedDecode = decodeResults.FirstOrDefault(result => result.Decode.IsFailure);
             if (failedDecode is not null)
             {
-                if (gridSize > LayoutConfig.MinGridSize && IsMemoryFailure(failedDecode.Decode.Error))
+                if (CanReduceGridDensity(currentConfig) && IsMemoryFailure(failedDecode.Decode.Error))
                 {
+                    currentConfig = ReduceGridDensity(currentConfig);
                     continue;
                 }
 
@@ -64,8 +58,6 @@ public sealed class LayoutService : ILayoutService
                 ActiveImageIndex: 0,
                 playlist.Items.Count));
         }
-
-        return Result<LayoutSet>.Failure(ViewerError.LayoutError("EnterGrid", playlist.FolderPath));
     }
 
     public async Task<Result<LayoutSet>> EnterFilmstripAsync(
@@ -214,6 +206,20 @@ public sealed class LayoutService : ILayoutService
         return error.Category == ErrorCategory.DecodeError
             && (string.Equals(error.ExceptionType, nameof(OutOfMemoryException), StringComparison.Ordinal)
                 || string.Equals(error.UserMessage, "This image is too large to display.", StringComparison.Ordinal));
+    }
+
+    private static bool CanReduceGridDensity(LayoutConfig config)
+    {
+        return config.Rows > LayoutConfig.MinGridSize || config.Columns > LayoutConfig.MinGridSize;
+    }
+
+    private static LayoutConfig ReduceGridDensity(LayoutConfig config)
+    {
+        return config with
+        {
+            Rows = config.Rows > LayoutConfig.MinGridSize ? config.Rows - 1 : config.Rows,
+            Columns = config.Columns > LayoutConfig.MinGridSize ? config.Columns - 1 : config.Columns
+        };
     }
 
     private sealed record LayoutDecodeResult(

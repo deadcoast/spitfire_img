@@ -73,7 +73,7 @@ public sealed class LayoutState : ObservableObject
     public string PositionText => Mode switch
     {
         LayoutMode.Grid when IsActive && VisibleImages.Count > 0 && TotalImageCount > 0 =>
-            $"Grid {Config.Rows}x{Config.Columns} {VisibleImages[0].PlaylistIndex + 1}-{VisibleImages[^1].PlaylistIndex + 1} / {TotalImageCount}",
+            $"Grid {Config.Rows}x{Config.Columns} {GetGridRangeText()} / {TotalImageCount}",
         LayoutMode.Filmstrip when FocusImage is not null && TotalImageCount > 0 =>
             $"Filmstrip {FocusImage.PlaylistIndex + 1} / {TotalImageCount}",
         _ => string.Empty
@@ -142,5 +142,35 @@ public sealed class LayoutState : ObservableObject
             .visibleIndex;
 
         return index;
+    }
+
+    private string GetGridRangeText()
+    {
+        var ranges = new List<string>();
+        var rangeStart = VisibleImages[0].PlaylistIndex;
+        var previous = rangeStart;
+
+        foreach (var playlistIndex in VisibleImages.Select(image => image.PlaylistIndex).Skip(1))
+        {
+            if (playlistIndex == previous + 1)
+            {
+                previous = playlistIndex;
+                continue;
+            }
+
+            ranges.Add(FormatRange(rangeStart, previous));
+            rangeStart = playlistIndex;
+            previous = playlistIndex;
+        }
+
+        ranges.Add(FormatRange(rangeStart, previous));
+        return string.Join(", ", ranges);
+    }
+
+    private static string FormatRange(int startIndex, int endIndex)
+    {
+        return startIndex == endIndex
+            ? (startIndex + 1).ToString()
+            : $"{startIndex + 1}-{endIndex + 1}";
     }
 }

@@ -58,6 +58,25 @@ public sealed class LayoutServiceTests
     }
 
     [Fact]
+    public async Task EnterGridAsync_RectangularConfig_PreservesRowsColumnsAndVisibleCount()
+    {
+        var playlist = CreatePlaylist(30, currentIndex: 0);
+        var service = new LayoutService(new PathImageDecodeService());
+
+        var result = await service.EnterGridAsync(
+            playlist,
+            new LayoutConfig(LayoutMode.Grid, Rows: 4, Columns: 5, CellSpacing: 12));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(4, result.Value.Config.Rows);
+        Assert.Equal(5, result.Value.Config.Columns);
+        Assert.Equal(20, result.Value.VisibleImages.Count);
+        Assert.Equal(
+            Enumerable.Range(0, 20),
+            result.Value.VisibleImages.Select(image => image.PlaylistIndex));
+    }
+
+    [Fact]
     public async Task EnterGridAsync_LoadsVisibleGridWindowInParallel()
     {
         var playlist = CreatePlaylist(20, currentIndex: 0);

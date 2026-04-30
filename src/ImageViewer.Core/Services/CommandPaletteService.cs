@@ -4,9 +4,12 @@ namespace ImageViewer.Core.Services;
 
 public sealed class CommandPaletteService : ICommandPaletteService
 {
+    private const int MaxCachedSearchQueries = 64;
+
     private readonly CommandItem[] _commands;
     private readonly CommandSearchIndex[] _indexedCommands;
     private readonly Dictionary<string, IReadOnlyList<CommandSearchResult>> _searchCache = new(StringComparer.Ordinal);
+    private readonly Queue<string> _searchCacheOrder = new();
     private readonly object _cacheGate = new();
 
     public CommandPaletteService()
@@ -27,13 +30,13 @@ public sealed class CommandPaletteService : ICommandPaletteService
         new(CommandIds.OpenFile, "Open File", CommandCategory.File, "Ctrl+O"),
         new(CommandIds.ToggleFullscreen, "Toggle Fullscreen", CommandCategory.View, "F11"),
         new(CommandIds.FitToWindow, "Fit to Window", CommandCategory.View, "Ctrl+0"),
-        new(CommandIds.ActualSize, "Actual Size", CommandCategory.View, "Ctrl+1"),
+        new(CommandIds.ActualSize, "Actual Size", CommandCategory.View, "View menu"),
         new(CommandIds.RotateLeft, "Rotate Left", CommandCategory.Image, "Ctrl+L"),
         new(CommandIds.RotateRight, "Rotate Right", CommandCategory.Image, "Ctrl+R"),
         new(CommandIds.NavigatePrevious, "Previous Image", CommandCategory.Navigation, "Left"),
         new(CommandIds.NavigateNext, "Next Image", CommandCategory.Navigation, "Right"),
         new(CommandIds.GridLayout, "Grid Layout", CommandCategory.Layout, "Ctrl+G"),
-        new(CommandIds.FilmstripLayout, "Filmstrip Layout", CommandCategory.Layout, "Ctrl+F"),
+        new(CommandIds.FilmstripLayout, "Filmstrip Layout", CommandCategory.Layout, "Ctrl+Shift+F"),
         new(CommandIds.ToggleSlideshow, "Toggle Slideshow", CommandCategory.Slideshow, "F5"),
         new(CommandIds.EnterComparison, "Side-by-Side Comparison", CommandCategory.Comparison, "Ctrl+D"),
         new(CommandIds.EnterOverlayComparison, "Overlay Comparison", CommandCategory.Comparison, "Ctrl+Shift+D"),
@@ -69,9 +72,21 @@ public sealed class CommandPaletteService : ICommandPaletteService
                 return cachedResults;
             }
 
-            _searchCache[normalizedQuery] = results;
+            AddCachedResults(normalizedQuery, results);
             return results;
         }
+    }
+
+    private void AddCachedResults(string normalizedQuery, IReadOnlyList<CommandSearchResult> results)
+    {
+        while (_searchCacheOrder.Count >= MaxCachedSearchQueries)
+        {
+            var evictedQuery = _searchCacheOrder.Dequeue();
+            _searchCache.Remove(evictedQuery);
+        }
+
+        _searchCache[normalizedQuery] = results;
+        _searchCacheOrder.Enqueue(normalizedQuery);
     }
 
     private IReadOnlyList<CommandSearchResult> SearchCommandsCore(string normalizedQuery)

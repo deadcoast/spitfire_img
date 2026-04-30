@@ -34,6 +34,31 @@ public sealed class CommandPaletteServiceTests
     }
 
     [Fact]
+    public void GetRegisteredCommands_DoesNotAssignCtrlOneToTwoCommands()
+    {
+        var service = new CommandPaletteService();
+
+        var commands = service.GetRegisteredCommands();
+        var actualSize = Assert.Single(commands, command => command.Id == CommandIds.ActualSize);
+        var singleImage = Assert.Single(commands, command => command.Id == CommandIds.ReturnToSingleImage);
+
+        Assert.NotEqual("Ctrl+1", actualSize.Shortcut);
+        Assert.Equal("Ctrl+1", singleImage.Shortcut);
+    }
+
+    [Fact]
+    public void GetRegisteredCommands_PreservesCtrlFForSearchAndUsesShiftShortcutForFilmstrip()
+    {
+        var service = new CommandPaletteService();
+
+        var filmstrip = Assert.Single(
+            service.GetRegisteredCommands(),
+            command => command.Id == CommandIds.FilmstripLayout);
+
+        Assert.Equal("Ctrl+Shift+F", filmstrip.Shortcut);
+    }
+
+    [Fact]
     public void SearchCommands_MatchesCharactersInOrderAndHighlightsMatchedIndexes()
     {
         var service = new CommandPaletteService();
@@ -117,5 +142,28 @@ public sealed class CommandPaletteServiceTests
         var second = service.SearchCommands("rot");
 
         Assert.Same(first, second);
+    }
+
+    [Fact]
+    public void SearchCommands_EvictsOldCachedQueriesWhenCacheLimitIsExceeded()
+    {
+        var commands = Enumerable.Range(0, 80)
+            .Select(index => new CommandItem(
+                $"test.command.{index}",
+                $"Query {index}",
+                CommandCategory.Image,
+                $"Ctrl+{index}"))
+            .ToArray();
+        var service = new CommandPaletteService(commands);
+
+        var first = service.SearchCommands("query 0");
+        for (var index = 1; index <= 70; index++)
+        {
+            service.SearchCommands($"query {index}");
+        }
+
+        var repeated = service.SearchCommands("query 0");
+
+        Assert.NotSame(first, repeated);
     }
 }
