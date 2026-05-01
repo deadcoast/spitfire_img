@@ -141,7 +141,7 @@ public sealed partial class MainWindow : Window
         {
             if (e.Key == VirtualKey.P)
             {
-                _viewModel.ToggleAnimationPlayback();
+                await _viewModel.ToggleAnimationPlayback();
                 e.Handled = true;
                 return;
             }
@@ -288,7 +288,7 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.Add when isControlPressed:
-                if (_viewModel.LayoutState.IsActive)
+                if (_viewModel.LayoutState is { IsActive: true, Mode: LayoutMode.Grid })
                 {
                     await _viewModel.IncreaseGridDensityAsync();
                 }
@@ -300,7 +300,7 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.Subtract when isControlPressed:
-                if (_viewModel.LayoutState.IsActive)
+                if (_viewModel.LayoutState is { IsActive: true, Mode: LayoutMode.Grid })
                 {
                     await _viewModel.DecreaseGridDensityAsync();
                 }
@@ -315,8 +315,13 @@ public sealed partial class MainWindow : Window
                 await OpenFileFromPickerAsync();
                 e.Handled = true;
                 break;
-            case VirtualKey.F when isControlPressed:
+            case VirtualKey.F when isControlPressed && isShiftPressed:
                 await _viewModel.EnterFilmstripLayoutAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.F when isControlPressed:
+                _viewModel.ShowSearch();
+                SearchOverlay.Show();
                 e.Handled = true;
                 break;
             case VirtualKey.G when isControlPressed:
@@ -340,7 +345,7 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.L when isControlPressed && _viewModel.ComparisonState.IsActive:
-                _viewModel.ToggleComparisonSyncZoom();
+                await _viewModel.ToggleComparisonSyncZoom();
                 e.Handled = true;
                 break;
             case VirtualKey.L when isControlPressed:

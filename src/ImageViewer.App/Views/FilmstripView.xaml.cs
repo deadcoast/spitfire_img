@@ -62,6 +62,10 @@ public sealed partial class FilmstripView : UserControl
         if (state.FocusImage is { } focusImage)
         {
             await LoadImageAsync(FocusImage, focusImage.Image.FilePath, renderVersion);
+            if (renderVersion != _renderVersion)
+            {
+                return;
+            }
         }
 
         _thumbnails.Clear();
@@ -105,20 +109,34 @@ public sealed partial class FilmstripView : UserControl
         await _viewModel.SelectFilmstripImageAsync(item.VisibleIndex);
     }
 
-    private static async Task LoadImageAsync(Image target, string filePath, int renderVersion)
+    private async Task LoadImageAsync(Image target, string filePath, int renderVersion)
     {
         try
         {
-            await using var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var randomAccessStream = fileStream.AsRandomAccessStream();
+            var encodedBytes = await File.ReadAllBytesAsync(filePath);
+            if (renderVersion != _renderVersion)
+            {
+                return;
+            }
+
+            using var randomAccessStream = new InMemoryRandomAccessStream();
+            await randomAccessStream.WriteAsync(encodedBytes.AsBuffer());
+            randomAccessStream.Seek(0);
+
             var bitmap = new BitmapImage();
             await bitmap.SetSourceAsync(randomAccessStream);
 
-            target.Source = bitmap;
+            if (renderVersion == _renderVersion)
+            {
+                target.Source = bitmap;
+            }
         }
         catch
         {
-            target.Source = null;
+            if (renderVersion == _renderVersion)
+            {
+                target.Source = null;
+            }
         }
     }
 

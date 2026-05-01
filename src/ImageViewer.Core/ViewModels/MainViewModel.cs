@@ -399,13 +399,13 @@ public sealed class MainViewModel : ObservableObject
         ShowChrome();
     }
 
-    public void ToggleAnimationPlayback()
+    public async Task ToggleAnimationPlayback(CancellationToken cancellationToken = default)
     {
         AnimationState.TogglePlayback();
         if (AnimationState.IsAnimationActive)
         {
             Settings = Settings with { GifAutoPlay = AnimationState.IsPlaying };
-            SaveSettingsOrReportError();
+            await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
         }
 
         ShowChrome();
@@ -549,11 +549,11 @@ public sealed class MainViewModel : ObservableObject
         ShowChrome();
     }
 
-    public void ToggleComparisonSyncZoom()
+    public async Task ToggleComparisonSyncZoom(CancellationToken cancellationToken = default)
     {
         ComparisonState.ToggleSyncZoom();
         Settings = Settings with { ComparisonSyncZoom = ComparisonState.IsSyncZoomEnabled };
-        SaveSettingsOrReportError();
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
         ShowChrome();
     }
 
@@ -697,7 +697,7 @@ public sealed class MainViewModel : ObservableObject
 
     private Task StepGridDensityAsync(int direction, CancellationToken cancellationToken)
     {
-        if (!LayoutState.IsActive || PlaylistState.TotalCount == 0)
+        if (LayoutState is not { IsActive: true, Mode: LayoutMode.Grid } || PlaylistState.TotalCount == 0)
         {
             return Task.CompletedTask;
         }
@@ -833,6 +833,7 @@ public sealed class MainViewModel : ObservableObject
         {
             PlaylistState.SetCurrentIndex(focusImage.PlaylistIndex);
             ViewerState.SetImage(focusImage.Image);
+            await LoadAnimationForImageAsync(focusImage.Image.FilePath, cancellationToken).ConfigureAwait(false);
             SlideshowState.SetCurrentImageIndex(focusImage.PlaylistIndex);
             TransformState.DiscardTransforms();
         }
@@ -914,7 +915,7 @@ public sealed class MainViewModel : ObservableObject
                 await EnterComparisonAsync(ComparisonLayout.Overlay, cancellationToken: cancellationToken).ConfigureAwait(false);
                 break;
             case CommandIds.ToggleComparisonSyncZoom:
-                ToggleComparisonSyncZoom();
+                await ToggleComparisonSyncZoom(cancellationToken).ConfigureAwait(false);
                 break;
             case CommandIds.ComparisonTwoImages:
                 await ChangeComparisonImageCountAsync(2, cancellationToken).ConfigureAwait(false);
@@ -935,7 +936,7 @@ public sealed class MainViewModel : ObservableObject
                 await EnterFilmstripLayoutAsync(cancellationToken).ConfigureAwait(false);
                 break;
             case CommandIds.ToggleGifPlayback:
-                ToggleAnimationPlayback();
+                await ToggleAnimationPlayback(cancellationToken).ConfigureAwait(false);
                 break;
         }
 
@@ -1461,19 +1462,6 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private void SaveSettingsOrReportError()
-    {
-        var saveResult = _settingsService.SaveSettingsAsync(Settings, CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
-        if (saveResult.IsFailure)
-        {
-            HandleErrorAsync(saveResult.Error, CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-        }
-    }
-
     private async Task StepSlideshowIntervalAsync(int direction, CancellationToken cancellationToken)
     {
         var nextInterval = SlideshowConfig.StepIntervalSeconds(Settings.SlideshowIntervalSeconds, direction);
@@ -1543,20 +1531,31 @@ public sealed class MainViewModel : ObservableObject
 
         var preloadIndex = Mod(SlideshowState.CurrentImageIndex + 1, PlaylistState.TotalCount);
         var preloadPath = PlaylistState.Items[preloadIndex].FilePath;
-        _ = Task.Run(async () =>
+        _ = PreloadImageAsync(preloadPath);
+    }
+
+    private async Task PreloadImageAsync(string preloadPath)
+    {
+        try
         {
-            try
+            var decodeResult = await _imageDecodeService.DecodeImageAsync(preloadPath, CancellationToken.None)
+                .ConfigureAwait(false);
+            if (decodeResult.IsFailure)
             {
-                await _imageDecodeService.DecodeImageAsync(preloadPath, CancellationToken.None)
+                await _errorLogService.LogErrorAsync(decodeResult.Error, CancellationToken.None)
                     .ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
-            {
-            }
-            catch
-            {
-            }
-        });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            await _errorLogService.LogErrorAsync(
+                    ViewerError.DecodeError("PreloadImage", preloadPath, ex),
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
     }
 
     private async Task AdvanceComparisonSlideshowAsync(int nextIndex)

@@ -57,9 +57,12 @@ public sealed partial class FrameControl : UserControl
         _viewModel?.StepAnimationFrameFromControl(-1);
     }
 
-    private void OnPlayPauseClicked(object sender, RoutedEventArgs e)
+    private async void OnPlayPauseClicked(object sender, RoutedEventArgs e)
     {
-        _viewModel?.ToggleAnimationPlayback();
+        if (_viewModel is not null)
+        {
+            await _viewModel.ToggleAnimationPlayback();
+        }
     }
 
     private void OnNextClicked(object sender, RoutedEventArgs e)

@@ -33,8 +33,8 @@
                 IsItemClickEnabled="True"
                 ItemClick="OnThumbnailClicked"
                 SelectionMode="None"
-                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                ScrollViewer.HorizontalScrollMode="Disabled"
+                ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                ScrollViewer.HorizontalScrollMode="Enabled"
                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                 ScrollViewer.VerticalScrollMode="Disabled">
                 <ListView.ItemsPanel>
