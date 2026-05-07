@@ -27,6 +27,115 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task OpenFileAsync_AnimatedGifLoadsAnimationStateAndStartsPlayback()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
+        var playlist = new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos");
+        var animation = CreateAnimatedGif(image.FilePath);
+        var animationService = new RecordingAnimationService(Result<AnimatedGif>.Success(animation));
+        var services = TestServices.Success(image, playlist, animationService);
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        Assert.Equal([image.FilePath], animationService.LoadedPaths);
+        Assert.True(viewModel.AnimationState.IsAnimated);
+        Assert.True(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(2, viewModel.AnimationState.TotalFrames);
+        Assert.Equal([100, 200], viewModel.AnimationState.FrameDelays);
+    }
+
+    [Fact]
+    public async Task OpenFileAsync_AnimatedGifStartsPlaybackTimerWithCurrentFrameDelay()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
+        var playlist = new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos");
+        var timer = new RecordingAnimationPlaybackTimer();
+        var services = TestServices.Success(
+            image,
+            playlist,
+            new RecordingAnimationService(Result<AnimatedGif>.Success(CreateAnimatedGif(image.FilePath))),
+            timer);
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        Assert.Equal([TimeSpan.FromMilliseconds(100)], timer.StartedIntervals);
+        Assert.False(timer.IsStopped);
+    }
+
+    [Fact]
+    public async Task AdvanceAnimationPlaybackFrame_LoopsAndSchedulesNextFrameDelay()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
+        var timer = new RecordingAnimationPlaybackTimer();
+        var services = TestServices.Success(
+            image,
+            new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos"),
+            new RecordingAnimationService(Result<AnimatedGif>.Success(CreateAnimatedGif(image.FilePath))),
+            timer);
+        var viewModel = services.CreateViewModel();
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        viewModel.AdvanceAnimationPlaybackFrame();
+        viewModel.AdvanceAnimationPlaybackFrame();
+
+        Assert.Equal(0, viewModel.AnimationState.CurrentFrame);
+        Assert.Equal(
+            [TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(100)],
+            timer.StartedIntervals);
+    }
+
+    [Fact]
+    public async Task ToggleAnimationPlayback_PausesAndResumesTimer()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
+        var timer = new RecordingAnimationPlaybackTimer();
+        var services = TestServices.Success(
+            image,
+            new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos"),
+            new RecordingAnimationService(Result<AnimatedGif>.Success(CreateAnimatedGif(image.FilePath))),
+            timer);
+        var viewModel = services.CreateViewModel();
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        viewModel.ToggleAnimationPlayback();
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.True(timer.IsStopped);
+
+        viewModel.ToggleAnimationPlayback();
+
+        Assert.True(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(TimeSpan.FromMilliseconds(100), timer.StartedIntervals[^1]);
+    }
+
+    [Fact]
+    public async Task ManualAnimationFrameControlsWorkOnlyWhenPaused()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
+        var timer = new RecordingAnimationPlaybackTimer();
+        var services = TestServices.Success(
+            image,
+            new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos"),
+            new RecordingAnimationService(Result<AnimatedGif>.Success(CreateAnimatedGif(image.FilePath))),
+            timer);
+        var viewModel = services.CreateViewModel();
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        viewModel.AdvanceAnimationFrame();
+
+        Assert.Equal(0, viewModel.AnimationState.CurrentFrame);
+
+        viewModel.ToggleAnimationPlayback();
+        viewModel.AdvanceAnimationFrame();
+        viewModel.RewindAnimationFrame();
+
+        Assert.Equal(0, viewModel.AnimationState.CurrentFrame);
+        Assert.True(timer.IsStopped);
+    }
+
+    [Fact]
     public async Task OpenFileAsync_ValidationFailure_LogsErrorAndSetsUserMessage()
     {
         var error = ViewerError.FileAccessError("ValidateFilePath", @"C:\missing.png");
@@ -744,6 +853,16 @@ public sealed class MainViewModelTests
             @"C:\Photos");
     }
 
+    private static AnimatedGif CreateAnimatedGif(string filePath)
+    {
+        return new AnimatedGif(
+            filePath,
+            [
+                new AnimationFrame([0x89, 0x50, 0x4E, 0x47], 2, 2, TimeSpan.FromMilliseconds(100)),
+                new AnimationFrame([0x89, 0x50, 0x4E, 0x47], 2, 2, TimeSpan.FromMilliseconds(200))
+            ]);
+    }
+
     private sealed class TestServices
     {
         private TestServices(
@@ -756,7 +875,9 @@ public sealed class MainViewModelTests
             RecordingRecentFilesService? recentFilesService = null,
             RecordingMetadataService? metadataService = null,
             RecordingExportService? exportService = null,
-            RecordingTransformService? transformService = null)
+            RecordingTransformService? transformService = null,
+            RecordingAnimationService? animationService = null,
+            RecordingAnimationPlaybackTimer? animationPlaybackTimer = null)
         {
             FileOpenService = fileOpenService;
             ImageDecodeService = imageDecodeService;
@@ -768,6 +889,9 @@ public sealed class MainViewModelTests
             MetadataService = metadataService ?? new RecordingMetadataService();
             ExportService = exportService ?? new RecordingExportService();
             TransformService = transformService ?? new RecordingTransformService();
+            AnimationService = animationService ?? new RecordingAnimationService(
+                Result<AnimatedGif>.Success(new AnimatedGif(string.Empty, [])));
+            AnimationPlaybackTimer = animationPlaybackTimer ?? new RecordingAnimationPlaybackTimer();
         }
 
         public IFileOpenService FileOpenService { get; }
@@ -790,7 +914,15 @@ public sealed class MainViewModelTests
 
         public RecordingTransformService TransformService { get; }
 
-        public static TestServices Success(DecodedImage image, Playlist playlist)
+        public RecordingAnimationService AnimationService { get; }
+
+        public RecordingAnimationPlaybackTimer AnimationPlaybackTimer { get; }
+
+        public static TestServices Success(
+            DecodedImage image,
+            Playlist playlist,
+            RecordingAnimationService? animationService = null,
+            RecordingAnimationPlaybackTimer? animationPlaybackTimer = null)
         {
             var decoder = new StubImageDecodeService(Result<DecodedImage>.Success(image));
             return new TestServices(
@@ -799,7 +931,9 @@ public sealed class MainViewModelTests
                 new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
                 new NavigationService(decoder),
                 new StubSettingsService(),
-                new RecordingErrorLogService());
+                new RecordingErrorLogService(),
+                animationService: animationService,
+                animationPlaybackTimer: animationPlaybackTimer);
         }
 
         public static TestServices WithPlaylist(
@@ -872,7 +1006,9 @@ public sealed class MainViewModelTests
                 RecentFilesService,
                 ExportService,
                 TransformService,
-                MetadataService);
+                MetadataService,
+                animationService: AnimationService,
+                animationPlaybackTimer: AnimationPlaybackTimer);
         }
     }
 
@@ -1144,6 +1280,51 @@ public sealed class MainViewModelTests
             SavedFilePath = filePath;
             SavedOperations = operations.ToArray();
             return Task.FromResult(_saveResult);
+        }
+    }
+
+    private sealed class RecordingAnimationService : IAnimationService
+    {
+        private readonly Result<AnimatedGif> _result;
+
+        public RecordingAnimationService(Result<AnimatedGif> result)
+        {
+            _result = result;
+        }
+
+        public List<string> LoadedPaths { get; } = [];
+
+        public Task<Result<AnimatedGif>> LoadAnimatedGifAsync(
+            string filePath,
+            CancellationToken cancellationToken = default)
+        {
+            LoadedPaths.Add(filePath);
+            return Task.FromResult(_result);
+        }
+    }
+
+    private sealed class RecordingAnimationPlaybackTimer : IAnimationPlaybackTimer
+    {
+        public event EventHandler? Tick;
+
+        public List<TimeSpan> StartedIntervals { get; } = [];
+
+        public bool IsStopped { get; private set; } = true;
+
+        public void Start(TimeSpan interval)
+        {
+            StartedIntervals.Add(interval);
+            IsStopped = false;
+        }
+
+        public void Stop()
+        {
+            IsStopped = true;
+        }
+
+        public void RaiseTick()
+        {
+            Tick?.Invoke(this, EventArgs.Empty);
         }
     }
 }

@@ -15,7 +15,8 @@ public enum ErrorCategory
     TransformSaveError,
     MetadataExtractionError,
     ComparisonError,
-    CommandPaletteError
+    CommandPaletteError,
+    AnimationError
 }
 
 public enum ErrorSeverity
@@ -161,9 +162,17 @@ public sealed record ViewerError(
             exception?.StackTrace);
     }
 
+    public static ViewerError AnimationError(string operation, string? filePath, Exception? exception = null)
+    {
+        return Create(ErrorCategory.AnimationError, operation, filePath, exception);
+    }
+
     private static ErrorSeverity GetSeverity(ErrorCategory category)
     {
-        return category is ErrorCategory.PlaylistScanError or ErrorCategory.SettingsPersistenceError or ErrorCategory.ThumbnailGenerationError
+        return category is ErrorCategory.PlaylistScanError
+                or ErrorCategory.SettingsPersistenceError
+                or ErrorCategory.ThumbnailGenerationError
+                or ErrorCategory.AnimationError
             ? ErrorSeverity.Warning
             : ErrorSeverity.Error;
     }
@@ -186,6 +195,7 @@ public sealed record ViewerError(
             ErrorCategory.MetadataExtractionError => "Unable to read detailed metadata for this image.",
             ErrorCategory.ComparisonError => "Unable to enter comparison mode.",
             ErrorCategory.CommandPaletteError => "Unable to load command palette.",
+            ErrorCategory.AnimationError => "Unable to load animated GIF.",
             _ => "An unexpected error occurred. The application will attempt to continue."
         };
     }

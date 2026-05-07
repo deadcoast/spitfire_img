@@ -14,6 +14,9 @@ namespace ImageViewer.App;
 
 public sealed partial class MainWindow : Window
 {
+    private const int OemCommaVirtualKey = 188;
+    private const int OemPeriodVirtualKey = 190;
+
     private readonly MainViewModel _viewModel;
     private readonly AppWindow _appWindow;
     private readonly DispatcherTimer _loadingDelayTimer;
@@ -230,6 +233,18 @@ public sealed partial class MainWindow : Window
                 break;
             case VirtualKey.P when isControlPressed && isShiftPressed:
                 _viewModel.ShowCommandPalette();
+                e.Handled = true;
+                break;
+            case VirtualKey.P when !isControlPressed && !isShiftPressed:
+                _viewModel.ToggleAnimationPlayback();
+                e.Handled = true;
+                break;
+            case var key when IsPeriodKey(key) && !isControlPressed && !isShiftPressed:
+                _viewModel.AdvanceAnimationFrame();
+                e.Handled = true;
+                break;
+            case var key when IsCommaKey(key) && !isControlPressed && !isShiftPressed:
+                _viewModel.RewindAnimationFrame();
                 e.Handled = true;
                 break;
             case VirtualKey.D when isControlPressed && isShiftPressed:
@@ -579,5 +594,15 @@ public sealed partial class MainWindow : Window
             ".webp" => ImageExportFormat.Webp,
             _ => ImageExportFormat.Png
         };
+    }
+
+    private static bool IsPeriodKey(VirtualKey key)
+    {
+        return key is VirtualKey.Decimal || (int)key == OemPeriodVirtualKey;
+    }
+
+    private static bool IsCommaKey(VirtualKey key)
+    {
+        return (int)key == OemCommaVirtualKey;
     }
 }

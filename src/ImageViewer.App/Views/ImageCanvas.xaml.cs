@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices.WindowsRuntime;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml.Controls;
@@ -31,6 +32,7 @@ public sealed partial class ImageCanvas : UserControl
         _viewModel = viewModel;
         _viewerState = viewModel.ViewerState;
         _viewerState.PropertyChanged += OnViewerStateChanged;
+        viewModel.AnimationState.PropertyChanged += OnAnimationStateChanged;
         viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
         UpdateImage();
         UpdateDisplayMode();
@@ -55,6 +57,16 @@ public sealed partial class ImageCanvas : UserControl
         DispatcherQueue.TryEnqueue(PulseTransformPreview);
     }
 
+    private void OnAnimationStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AnimationState.CurrentFrame)
+            or nameof(AnimationState.IsAnimated)
+            or nameof(AnimationState.TotalFrames))
+        {
+            DispatcherQueue.TryEnqueue(UpdateImage);
+        }
+    }
+
     private void UpdateImage()
     {
         var image = _viewerState?.CurrentImage;
@@ -64,6 +76,13 @@ public sealed partial class ImageCanvas : UserControl
         if (image is null)
         {
             DisplayedImage.Source = null;
+            return;
+        }
+
+        if (_viewModel?.AnimationState.IsAnimated == true &&
+            _viewModel.AnimationState.CurrentFrame < _viewModel.AnimationState.Frames.Count)
+        {
+            _ = LoadImageSourceAsync(_viewModel.AnimationState.Frames[_viewModel.AnimationState.CurrentFrame], loadVersion);
             return;
         }
 
@@ -79,6 +98,36 @@ public sealed partial class ImageCanvas : UserControl
             var bitmap = new BitmapImage();
             await bitmap.SetSourceAsync(randomAccessStream);
 
+            if (loadVersion == _imageLoadVersion)
+            {
+                DisplayedImage.Source = bitmap;
+            }
+        }
+        catch
+        {
+            if (loadVersion == _imageLoadVersion)
+            {
+                DisplayedImage.Source = null;
+            }
+        }
+    }
+
+    private static async Task<BitmapImage> CreateBitmapImageAsync(byte[] encodedBytes)
+    {
+        using var randomAccessStream = new InMemoryRandomAccessStream();
+        await randomAccessStream.WriteAsync(encodedBytes.AsBuffer());
+        randomAccessStream.Seek(0);
+
+        var bitmap = new BitmapImage();
+        await bitmap.SetSourceAsync(randomAccessStream);
+        return bitmap;
+    }
+
+    private async Task LoadImageSourceAsync(AnimationFrame frame, int loadVersion)
+    {
+        try
+        {
+            var bitmap = await CreateBitmapImageAsync(frame.EncodedBytes);
             if (loadVersion == _imageLoadVersion)
             {
                 DisplayedImage.Source = bitmap;

@@ -168,7 +168,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
 - [x] 13. Checkpoint - Ensure command palette tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Implement animated GIF detection and loading
+- [x] 14. Implement animated GIF detection and loading
   - Create AnimationService with frame extraction
   - Create AnimatedGif model with frames and delays
   - Create AnimationState ViewModel for playback state

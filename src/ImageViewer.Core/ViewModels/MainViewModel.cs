@@ -18,6 +18,8 @@ public sealed class MainViewModel : ObservableObject
     private readonly ITransformService _transformService;
     private readonly IMetadataService _metadataService;
     private readonly IComparisonService _comparisonService;
+    private readonly IAnimationService _animationService;
+    private readonly IAnimationPlaybackTimer _animationPlaybackTimer;
     private ViewerSettings _settings = ViewerSettings.Default;
     private readonly Dictionary<string, ExifMetadata> _metadataCache = new(StringComparer.OrdinalIgnoreCase);
     private bool _isChromeVisible = true;
@@ -63,7 +65,9 @@ public sealed class MainViewModel : ObservableObject
         IExportService exportService,
         ITransformService transformService,
         IMetadataService metadataService,
-        IComparisonService? comparisonService = null)
+        IComparisonService? comparisonService = null,
+        IAnimationService? animationService = null,
+        IAnimationPlaybackTimer? animationPlaybackTimer = null)
     {
         _fileOpenService = fileOpenService;
         _imageDecodeService = imageDecodeService;
@@ -77,6 +81,9 @@ public sealed class MainViewModel : ObservableObject
         _transformService = transformService;
         _metadataService = metadataService;
         _comparisonService = comparisonService ?? new ComparisonService();
+        _animationService = animationService ?? new NoopAnimationService();
+        _animationPlaybackTimer = animationPlaybackTimer ?? new NoopAnimationPlaybackTimer();
+        _animationPlaybackTimer.Tick += OnAnimationPlaybackTimerTick;
         SearchState = new SearchState(searchService);
         ThumbnailState = new ThumbnailState();
         TransformState = new TransformState();
@@ -99,6 +106,8 @@ public sealed class MainViewModel : ObservableObject
     public MetadataState MetadataState { get; }
 
     public ComparisonState ComparisonState { get; } = new();
+
+    public AnimationState AnimationState { get; } = new();
 
     public CommandPaletteState CommandPaletteState { get; }
 
@@ -198,6 +207,7 @@ public sealed class MainViewModel : ObservableObject
             }
 
             ViewerState.SetImage(decodeResult.Value);
+            await LoadAnimationForImageAsync(decodeResult.Value.FilePath, operationToken).ConfigureAwait(false);
             SearchState.SetPlaylist(PlaylistState.Items);
             var recentResult = await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken).ConfigureAwait(false);
             if (recentResult.IsSuccess)
@@ -240,6 +250,59 @@ public sealed class MainViewModel : ObservableObject
 
         ShowChrome();
         return result;
+    }
+
+    public void ToggleAnimationPlayback()
+    {
+        if (!AnimationState.IsAnimated)
+        {
+            return;
+        }
+
+        AnimationState.TogglePlayback();
+        if (AnimationState.IsPlaying)
+        {
+            ScheduleCurrentAnimationFrame();
+        }
+        else
+        {
+            _animationPlaybackTimer.Stop();
+        }
+
+        ShowChrome();
+    }
+
+    public void AdvanceAnimationFrame()
+    {
+        if (!AnimationState.IsAnimated || AnimationState.IsPlaying)
+        {
+            return;
+        }
+
+        AnimationState.NextFrame();
+        ShowChrome();
+    }
+
+    public void RewindAnimationFrame()
+    {
+        if (!AnimationState.IsAnimated || AnimationState.IsPlaying)
+        {
+            return;
+        }
+
+        AnimationState.PreviousFrame();
+        ShowChrome();
+    }
+
+    public void AdvanceAnimationPlaybackFrame()
+    {
+        if (!AnimationState.IsAnimated || !AnimationState.IsPlaying)
+        {
+            return;
+        }
+
+        AnimationState.NextFrame();
+        ScheduleCurrentAnimationFrame();
     }
 
     public Task NavigateNextAsync(CancellationToken cancellationToken = default)
@@ -766,6 +829,7 @@ public sealed class MainViewModel : ObservableObject
 
             PlaylistState.SetCurrentIndex(navigationResult.Value.Index);
             ViewerState.SetImage(navigationResult.Value.Image);
+            await LoadAnimationForImageAsync(navigationResult.Value.Image.FilePath, operationToken).ConfigureAwait(false);
             TransformState.DiscardTransforms();
             ShowChrome();
         }
@@ -1021,6 +1085,50 @@ public sealed class MainViewModel : ObservableObject
         });
     }
 
+    private async Task LoadAnimationForImageAsync(string filePath, CancellationToken cancellationToken)
+    {
+        if (!Path.GetExtension(filePath).Equals(".gif", StringComparison.OrdinalIgnoreCase))
+        {
+            AnimationState.Clear();
+            _animationPlaybackTimer.Stop();
+            return;
+        }
+
+        var animationResult = await _animationService.LoadAnimatedGifAsync(filePath, cancellationToken).ConfigureAwait(false);
+        if (animationResult.IsSuccess)
+        {
+            AnimationState.LoadAnimation(animationResult.Value);
+            if (AnimationState.IsPlaying)
+            {
+                ScheduleCurrentAnimationFrame();
+            }
+            else
+            {
+                _animationPlaybackTimer.Stop();
+            }
+
+            return;
+        }
+
+        AnimationState.Clear();
+        _animationPlaybackTimer.Stop();
+        await HandleErrorAsync(animationResult.Error, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private void ScheduleCurrentAnimationFrame()
+    {
+        var delayResult = AnimationState.GetFrameDelay(AnimationState.CurrentFrame);
+        if (delayResult.IsSuccess)
+        {
+            _animationPlaybackTimer.Start(TimeSpan.FromMilliseconds(delayResult.Value));
+        }
+    }
+
+    private void OnAnimationPlaybackTimerTick(object? sender, EventArgs e)
+    {
+        AdvanceAnimationPlaybackFrame();
+    }
+
     private CancellationTokenSource BeginOperation(CancellationToken cancellationToken)
     {
         _operationCancellation?.Cancel();
@@ -1053,6 +1161,34 @@ public sealed class MainViewModel : ObservableObject
             }
         }
         catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private sealed class NoopAnimationService : IAnimationService
+    {
+        public Task<Result<AnimatedGif>> LoadAnimatedGifAsync(
+            string filePath,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<AnimatedGif>.Failure(
+                ViewerError.AnimationError("LoadAnimatedGif", filePath)));
+        }
+    }
+
+    private sealed class NoopAnimationPlaybackTimer : IAnimationPlaybackTimer
+    {
+        public event EventHandler? Tick
+        {
+            add { }
+            remove { }
+        }
+
+        public void Start(TimeSpan interval)
+        {
+        }
+
+        public void Stop()
         {
         }
     }

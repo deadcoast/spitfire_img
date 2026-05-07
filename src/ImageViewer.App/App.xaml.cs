@@ -62,6 +62,8 @@ public partial class App : Application
         services.AddSingleton<IExportService>(provider => provider.GetRequiredService<WindowsImageProcessingService>());
         services.AddSingleton<ITransformService>(provider => provider.GetRequiredService<WindowsImageProcessingService>());
         services.AddSingleton<IMetadataService, WindowsMetadataService>();
+        services.AddSingleton<IAnimationService, WindowsAnimationService>();
+        services.AddTransient<IAnimationPlaybackTimer, DispatcherAnimationPlaybackTimer>();
         services.AddTransient<MainViewModel>();
         services.AddTransient<MainWindow>();
     }

@@ -5,6 +5,7 @@ using ImageViewer.App.Views;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Gif;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SixLabors.ImageSharp.PixelFormats;
 using Windows.Graphics.Imaging;
@@ -78,6 +79,41 @@ public sealed class WindowsImagingServiceTests : IDisposable
         Assert.Equal(60, result.Value.PixelHeight);
         Assert.True(result.Value.EncodedBytes.Length > 8);
         Assert.Equal([0x89, 0x50, 0x4E, 0x47], result.Value.EncodedBytes.Take(4).ToArray());
+    }
+
+    [Fact]
+    public async Task AnimationService_RealAnimatedGifExtractsAllFramesAndDelays()
+    {
+        var source = Path.Combine(_tempDirectory, "animated.gif");
+        await WriteAnimatedGifAsync(source, [120, 340]);
+        var service = new WindowsAnimationService();
+
+        var result = await service.LoadAnimatedGifAsync(source);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value.IsAnimated);
+        Assert.Equal(2, result.Value.FrameCount);
+        Assert.Equal([120, 340], result.Value.Frames.Select(frame => (int)frame.Delay.TotalMilliseconds).ToArray());
+        Assert.All(result.Value.Frames, frame =>
+        {
+            Assert.Equal(2, frame.PixelWidth);
+            Assert.Equal(2, frame.PixelHeight);
+            Assert.Equal([0x89, 0x50, 0x4E, 0x47], frame.EncodedBytes.Take(4).ToArray());
+        });
+    }
+
+    [Fact]
+    public async Task AnimationService_StaticGifLoadsSingleFrameAsNotAnimated()
+    {
+        var source = Path.Combine(_tempDirectory, "static.gif");
+        await WriteAnimatedGifAsync(source, [0]);
+        var service = new WindowsAnimationService();
+
+        var result = await service.LoadAnimatedGifAsync(source);
+
+        Assert.True(result.IsSuccess);
+        Assert.False(result.Value.IsAnimated);
+        Assert.Equal(1, result.Value.FrameCount);
     }
 
     [Theory]
@@ -317,6 +353,22 @@ public sealed class WindowsImagingServiceTests : IDisposable
             96,
             pixels);
         await encoder.FlushAsync();
+    }
+
+    private static async Task WriteAnimatedGifAsync(string path, IReadOnlyList<int> frameDelays)
+    {
+        using var image = new Image<Rgba32>(2, 2, Color.Red);
+        image.Metadata.GetGifMetadata().RepeatCount = 0;
+        image.Frames.RootFrame.Metadata.GetGifMetadata().FrameDelay = frameDelays[0] / 10;
+
+        for (var index = 1; index < frameDelays.Count; index++)
+        {
+            using var frameImage = new Image<Rgba32>(2, 2, index % 2 == 0 ? Color.Blue : Color.Lime);
+            frameImage.Frames.RootFrame.Metadata.GetGifMetadata().FrameDelay = frameDelays[index] / 10;
+            image.Frames.AddFrame(frameImage.Frames.RootFrame);
+        }
+
+        await image.SaveAsGifAsync(path, new GifEncoder());
     }
 
     private static async Task WriteJpegWithExifAsync(
