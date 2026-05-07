@@ -36,6 +36,57 @@ public sealed class LayoutStateTests
         Assert.Equal(2, state.GridStartIndex);
         Assert.Equal(9, state.GridImages.Count);
         Assert.Equal([2, 3, 4, 5, 6, 7, 8, 9, 10], state.GridImages.Select(image => image.PlaylistIndex));
+        Assert.Equal(0, state.ActiveGridImageIndex);
+        Assert.Equal(2, state.ActiveGridPlaylistIndex);
+    }
+
+    [Fact]
+    public void SelectGridImage_TracksActiveVisibleAndPlaylistIndex()
+    {
+        var state = new LayoutState();
+        var service = new LayoutService();
+        var playlist = CreatePlaylistState(12, currentIndex: 2);
+        var layout = service.CalculateGridLayout(3, 3, new ImageDimensions(900, 600)).Value;
+        state.EnterGrid(layout, service.LoadGridImages(playlist, playlist.CurrentIndex, layout).Value, playlist.CurrentIndex);
+
+        state.SelectGridImage(4);
+
+        Assert.Equal(4, state.ActiveGridImageIndex);
+        Assert.Equal(6, state.ActiveGridPlaylistIndex);
+    }
+
+    [Fact]
+    public void SelectGridImage_ClampsToVisibleGridImages()
+    {
+        var state = new LayoutState();
+        var service = new LayoutService();
+        var playlist = CreatePlaylistState(5, currentIndex: 3);
+        var layout = service.CalculateGridLayout(3, 3, new ImageDimensions(900, 600)).Value;
+        state.EnterGrid(layout, service.LoadGridImages(playlist, playlist.CurrentIndex, layout).Value, playlist.CurrentIndex);
+
+        state.SelectGridImage(8);
+
+        Assert.Equal(1, state.ActiveGridImageIndex);
+        Assert.Equal(4, state.ActiveGridPlaylistIndex);
+    }
+
+    [Fact]
+    public void UpdateGrid_ReplacesImagesAndPreservesActivePlaylistWhenStillVisible()
+    {
+        var state = new LayoutState();
+        var service = new LayoutService();
+        var playlist = CreatePlaylistState(20, currentIndex: 0);
+        var initialLayout = service.CalculateGridLayout(3, 3, new ImageDimensions(900, 600)).Value;
+        state.EnterGrid(initialLayout, service.LoadGridImages(playlist, 0, initialLayout).Value, startIndex: 0);
+        state.SelectGridImage(4);
+        var expandedLayout = service.CalculateGridLayout(4, 4, new ImageDimensions(900, 600)).Value;
+
+        state.UpdateGrid(expandedLayout, service.LoadGridImages(playlist, 0, expandedLayout).Value, startIndex: 0);
+
+        Assert.Equal(4, state.GridRows);
+        Assert.Equal(4, state.GridColumns);
+        Assert.Equal(4, state.ActiveGridImageIndex);
+        Assert.Equal(4, state.ActiveGridPlaylistIndex);
     }
 
     [Fact]
@@ -53,6 +104,8 @@ public sealed class LayoutStateTests
         Assert.False(state.IsGridActive);
         Assert.Empty(state.GridImages);
         Assert.Empty(state.GridLayout.Cells);
+        Assert.Equal(0, state.ActiveGridImageIndex);
+        Assert.Equal(-1, state.ActiveGridPlaylistIndex);
     }
 
     private static PlaylistState CreatePlaylistState(int count, int currentIndex)

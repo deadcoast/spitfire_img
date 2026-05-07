@@ -69,6 +69,30 @@ public sealed class LayoutServiceTests
         Assert.Equal(ErrorCategory.LayoutError, result.Error.Category);
     }
 
+    [Theory]
+    [InlineData(0, 9, 20, 9, 9)]
+    [InlineData(9, 9, 20, 9, 11)]
+    [InlineData(11, 9, 20, 9, 11)]
+    [InlineData(9, -9, 20, 9, 0)]
+    public void CalculateGridStartIndex_PagesWithinPlaylistBounds(
+        int currentStartIndex,
+        int offset,
+        int playlistSize,
+        int visibleCapacity,
+        int expectedStartIndex)
+    {
+        var service = new LayoutService();
+
+        var result = service.CalculateGridStartIndex(
+            currentStartIndex,
+            offset,
+            playlistSize,
+            visibleCapacity);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expectedStartIndex, result.Value);
+    }
+
     private static PlaylistState CreatePlaylistState(int count, int currentIndex)
     {
         var playlist = new Playlist(

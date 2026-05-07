@@ -14,4 +14,10 @@ public interface ILayoutService
         PlaylistState playlist,
         int startIndex,
         GridLayoutPlan layout);
+
+    Result<int> CalculateGridStartIndex(
+        int currentStartIndex,
+        int offset,
+        int playlistSize,
+        int visibleCapacity);
 }

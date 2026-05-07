@@ -73,4 +73,25 @@ public sealed class LayoutService : ILayoutService
 
         return Result<IReadOnlyList<GridImage>>.Success(images);
     }
+
+    public Result<int> CalculateGridStartIndex(
+        int currentStartIndex,
+        int offset,
+        int playlistSize,
+        int visibleCapacity)
+    {
+        if (playlistSize <= 0)
+        {
+            return Result<int>.Success(0);
+        }
+
+        if (visibleCapacity <= 0)
+        {
+            return Result<int>.Failure(
+                ViewerError.LayoutError("CalculateGridStartIndex", "Grid layout requires a positive visible capacity."));
+        }
+
+        var maxStartIndex = Math.Max(0, playlistSize - visibleCapacity);
+        return Result<int>.Success(Math.Clamp(currentStartIndex + offset, 0, maxStartIndex));
+    }
 }

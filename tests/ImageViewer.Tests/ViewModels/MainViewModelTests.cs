@@ -391,6 +391,102 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task IncreaseGridDensityAsync_WhenGridActiveExpandsToNextDensity()
+    {
+        var playlist = CreateNumberedPlaylist(count: 20, currentIndex: 0);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync(new ImageDimensions(900, 600));
+
+        await viewModel.IncreaseGridDensityAsync(new ImageDimensions(900, 600));
+
+        Assert.Equal(4, viewModel.LayoutState.GridRows);
+        Assert.Equal(4, viewModel.LayoutState.GridColumns);
+        Assert.Equal(16, viewModel.LayoutState.GridImages.Count);
+        Assert.Equal([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], viewModel.LayoutState.GridImages.Select(image => image.PlaylistIndex));
+    }
+
+    [Fact]
+    public async Task GridDensityCommands_ClampBetweenTwoByTwoAndSixBySix()
+    {
+        var playlist = CreateNumberedPlaylist(count: 50, currentIndex: 0);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync(new ImageDimensions(900, 600));
+
+        await viewModel.DecreaseGridDensityAsync(new ImageDimensions(900, 600));
+        await viewModel.DecreaseGridDensityAsync(new ImageDimensions(900, 600));
+        await viewModel.DecreaseGridDensityAsync(new ImageDimensions(900, 600));
+
+        Assert.Equal(2, viewModel.LayoutState.GridRows);
+        Assert.Equal(2, viewModel.LayoutState.GridColumns);
+        Assert.Equal(4, viewModel.LayoutState.GridImages.Count);
+
+        for (var index = 0; index < 8; index++)
+        {
+            await viewModel.IncreaseGridDensityAsync(new ImageDimensions(900, 600));
+        }
+
+        Assert.Equal(6, viewModel.LayoutState.GridRows);
+        Assert.Equal(6, viewModel.LayoutState.GridColumns);
+        Assert.Equal(36, viewModel.LayoutState.GridImages.Count);
+    }
+
+    [Fact]
+    public async Task SetActiveGridImage_SelectsVisibleGridImage()
+    {
+        var playlist = CreateNumberedPlaylist(count: 12, currentIndex: 2);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync(new ImageDimensions(900, 600));
+
+        viewModel.SetActiveGridImage(5);
+
+        Assert.Equal(5, viewModel.LayoutState.ActiveGridImageIndex);
+        Assert.Equal(7, viewModel.LayoutState.ActiveGridPlaylistIndex);
+    }
+
+    [Fact]
+    public async Task OpenActiveGridImageAsync_ExitsGridAndDisplaysSelectedImage()
+    {
+        var playlist = CreateNumberedPlaylist(count: 12, currentIndex: 2);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync(new ImageDimensions(900, 600));
+        viewModel.SetActiveGridImage(5);
+
+        await viewModel.OpenActiveGridImageAsync();
+
+        Assert.False(viewModel.LayoutState.IsGridActive);
+        Assert.Equal(7, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(@"C:\Photos\image-07.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
+    public async Task ScrollGridAsync_LoadsNextAndPreviousPlaylistPages()
+    {
+        var playlist = CreateNumberedPlaylist(count: 20, currentIndex: 0);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync(new ImageDimensions(900, 600));
+
+        await viewModel.ScrollGridAsync(9, new ImageDimensions(900, 600));
+
+        Assert.Equal(9, viewModel.LayoutState.GridStartIndex);
+        Assert.Equal([9, 10, 11, 12, 13, 14, 15, 16, 17], viewModel.LayoutState.GridImages.Select(image => image.PlaylistIndex));
+
+        await viewModel.ScrollGridAsync(9, new ImageDimensions(900, 600));
+
+        Assert.Equal(11, viewModel.LayoutState.GridStartIndex);
+        Assert.Equal([11, 12, 13, 14, 15, 16, 17, 18, 19], viewModel.LayoutState.GridImages.Select(image => image.PlaylistIndex));
+
+        await viewModel.ScrollGridAsync(-9, new ImageDimensions(900, 600));
+
+        Assert.Equal(2, viewModel.LayoutState.GridStartIndex);
+        Assert.Equal([2, 3, 4, 5, 6, 7, 8, 9, 10], viewModel.LayoutState.GridImages.Select(image => image.PlaylistIndex));
+    }
+
+    [Fact]
     public async Task NavigateNextAsync_WhenComparisonActiveShiftsVisibleImagesForward()
     {
         var playlist = CreateThreeItemPlaylist();
@@ -1035,8 +1131,13 @@ public sealed class MainViewModelTests
 
     private static Playlist CreateTwelveItemPlaylist(int currentIndex)
     {
+        return CreateNumberedPlaylist(12, currentIndex);
+    }
+
+    private static Playlist CreateNumberedPlaylist(int count, int currentIndex)
+    {
         return new Playlist(
-            Enumerable.Range(0, 12)
+            Enumerable.Range(0, count)
                 .Select(index => new ImageItem($@"C:\Photos\image-{index:00}.png"))
                 .ToArray(),
             currentIndex,

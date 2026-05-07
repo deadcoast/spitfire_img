@@ -274,7 +274,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Preserve aspect ratios for all grid images
   - _Requirements: 14.1, 14.2, 14.3, 14.6_
 
-- [ ] 23. Implement grid layout density adjustment
+- [x] 23. Implement grid layout density adjustment
   - Implement grid density increase with Ctrl+Plus
   - Implement grid density decrease with Ctrl+Minus
   - Support grid sizes from 2×2 to 6×6

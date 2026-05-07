@@ -16,6 +16,8 @@ public sealed partial class MainWindow : Window
 {
     private const int OemCommaVirtualKey = 188;
     private const int OemPeriodVirtualKey = 190;
+    private const int OemPlusVirtualKey = 187;
+    private const int OemMinusVirtualKey = 189;
 
     private readonly MainViewModel _viewModel;
     private readonly AppWindow _appWindow;
@@ -181,6 +183,10 @@ public sealed partial class MainWindow : Window
                 await _viewModel.OpenActiveComparisonImageAsync();
                 e.Handled = true;
                 break;
+            case VirtualKey.Enter when _viewModel.LayoutState.IsGridActive:
+                await _viewModel.OpenActiveGridImageAsync();
+                e.Handled = true;
+                break;
             case VirtualKey.F11:
                 _viewModel.ToggleFullscreen();
                 e.Handled = true;
@@ -232,11 +238,19 @@ public sealed partial class MainWindow : Window
                 await _viewModel.SetComparisonImageCountAsync(4);
                 e.Handled = true;
                 break;
-            case VirtualKey.Add when isControlPressed:
+            case var key when IsPlusKey(key) && isControlPressed && _viewModel.LayoutState.IsGridActive:
+                await _viewModel.IncreaseGridDensityAsync(GetLayoutCanvasSize());
+                e.Handled = true;
+                break;
+            case var key when IsMinusKey(key) && isControlPressed && _viewModel.LayoutState.IsGridActive:
+                await _viewModel.DecreaseGridDensityAsync(GetLayoutCanvasSize());
+                e.Handled = true;
+                break;
+            case var key when IsPlusKey(key) && isControlPressed:
                 _viewModel.ZoomIn();
                 e.Handled = true;
                 break;
-            case VirtualKey.Subtract when isControlPressed:
+            case var key when IsMinusKey(key) && isControlPressed:
                 _viewModel.ZoomOut();
                 e.Handled = true;
                 break;
@@ -658,5 +672,15 @@ public sealed partial class MainWindow : Window
     private static bool IsCommaKey(VirtualKey key)
     {
         return (int)key == OemCommaVirtualKey;
+    }
+
+    private static bool IsPlusKey(VirtualKey key)
+    {
+        return key is VirtualKey.Add || (int)key == OemPlusVirtualKey;
+    }
+
+    private static bool IsMinusKey(VirtualKey key)
+    {
+        return key is VirtualKey.Subtract || (int)key == OemMinusVirtualKey;
     }
 }

@@ -8,6 +8,7 @@ public sealed class LayoutState : ObservableObject
     private LayoutConfig _config = LayoutConfig.Default;
     private GridLayoutPlan _gridLayout = GridLayoutPlan.Empty;
     private int _gridStartIndex;
+    private int _activeGridImageIndex;
     private int _filmstripFocusIndex;
 
     public LayoutConfig Config
@@ -51,12 +52,67 @@ public sealed class LayoutState : ObservableObject
         private set => SetProperty(ref _filmstripFocusIndex, value);
     }
 
+    public int ActiveGridImageIndex
+    {
+        get => _activeGridImageIndex;
+        private set
+        {
+            if (SetProperty(ref _activeGridImageIndex, value))
+            {
+                OnPropertyChanged(nameof(ActiveGridPlaylistIndex));
+            }
+        }
+    }
+
+    public int ActiveGridPlaylistIndex => ActiveGridImageIndex >= 0 && ActiveGridImageIndex < GridImages.Count
+        ? GridImages[ActiveGridImageIndex].PlaylistIndex
+        : -1;
+
     public ObservableCollection<GridImage> GridImages { get; } = [];
 
     public void EnterGrid(
         GridLayoutPlan layout,
         IEnumerable<GridImage> images,
         int startIndex)
+    {
+        ApplyGrid(layout, images, startIndex, preferredActivePlaylistIndex: startIndex);
+    }
+
+    public void UpdateGrid(
+        GridLayoutPlan layout,
+        IEnumerable<GridImage> images,
+        int startIndex)
+    {
+        ApplyGrid(layout, images, startIndex, ActiveGridPlaylistIndex);
+    }
+
+    public void SelectGridImage(int visibleIndex)
+    {
+        if (GridImages.Count == 0)
+        {
+            ActiveGridImageIndex = 0;
+            return;
+        }
+
+        ActiveGridImageIndex = Math.Clamp(visibleIndex, 0, GridImages.Count - 1);
+    }
+
+    public void ExitLayout()
+    {
+        Config = Config.WithMode(LayoutMode.Single);
+        GridLayout = GridLayoutPlan.Empty;
+        GridStartIndex = 0;
+        GridImages.Clear();
+        ActiveGridImageIndex = 0;
+        OnPropertyChanged(nameof(GridImages));
+        OnPropertyChanged(nameof(ActiveGridPlaylistIndex));
+    }
+
+    private void ApplyGrid(
+        GridLayoutPlan layout,
+        IEnumerable<GridImage> images,
+        int startIndex,
+        int preferredActivePlaylistIndex)
     {
         Config = Config with
         {
@@ -67,15 +123,7 @@ public sealed class LayoutState : ObservableObject
         GridLayout = layout;
         GridStartIndex = startIndex;
         ReplaceGridImages(images);
-    }
-
-    public void ExitLayout()
-    {
-        Config = Config.WithMode(LayoutMode.Single);
-        GridLayout = GridLayoutPlan.Empty;
-        GridStartIndex = 0;
-        GridImages.Clear();
-        OnPropertyChanged(nameof(GridImages));
+        SelectGridImageByPlaylistIndex(preferredActivePlaylistIndex);
     }
 
     private void ReplaceGridImages(IEnumerable<GridImage> images)
@@ -87,5 +135,28 @@ public sealed class LayoutState : ObservableObject
         }
 
         OnPropertyChanged(nameof(GridImages));
+        OnPropertyChanged(nameof(ActiveGridPlaylistIndex));
+    }
+
+    private void SelectGridImageByPlaylistIndex(int playlistIndex)
+    {
+        var visibleIndex = GridImages
+            .Select((image, index) => (image.PlaylistIndex, Index: index))
+            .FirstOrDefault(candidate => candidate.PlaylistIndex == playlistIndex)
+            .Index;
+
+        if (GridImages.Count == 0)
+        {
+            ActiveGridImageIndex = 0;
+            return;
+        }
+
+        if (visibleIndex == 0 && GridImages[0].PlaylistIndex != playlistIndex)
+        {
+            ActiveGridImageIndex = 0;
+            return;
+        }
+
+        ActiveGridImageIndex = visibleIndex;
     }
 }

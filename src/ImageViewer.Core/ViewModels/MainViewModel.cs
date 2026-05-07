@@ -494,33 +494,92 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        var layoutSize = canvasSize ?? new ImageDimensions(Settings.WindowWidth, Settings.WindowHeight);
-        var layoutResult = _layoutService.CalculateGridLayout(
+        var applied = await ApplyGridLayoutAsync(
             LayoutConfig.DefaultGridRows,
             LayoutConfig.DefaultGridColumns,
-            layoutSize);
-        if (layoutResult.IsFailure)
-        {
-            await HandleErrorAsync(layoutResult.Error, cancellationToken).ConfigureAwait(false);
-            return;
-        }
+            Math.Max(0, PlaylistState.CurrentIndex),
+            canvasSize,
+            isNewGrid: true,
+            cancellationToken).ConfigureAwait(false);
 
-        var startIndex = Math.Max(0, PlaylistState.CurrentIndex);
-        var imagesResult = _layoutService.LoadGridImages(PlaylistState, startIndex, layoutResult.Value);
-        if (imagesResult.IsFailure)
+        if (applied)
         {
-            await HandleErrorAsync(imagesResult.Error, cancellationToken).ConfigureAwait(false);
-            return;
+            ComparisonState.ExitComparison();
+            ShowChrome();
         }
-
-        ComparisonState.ExitComparison();
-        LayoutState.EnterGrid(layoutResult.Value, imagesResult.Value, startIndex);
-        ShowChrome();
     }
 
     public void ExitLayoutMode()
     {
         LayoutState.ExitLayout();
+        ShowChrome();
+    }
+
+    public Task IncreaseGridDensityAsync(
+        ImageDimensions? canvasSize = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeGridDensityAsync(1, canvasSize, cancellationToken);
+    }
+
+    public Task DecreaseGridDensityAsync(
+        ImageDimensions? canvasSize = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeGridDensityAsync(-1, canvasSize, cancellationToken);
+    }
+
+    public void SetActiveGridImage(int visibleIndex)
+    {
+        if (!LayoutState.IsGridActive)
+        {
+            return;
+        }
+
+        LayoutState.SelectGridImage(visibleIndex);
+        ShowChrome();
+    }
+
+    public async Task OpenActiveGridImageAsync(CancellationToken cancellationToken = default)
+    {
+        if (!LayoutState.IsGridActive || LayoutState.ActiveGridPlaylistIndex < 0)
+        {
+            return;
+        }
+
+        var targetIndex = LayoutState.ActiveGridPlaylistIndex;
+        LayoutState.ExitLayout();
+        await NavigateToIndexAsync(targetIndex, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task ScrollGridAsync(
+        int offset,
+        ImageDimensions? canvasSize = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!LayoutState.IsGridActive)
+        {
+            return;
+        }
+
+        var startIndexResult = _layoutService.CalculateGridStartIndex(
+            LayoutState.GridStartIndex,
+            offset,
+            PlaylistState.TotalCount,
+            LayoutState.GridLayout.TotalCells);
+        if (startIndexResult.IsFailure)
+        {
+            await HandleErrorAsync(startIndexResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await ApplyGridLayoutAsync(
+            LayoutState.GridRows,
+            LayoutState.GridColumns,
+            startIndexResult.Value,
+            canvasSize,
+            isNewGrid: false,
+            cancellationToken).ConfigureAwait(false);
         ShowChrome();
     }
 
@@ -978,6 +1037,69 @@ public sealed class MainViewModel : ObservableObject
 
         ApplyComparisonWindow(ComparisonState.Layout, indicesResult.Value);
         ShowChrome();
+    }
+
+    private async Task ChangeGridDensityAsync(
+        int delta,
+        ImageDimensions? canvasSize,
+        CancellationToken cancellationToken)
+    {
+        if (!LayoutState.IsGridActive)
+        {
+            return;
+        }
+
+        var nextDensity = Math.Clamp(
+            LayoutState.GridRows + delta,
+            LayoutConfig.MinimumGridDensity,
+            LayoutConfig.MaximumGridDensity);
+
+        var applied = await ApplyGridLayoutAsync(
+            nextDensity,
+            nextDensity,
+            LayoutState.GridStartIndex,
+            canvasSize,
+            isNewGrid: false,
+            cancellationToken).ConfigureAwait(false);
+        if (applied)
+        {
+            ShowChrome();
+        }
+    }
+
+    private async Task<bool> ApplyGridLayoutAsync(
+        int rows,
+        int columns,
+        int startIndex,
+        ImageDimensions? canvasSize,
+        bool isNewGrid,
+        CancellationToken cancellationToken)
+    {
+        var layoutSize = canvasSize ?? new ImageDimensions(Settings.WindowWidth, Settings.WindowHeight);
+        var layoutResult = _layoutService.CalculateGridLayout(rows, columns, layoutSize);
+        if (layoutResult.IsFailure)
+        {
+            await HandleErrorAsync(layoutResult.Error, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        var imagesResult = _layoutService.LoadGridImages(PlaylistState, startIndex, layoutResult.Value);
+        if (imagesResult.IsFailure)
+        {
+            await HandleErrorAsync(imagesResult.Error, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        if (isNewGrid)
+        {
+            LayoutState.EnterGrid(layoutResult.Value, imagesResult.Value, startIndex);
+        }
+        else
+        {
+            LayoutState.UpdateGrid(layoutResult.Value, imagesResult.Value, startIndex);
+        }
+
+        return true;
     }
 
     private void ApplyComparisonWindow(ComparisonLayout layout, IReadOnlyList<int> displayedIndices)

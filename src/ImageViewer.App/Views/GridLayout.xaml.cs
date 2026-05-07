@@ -1,7 +1,10 @@
 using System.ComponentModel;
+using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage.Streams;
@@ -16,6 +19,7 @@ public sealed partial class GridLayout : UserControl
     public GridLayout()
     {
         InitializeComponent();
+        PointerWheelChanged += OnPointerWheelChanged;
     }
 
     public void Attach(MainViewModel viewModel)
@@ -60,8 +64,9 @@ public sealed partial class GridLayout : UserControl
         var gridImages = _viewModel.LayoutState.GridImages.ToArray();
         var frames = new List<FrameworkElement>(gridImages.Length);
 
-        foreach (var gridImage in gridImages)
+        for (var visibleIndex = 0; visibleIndex < gridImages.Length; visibleIndex++)
         {
+            var gridImage = gridImages[visibleIndex];
             var bitmap = await TryLoadBitmapAsync(gridImage.Item.FilePath);
             if (loadVersion != _loadVersion)
             {
@@ -78,10 +83,19 @@ public sealed partial class GridLayout : UserControl
 
             var frame = new Border
             {
+                Tag = visibleIndex,
                 Width = gridImage.Cell.Width,
                 Height = gridImage.Cell.Height,
+                Padding = new Thickness(4),
+                BorderThickness = visibleIndex == _viewModel.LayoutState.ActiveGridImageIndex
+                    ? new Thickness(3)
+                    : new Thickness(1),
+                BorderBrush = new SolidColorBrush(visibleIndex == _viewModel.LayoutState.ActiveGridImageIndex
+                    ? Colors.White
+                    : Colors.Transparent),
                 Child = image
             };
+            frame.Tapped += OnGridImageTapped;
 
             Canvas.SetLeft(frame, gridImage.Cell.X);
             Canvas.SetTop(frame, gridImage.Cell.Y);
@@ -114,5 +128,40 @@ public sealed partial class GridLayout : UserControl
         {
             return null;
         }
+    }
+
+    private void OnGridImageTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is Border { Tag: int visibleIndex })
+        {
+            _viewModel?.SetActiveGridImage(visibleIndex);
+            e.Handled = true;
+        }
+    }
+
+    private async void OnPointerWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        if (_viewModel is null || !_viewModel.LayoutState.IsGridActive)
+        {
+            return;
+        }
+
+        var wheelDelta = e.GetCurrentPoint(this).Properties.MouseWheelDelta;
+        if (wheelDelta == 0)
+        {
+            return;
+        }
+
+        var pageSize = _viewModel.LayoutState.GridLayout.TotalCells;
+        var offset = wheelDelta < 0 ? pageSize : -pageSize;
+        await _viewModel.ScrollGridAsync(offset, GetCanvasSize());
+        e.Handled = true;
+    }
+
+    private ImageDimensions GetCanvasSize()
+    {
+        var width = LayoutRoot.ActualWidth > 0 ? LayoutRoot.ActualWidth : ActualWidth;
+        var height = LayoutRoot.ActualHeight > 0 ? LayoutRoot.ActualHeight : ActualHeight;
+        return new ImageDimensions(width, height);
     }
 }
