@@ -1,0 +1,29 @@
+<UserControl
+    x:Class="ImageViewer.App.Views.ComparisonView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid
+        x:Name="ComparisonRoot"
+        Background="{ThemeResource CanvasBackgroundBrush}"
+        Visibility="Collapsed">
+        <Grid x:Name="ImageHost" />
+        <Border
+            x:Name="OverlayControls"
+            Width="280"
+            Margin="0,0,0,24"
+            Padding="12,8"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            Background="{ThemeResource ChromeBackgroundBrush}"
+            CornerRadius="4"
+            Visibility="Collapsed">
+            <Slider
+                x:Name="OverlayOpacitySlider"
+                Minimum="0"
+                Maximum="100"
+                SmallChange="10"
+                StepFrequency="10"
+                ValueChanged="OnOverlayOpacitySliderChanged" />
+        </Border>
+    </Grid>
+</UserControl>

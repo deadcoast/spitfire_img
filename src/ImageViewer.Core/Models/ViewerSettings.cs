@@ -32,7 +32,8 @@ public sealed record ViewerSettings(
     bool ThumbnailStripVisible = false,
     ThumbnailPosition ThumbnailStripPosition = ThumbnailPosition.Bottom,
     int DefaultJpegQuality = 90,
-    bool PreserveExifOnExport = true)
+    bool PreserveExifOnExport = true,
+    TransitionEffect SlideshowTransition = TransitionEffect.Fade)
 {
     public const int DefaultWindowWidth = 1200;
     public const int DefaultWindowHeight = 800;
@@ -61,7 +62,10 @@ public sealed record ViewerSettings(
             WindowHeight = WindowHeight < MinimumWindowHeight ? MinimumWindowHeight : WindowHeight,
             FadeDelayMs = FadeDelayMs < MinimumFadeDelayMs ? MinimumFadeDelayMs : FadeDelayMs,
             FadeDurationMs = FadeDurationMs < MinimumFadeDurationMs ? MinimumFadeDurationMs : FadeDurationMs,
-            DefaultJpegQuality = Math.Clamp(DefaultJpegQuality, 1, 100)
+            DefaultJpegQuality = Math.Clamp(DefaultJpegQuality, 1, 100),
+            SlideshowTransition = Enum.IsDefined(SlideshowTransition)
+                ? SlideshowTransition
+                : TransitionEffect.Fade
         };
     }
 }

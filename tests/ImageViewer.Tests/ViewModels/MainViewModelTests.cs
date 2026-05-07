@@ -58,6 +58,258 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task EnterComparisonModeAsync_ActivatesSideBySideWithCurrentAndNextImages()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+
+        Assert.True(viewModel.ComparisonState.IsActive);
+        Assert.Equal(ComparisonLayout.SideBySide, viewModel.ComparisonState.Layout);
+        Assert.Equal([0, 1], viewModel.ComparisonState.DisplayedIndices);
+        Assert.Equal(@"C:\Photos\a.png", viewModel.ComparisonState.DisplayedItems[0].FilePath);
+        Assert.Equal(@"C:\Photos\b.png", viewModel.ComparisonState.DisplayedItems[1].FilePath);
+    }
+
+    [Fact]
+    public async Task EnterComparisonModeAsync_OneImagePlaylistShowsComparisonError()
+    {
+        var playlist = new Playlist([new ImageItem(@"C:\Photos\a.png")], 0, @"C:\Photos");
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+
+        Assert.False(viewModel.ComparisonState.IsActive);
+        Assert.Equal("Comparison mode requires at least two images", viewModel.ErrorMessage);
+        Assert.Equal(ErrorCategory.ComparisonError, services.ErrorLogService.LoggedErrors.Single().Category);
+    }
+
+    [Fact]
+    public async Task ExitComparisonMode_ReturnsToSingleImageView()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+
+        viewModel.ExitComparisonMode();
+
+        Assert.False(viewModel.ComparisonState.IsActive);
+    }
+
+    [Fact]
+    public async Task NavigateNextAsync_WhenComparisonActiveShiftsVisibleImagesForward()
+    {
+        var playlist = CreateThreeItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+
+        await viewModel.NavigateNextAsync();
+
+        Assert.Equal([1, 2], viewModel.ComparisonState.DisplayedIndices);
+        Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
+    }
+
+    [Fact]
+    public async Task NavigatePreviousAsync_WhenComparisonActiveShiftsVisibleImagesBackward()
+    {
+        var playlist = CreateThreeItemPlaylist() with { CurrentIndex = 1 };
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+
+        await viewModel.NavigatePreviousAsync();
+
+        Assert.Equal([0, 1], viewModel.ComparisonState.DisplayedIndices);
+        Assert.Equal(0, viewModel.PlaylistState.CurrentIndex);
+    }
+
+    [Fact]
+    public async Task SetComparisonImageCountAsync_UpdatesSideBySideVisibleImages()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+
+        await viewModel.SetComparisonImageCountAsync(4);
+
+        Assert.Equal(4, viewModel.ComparisonState.ImageCount);
+        Assert.Equal([0, 1, 2, 3], viewModel.ComparisonState.DisplayedIndices);
+    }
+
+    [Fact]
+    public async Task CycleComparisonActiveImage_MovesActiveSelection()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+        await viewModel.SetComparisonImageCountAsync(3);
+
+        viewModel.CycleComparisonActiveImage();
+
+        Assert.Equal(1, viewModel.ComparisonState.ActiveImageIndex);
+        Assert.Equal(1, viewModel.ComparisonState.ActivePlaylistIndex);
+    }
+
+    [Fact]
+    public async Task OpenActiveComparisonImageAsync_ExitsComparisonAndShowsSelectedImage()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+        viewModel.SetActiveComparisonImage(1);
+
+        await viewModel.OpenActiveComparisonImageAsync();
+
+        Assert.False(viewModel.ComparisonState.IsActive);
+        Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
+        Assert.Equal(@"C:\Photos\b.png", viewModel.ViewerState.CurrentImage?.FilePath);
+    }
+
+    [Fact]
+    public async Task EnterComparisonModeAsync_OverlayStartsWithTwoLayeredImagesAndDefaultOpacity()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.Overlay);
+
+        Assert.Equal(ComparisonLayout.Overlay, viewModel.ComparisonState.Layout);
+        Assert.Equal([0, 1], viewModel.ComparisonState.DisplayedIndices);
+        Assert.Equal(50, viewModel.ComparisonState.OverlayOpacity);
+    }
+
+    [Fact]
+    public async Task AdjustOverlayOpacity_WhenOverlayActiveChangesByTenPercent()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.Overlay);
+
+        viewModel.AdjustOverlayOpacity(10);
+
+        Assert.Equal(60, viewModel.ComparisonState.OverlayOpacity);
+    }
+
+    [Fact]
+    public async Task SwapOverlayLayers_WhenOverlayActiveReversesVisiblePair()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.Overlay);
+
+        viewModel.SwapOverlayLayers();
+
+        Assert.Equal([1, 0], viewModel.ComparisonState.DisplayedIndices);
+        Assert.Equal(@"C:\Photos\b.png", viewModel.ComparisonState.DisplayedItems[0].FilePath);
+        Assert.Equal(@"C:\Photos\a.png", viewModel.ComparisonState.DisplayedItems[1].FilePath);
+    }
+
+    [Fact]
+    public async Task NavigateNextAsync_WhenOverlayActiveReplacesBothImagesWithNextPair()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.Overlay);
+
+        await viewModel.NavigateNextAsync();
+
+        Assert.Equal(ComparisonLayout.Overlay, viewModel.ComparisonState.Layout);
+        Assert.Equal([1, 2], viewModel.ComparisonState.DisplayedIndices);
+    }
+
+    [Fact]
+    public async Task ToggleComparisonSyncZoom_WhenComparisonActiveTogglesSyncIndicatorState()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+
+        viewModel.ToggleComparisonSyncZoom();
+
+        Assert.True(viewModel.ComparisonState.SyncZoomEnabled);
+    }
+
+    [Fact]
+    public async Task SetComparisonPan_WhenSyncZoomEnabledAppliesRelativePanToAllImages()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+        viewModel.SetComparisonImageDimensions(0, new ImageDimensions(1000, 500));
+        viewModel.SetComparisonImageDimensions(1, new ImageDimensions(2000, 1000));
+        viewModel.ToggleComparisonSyncZoom();
+
+        viewModel.SetComparisonPan(0, new ImagePoint(500, 250));
+
+        Assert.Equal(new ImagePoint(500, 250), viewModel.ComparisonState.ImageViewports[0].PanOffset);
+        Assert.Equal(new ImagePoint(1000, 500), viewModel.ComparisonState.ImageViewports[1].PanOffset);
+    }
+
+    [Fact]
+    public async Task ZoomIn_WhenComparisonSyncZoomEnabledAppliesZoomToAllVisibleImages()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+        viewModel.ToggleComparisonSyncZoom();
+
+        viewModel.ZoomIn();
+
+        Assert.All(viewModel.ComparisonState.ImageViewports, viewport => Assert.Equal(125, viewport.ZoomLevel));
+    }
+
+    [Fact]
+    public async Task FitToWindow_WhenComparisonSyncZoomEnabledResetsAllVisibleImages()
+    {
+        var playlist = CreateFourItemPlaylist();
+        var services = TestServices.WithPlaylist(playlist);
+        var viewModel = services.CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+        viewModel.ToggleComparisonSyncZoom();
+        viewModel.ZoomIn();
+        viewModel.SetComparisonPan(0, new ImagePoint(25, 25));
+
+        viewModel.FitToWindow();
+
+        Assert.All(viewModel.ComparisonState.ImageViewports, viewport =>
+        {
+            Assert.Equal(100, viewport.ZoomLevel);
+            Assert.Equal(DisplayMode.FitToWindow, viewport.DisplayMode);
+            Assert.Equal(new ImagePoint(0, 0), viewport.PanOffset);
+        });
+    }
+
+    [Fact]
     public async Task NavigatePreviousAsync_AtFirstItem_RemainsAtFirstItem()
     {
         var playlist = CreateTwoItemPlaylist();
@@ -116,6 +368,50 @@ public sealed class MainViewModelTests
 
         Assert.Equal(ViewerTheme.Light, viewModel.Settings.Theme);
         Assert.Equal(ViewerTheme.Light, services.SettingsService.SavedSettings.Single().Theme);
+    }
+
+    [Fact]
+    public void ShowCommandPalette_LoadsCommandsFromImplementedPhases()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateFourItemPlaylist()).CreateViewModel();
+
+        viewModel.ShowCommandPalette();
+
+        Assert.True(viewModel.CommandPaletteState.IsVisible);
+        Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "File");
+        Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "View");
+        Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "Image");
+        Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "Navigation");
+        Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "Comparison");
+        Assert.All(viewModel.CommandPaletteState.AllCommands, command => Assert.False(string.IsNullOrWhiteSpace(command.KeyboardShortcut)));
+    }
+
+    [Fact]
+    public async Task CommandPalette_ExecuteSelectedCommandRunsCommandAndClosesPalette()
+    {
+        var viewModel = TestServices.WithPlaylist(CreateFourItemPlaylist()).CreateViewModel();
+        viewModel.ShowCommandPalette();
+        viewModel.CommandPaletteState.SelectCommandById("view.fullscreen");
+
+        var result = await viewModel.ExecuteSelectedCommandPaletteCommandAsync();
+
+        Assert.True(result.IsSuccess);
+        Assert.True(viewModel.ViewerState.IsFullscreen);
+        Assert.False(viewModel.CommandPaletteState.IsVisible);
+    }
+
+    [Fact]
+    public async Task SetSlideshowTransitionAsync_UpdatesTransitionPreferenceAndSaves()
+    {
+        var settings = ViewerSettings.Default with { SlideshowTransition = TransitionEffect.Fade };
+        var services = TestServices.WithSettings(settings);
+        var viewModel = services.CreateViewModel();
+        await viewModel.InitializeAsync();
+
+        await viewModel.SetSlideshowTransitionAsync(TransitionEffect.Zoom);
+
+        Assert.Equal(TransitionEffect.Zoom, viewModel.Settings.SlideshowTransition);
+        Assert.Equal(TransitionEffect.Zoom, services.SettingsService.SavedSettings.Single().SlideshowTransition);
     }
 
     [Fact]
@@ -419,6 +715,31 @@ public sealed class MainViewModelTests
     {
         return new Playlist(
             [new ImageItem(@"C:\Photos\a.png"), new ImageItem(@"C:\Photos\b.png")],
+            0,
+            @"C:\Photos");
+    }
+
+    private static Playlist CreateThreeItemPlaylist()
+    {
+        return new Playlist(
+            [
+                new ImageItem(@"C:\Photos\a.png"),
+                new ImageItem(@"C:\Photos\b.png"),
+                new ImageItem(@"C:\Photos\c.png")
+            ],
+            0,
+            @"C:\Photos");
+    }
+
+    private static Playlist CreateFourItemPlaylist()
+    {
+        return new Playlist(
+            [
+                new ImageItem(@"C:\Photos\a.png"),
+                new ImageItem(@"C:\Photos\b.png"),
+                new ImageItem(@"C:\Photos\c.png"),
+                new ImageItem(@"C:\Photos\d.png")
+            ],
             0,
             @"C:\Photos");
     }

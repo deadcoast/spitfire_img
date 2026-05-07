@@ -31,16 +31,20 @@ public sealed partial class MainWindow : Window
 
         RootGrid.DataContext = viewModel;
         ImageCanvas.Attach(viewModel);
+        ComparisonView.Attach(viewModel);
         ThumbnailStrip.Attach(viewModel);
         SearchOverlay.Attach(viewModel);
+        CommandPalette.Attach(viewModel);
         MetadataPanel.Attach(viewModel);
         Chrome.Attach(viewModel);
         Chrome.OpenFileRequested += async (_, _) => await OpenFileFromPickerAsync();
+        viewModel.OpenFileRequested += OnViewModelOpenFileRequested;
         Chrome.RecentFileRequested += async (_, path) => await _viewModel.OpenRecentFileAsync(path);
         Chrome.ExitRequested += (_, _) => Close();
         Chrome.AboutRequested += (_, _) => ShowInfo("spitfire.img Phase 1 MVP Viewer");
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ViewerState.PropertyChanged += OnViewerStatePropertyChanged;
+        viewModel.CommandPaletteState.PropertyChanged += OnCommandPaletteStatePropertyChanged;
         Activated += OnActivated;
         Closed += OnClosed;
         _ = InitializeWindowAsync();
@@ -55,6 +59,8 @@ public sealed partial class MainWindow : Window
     {
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.ViewerState.PropertyChanged -= OnViewerStatePropertyChanged;
+        _viewModel.CommandPaletteState.PropertyChanged -= OnCommandPaletteStatePropertyChanged;
+        _viewModel.OpenFileRequested -= OnViewModelOpenFileRequested;
         await _viewModel.SaveWindowStateAsync(
             _appWindow.Size.Width,
             _appWindow.Size.Height,
@@ -111,7 +117,14 @@ public sealed partial class MainWindow : Window
 
     private async void OnRootKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        Chrome.ShowChrome();
+        if (_viewModel.CommandPaletteState.IsVisible)
+        {
+            Chrome.PauseFade();
+        }
+        else
+        {
+            Chrome.ShowChrome();
+        }
 
         var isControlPressed = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) &
                                 Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
@@ -128,6 +141,14 @@ public sealed partial class MainWindow : Window
                 await _viewModel.NavigatePreviousAsync();
                 e.Handled = true;
                 break;
+            case VirtualKey.Up when IsOverlayComparisonActive():
+                _viewModel.AdjustOverlayOpacity(10);
+                e.Handled = true;
+                break;
+            case VirtualKey.Down when IsOverlayComparisonActive():
+                _viewModel.AdjustOverlayOpacity(-10);
+                e.Handled = true;
+                break;
             case VirtualKey.Home:
                 await _viewModel.NavigateFirstAsync();
                 e.Handled = true;
@@ -136,12 +157,30 @@ public sealed partial class MainWindow : Window
                 await _viewModel.NavigateLastAsync();
                 e.Handled = true;
                 break;
+            case VirtualKey.Tab when _viewModel.ComparisonState.IsActive:
+                _viewModel.CycleComparisonActiveImage();
+                e.Handled = true;
+                break;
+            case VirtualKey.Enter when _viewModel.ComparisonState.IsActive:
+                await _viewModel.OpenActiveComparisonImageAsync();
+                e.Handled = true;
+                break;
             case VirtualKey.F11:
                 _viewModel.ToggleFullscreen();
                 e.Handled = true;
                 break;
             case VirtualKey.Escape:
-                if (_viewModel.MetadataState.IsVisible)
+                if (_viewModel.CommandPaletteState.IsVisible)
+                {
+                    _viewModel.HideCommandPalette();
+                    e.Handled = true;
+                }
+                else if (_viewModel.ComparisonState.IsActive)
+                {
+                    _viewModel.ExitComparisonMode();
+                    e.Handled = true;
+                }
+                else if (_viewModel.MetadataState.IsVisible)
                 {
                     _viewModel.MetadataState.HidePanel();
                     e.Handled = true;
@@ -158,6 +197,18 @@ public sealed partial class MainWindow : Window
                 break;
             case VirtualKey.Number1 when isControlPressed:
                 _viewModel.ActualSize();
+                e.Handled = true;
+                break;
+            case VirtualKey.Number2 when isControlPressed && _viewModel.ComparisonState.IsActive:
+                await _viewModel.SetComparisonImageCountAsync(2);
+                e.Handled = true;
+                break;
+            case VirtualKey.Number3 when isControlPressed && _viewModel.ComparisonState.IsActive:
+                await _viewModel.SetComparisonImageCountAsync(3);
+                e.Handled = true;
+                break;
+            case VirtualKey.Number4 when isControlPressed && _viewModel.ComparisonState.IsActive:
+                await _viewModel.SetComparisonImageCountAsync(4);
                 e.Handled = true;
                 break;
             case VirtualKey.Add when isControlPressed:
@@ -177,8 +228,24 @@ public sealed partial class MainWindow : Window
                 SearchOverlay.Show();
                 e.Handled = true;
                 break;
+            case VirtualKey.P when isControlPressed && isShiftPressed:
+                _viewModel.ShowCommandPalette();
+                e.Handled = true;
+                break;
+            case VirtualKey.D when isControlPressed && isShiftPressed:
+                await _viewModel.EnterComparisonModeAsync(ComparisonLayout.Overlay);
+                e.Handled = true;
+                break;
+            case VirtualKey.D when isControlPressed:
+                await _viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+                e.Handled = true;
+                break;
             case VirtualKey.T when isControlPressed:
                 await _viewModel.ToggleThumbnailStrip();
+                e.Handled = true;
+                break;
+            case VirtualKey.S when IsOverlayComparisonActive() && !isControlPressed:
+                _viewModel.SwapOverlayLayers();
                 e.Handled = true;
                 break;
             case VirtualKey.S when isControlPressed && isShiftPressed:
@@ -191,6 +258,10 @@ public sealed partial class MainWindow : Window
                 break;
             case VirtualKey.I when isControlPressed:
                 await _viewModel.ToggleMetadataPanelAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.L when isControlPressed && _viewModel.ComparisonState.IsActive:
+                _viewModel.ToggleComparisonSyncZoom();
                 e.Handled = true;
                 break;
             case VirtualKey.L when isControlPressed:
@@ -220,8 +291,20 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private bool IsOverlayComparisonActive()
+    {
+        return _viewModel.ComparisonState.IsActive &&
+               _viewModel.ComparisonState.Layout == ComparisonLayout.Overlay;
+    }
+
     private void OnRootPointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        if (_viewModel.CommandPaletteState.IsVisible)
+        {
+            Chrome.PauseFade();
+            return;
+        }
+
         Chrome.ShowChrome();
     }
 
@@ -254,6 +337,33 @@ public sealed partial class MainWindow : Window
         {
             DispatcherQueue.TryEnqueue(ApplyFullscreenState);
         }
+    }
+
+    private void OnCommandPaletteStatePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(CommandPaletteState.IsVisible))
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_viewModel.CommandPaletteState.IsVisible)
+            {
+                CommandPalette.Show();
+                Chrome.PauseFade();
+            }
+            else
+            {
+                CommandPalette.Hide();
+                Chrome.ResumeFade();
+            }
+        });
+    }
+
+    private async void OnViewModelOpenFileRequested(object? sender, EventArgs e)
+    {
+        await OpenFileFromPickerAsync();
     }
 
     private void ApplyFullscreenState()

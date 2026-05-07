@@ -1,0 +1,76 @@
+<UserControl
+    x:Class="ImageViewer.App.Views.CommandPalette"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Visibility="Collapsed">
+    <Grid
+        x:Name="PaletteRoot"
+        Background="Transparent"
+        PointerPressed="OnPaletteRootPointerPressed">
+        <Border
+            x:Name="PalettePanel"
+            Width="560"
+            MaxHeight="520"
+            Padding="16"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Margin="0,84,0,0"
+            Background="{ThemeResource ChromeBackgroundBrush}"
+            BorderBrush="{ThemeResource SubtleBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="6">
+            <StackPanel Spacing="10">
+                <TextBox
+                    x:Name="SearchInput"
+                    KeyDown="OnPaletteKeyDown"
+                    PlaceholderText="Type a command..."
+                    TextChanged="OnSearchTextChanged" />
+                <ListView
+                    x:Name="CommandList"
+                    IsItemClickEnabled="True"
+                    ItemClick="OnCommandClicked"
+                    KeyDown="OnPaletteKeyDown"
+                    SelectionMode="Single">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <TextBlock
+                                    Loaded="OnCommandHeaderLoaded"
+                                    Padding="4,10,4,4"
+                                    Foreground="{ThemeResource SecondaryTextBrush}"
+                                    Tag="{Binding}"
+                                    Visibility="Collapsed" />
+                                <Grid
+                                    Loaded="OnCommandRowLoaded"
+                                    Padding="4"
+                                    ColumnSpacing="12"
+                                    Tag="{Binding}"
+                                    Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        Loaded="OnCommandTitleLoaded"
+                                        Foreground="{ThemeResource PrimaryTextBrush}"
+                                        Tag="{Binding Match}"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        Foreground="{ThemeResource SecondaryTextBrush}"
+                                        Text="{Binding KeyboardShortcut}" />
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <TextBlock
+                    x:Name="NoMatchesText"
+                    Padding="12"
+                    Foreground="{ThemeResource SecondaryTextBrush}"
+                    Text="No matching commands found"
+                    Visibility="Collapsed" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

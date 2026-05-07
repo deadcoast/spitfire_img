@@ -35,7 +35,6 @@ This design document specifies the technical implementation for Phase 3 of spitf
 7. **Transitions Are Non-Blocking**: User can cancel transitions with navigation input
 8. **Sync Zoom Uses Relative Coordinates**: Handles images with different dimensions gracefully
 
-
 ## Architecture
 
 ### High-Level Architecture
@@ -86,24 +85,25 @@ This design document specifies the technical implementation for Phase 3 of spitf
                             ▼
 ┌────────────────────────────────────────────────────────────┐
 │                        Model Layer                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  ImageItem   │  │SlideshowConfig│ │ComparisonLayout│    │
-│  │  (Phase 1)   │  │              │  │              │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│ ┌──────────────┐ ┌─────────────────┐ ┌──────────────────┐  │
+│ │  ImageItem   │ │ SlideshowConfig │ │ ComparisonLayout │  │
+│ │  (Phase 1)   │ │                 │ │                  │  │
+│ └──────────────┘ └─────────────────┘ └──────────────────┘  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
 │  │ AnimatedGif  │  │ CommandItem  │  │LayoutConfig  │      │
 │  │              │  │              │  │              │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
-│  ┌──────────────┐  ┌──────────────┐                        │
-│  │CodecAvailability│ TransitionEffect│                      │
-│  │              │  │              │                        │
-│  └──────────────┘  └──────────────┘                        │
+│  ┌───────────────────┐           ┌──────────────────┐      │
+│  │ CodecAvailability │           │ TransitionEffect │      │
+│  │                   │           │                  │      │
+│  └───────────────────┘           └──────────────────┘      │
 └────────────────────────────────────────────────────────────┘
 ```
 
 ### Integration with Phase 1 and Phase 2
 
 **Phase 1 Services (Unchanged)**:
+
 - FileOpenService: Validates files (used by all phases)
 - FolderPlaylistService: Builds playlists (used by slideshow, comparison, layouts)
 - NavigationService: Handles navigation (extended for comparison mode)
@@ -111,17 +111,20 @@ This design document specifies the technical implementation for Phase 3 of spitf
 - ErrorLogService: Logs errors (extended with new error categories)
 
 **Phase 2 Services (Reused)**:
+
 - ThumbnailService: Generates thumbnails (used by filmstrip layout)
 - SearchService: Filters playlists (pattern reused for command palette)
 - MetadataService: Extracts EXIF (used in all viewing modes)
 
 **Phase 1 Models (Unchanged)**:
+
 - ImageItem: Represents playlist items (used by all Phase 3 features)
 - ImageMetadata: Basic metadata (displayed in all modes)
 - ViewerSettings: User preferences (extended with Phase 3 settings)
 - ViewerError: Error information (extended with new categories)
 
 **Phase 1 ViewModels (Extended)**:
+
 - MainViewModel: Coordinates operations (adds Phase 3 commands and state)
 - ViewerState: Display state (adds comparison and layout modes)
 - PlaylistState: Playlist management (used by slideshow and comparison)
@@ -172,7 +175,6 @@ src/ImageViewer.App/
     └── [Phase 1/2 resources unchanged]
 ```
 
-
 ## Components and Interfaces
 
 ### New Presentation Layer Components
@@ -182,6 +184,7 @@ src/ImageViewer.App/
 **Responsibility**: Display searchable command list with fuzzy matching and keyboard navigation.
 
 **Key Properties**:
+
 - `SearchText`: String (current search query)
 - `FilteredCommands`: ObservableCollection<CommandItem> (matching commands)
 - `SelectedIndex`: int (currently selected command)
@@ -189,6 +192,7 @@ src/ImageViewer.App/
 - `RecentCommands`: List<CommandItem> (recently executed commands)
 
 **Key Methods**:
+
 - `Show()`: Display palette and focus search input
 - `Hide()`: Close palette and clear search
 - `OnSearchTextChanged(string)`: Update filtered results with fuzzy matching
@@ -196,6 +200,7 @@ src/ImageViewer.App/
 - `OnKeyDown(KeyRoutedEventArgs)`: Handle Up/Down/Enter/Escape
 
 **XAML Structure**:
+
 ```xml
 <Grid x:Name="CommandPalette" Visibility="Collapsed">
   <Border Background="{ThemeResource CommandPaletteBackground}">
@@ -222,6 +227,7 @@ src/ImageViewer.App/
 **Responsibility**: Display multiple images simultaneously in side-by-side or overlay layouts.
 
 **Key Properties**:
+
 - `Layout`: ComparisonLayout enum (SideBySide, Overlay)
 - `Images`: ObservableCollection<BitmapImage> (displayed images)
 - `ImageCount`: int (2, 3, or 4 images)
@@ -230,6 +236,7 @@ src/ImageViewer.App/
 - `ActiveImageIndex`: int (selected image for focus)
 
 **Key Methods**:
+
 - `SetLayout(ComparisonLayout, int imageCount)`: Configure comparison layout
 - `UpdateImages(List<BitmapImage>)`: Refresh displayed images
 - `SetOpacity(double)`: Adjust overlay opacity
@@ -237,6 +244,7 @@ src/ImageViewer.App/
 - `ToggleSyncZoom()`: Enable/disable synchronized zoom
 
 **Layout Modes**:
+
 ```
 Side-by-Side (2 images):
 ┌─────────────┬─────────────┐
@@ -264,12 +272,14 @@ Overlay:
 **Responsibility**: Provide playback controls for animated GIFs.
 
 **Key Properties**:
+
 - `IsPlaying`: bool (animation play state)
 - `CurrentFrame`: int (current frame number)
 - `TotalFrames`: int (total frame count)
 - `FrameRate`: double (frames per second)
 
 **Key Methods**:
+
 - `Play()`: Start animation playback
 - `Pause()`: Pause animation
 - `NextFrame()`: Advance to next frame
@@ -277,6 +287,7 @@ Overlay:
 - `SeekToFrame(int)`: Jump to specific frame
 
 **Control Layout**:
+
 ```
 ┌────────────────────────────────────────────────────┐
 │ [◀] [▶] [▶▶] Frame 12 / 45 [━━━━━━━━━━━━━━━━━━━━] │
@@ -288,6 +299,7 @@ Overlay:
 **Responsibility**: Display multiple images in a grid arrangement.
 
 **Key Properties**:
+
 - `GridRows`: int (number of rows)
 - `GridColumns`: int (number of columns)
 - `Images`: ObservableCollection<BitmapImage> (visible images)
@@ -295,12 +307,14 @@ Overlay:
 - `StartIndex`: int (first visible image in playlist)
 
 **Key Methods**:
+
 - `SetGridSize(int rows, int columns)`: Configure grid dimensions
 - `LoadImages(int startIndex)`: Load images from playlist
 - `SelectImage(int index)`: Highlight image
 - `ScrollGrid(int offset)`: Load next/previous page of images
 
 **Grid Example (3×3)**:
+
 ```
 ┌────────┬────────┬────────┐
 │ Img 1  │ Img 2  │ Img 3  │
@@ -316,17 +330,20 @@ Overlay:
 **Responsibility**: Display large focus image with horizontal thumbnail strip.
 
 **Key Properties**:
+
 - `FocusImage`: BitmapImage (large display area)
 - `ThumbnailStrip`: ObservableCollection<Thumbnail> (horizontal strip)
 - `CurrentIndex`: int (focused image index)
 - `VisibleThumbnailCount`: int (7-11 based on window width)
 
 **Key Methods**:
+
 - `SetFocusImage(BitmapImage)`: Update focus area
 - `ScrollToThumbnail(int index)`: Center thumbnail in strip
 - `OnThumbnailClicked(int index)`: Change focus image
 
 **Layout**:
+
 ```
 ┌────────────────────────────────────────────────┐
 │                                                │
@@ -344,6 +361,7 @@ Overlay:
 **Responsibility**: Manage slideshow timing, transitions, and playback state.
 
 **Properties**:
+
 - `IsActive`: bool (slideshow running)
 - `IsPaused`: bool (slideshow paused)
 - `Interval`: TimeSpan (time between images)
@@ -352,6 +370,7 @@ Overlay:
 - `IsLooping`: bool (always true in Phase 3)
 
 **Methods**:
+
 - `Start()`: Begin slideshow from current image
 - `Stop()`: End slideshow and return to manual mode
 - `Pause()`: Pause slideshow, maintain position
@@ -361,6 +380,7 @@ Overlay:
 - `ResetTimer()`: Reset advance timer (on manual navigation)
 
 **State Transitions**:
+
 ```
 Stopped → Start() → Active
 Active → Pause() → Paused
@@ -374,6 +394,7 @@ Active → Manual Navigation → Active (timer reset)
 **Responsibility**: Manage multi-image comparison display and synchronization.
 
 **Properties**:
+
 - `IsActive`: bool (comparison mode active)
 - `Layout`: ComparisonLayout (SideBySide, Overlay)
 - `ImageCount`: int (2, 3, or 4)
@@ -384,6 +405,7 @@ Active → Manual Navigation → Active (timer reset)
 - `ActiveImageIndex`: int (focused image)
 
 **Methods**:
+
 - `EnterComparison(ComparisonLayout, int imageCount)`: Activate comparison mode
 - `ExitComparison()`: Return to single-image view
 - `ShiftImages(int offset)`: Move all images forward/backward in playlist
@@ -397,6 +419,7 @@ Active → Manual Navigation → Active (timer reset)
 **Responsibility**: Manage command search, filtering, and execution.
 
 **Properties**:
+
 - `IsVisible`: bool (palette open)
 - `SearchQuery`: string (current search text)
 - `AllCommands`: List<CommandItem> (all available commands)
@@ -405,6 +428,7 @@ Active → Manual Navigation → Active (timer reset)
 - `RecentCommands`: List<CommandItem> (last 10 executed)
 
 **Methods**:
+
 - `Show()`: Open palette
 - `Hide()`: Close palette
 - `SetSearchQuery(string)`: Update query and filter
@@ -413,6 +437,7 @@ Active → Manual Navigation → Active (timer reset)
 - `ClearSearch()`: Reset to all commands
 
 **Fuzzy Matching Algorithm**:
+
 ```
 Query: "rot"
 Matches: "Rotate Left", "Rotate Right", "Protect File"
@@ -426,6 +451,7 @@ Algorithm: Characters must appear in order, not necessarily consecutive
 **Responsibility**: Manage GIF animation playback and frame control.
 
 **Properties**:
+
 - `IsAnimated`: bool (current image is animated GIF)
 - `IsPlaying`: bool (animation playing)
 - `CurrentFrame`: int (current frame index, 0-based)
@@ -434,6 +460,7 @@ Algorithm: Characters must appear in order, not necessarily consecutive
 - `Frames`: List<BitmapImage> (extracted frames)
 
 **Methods**:
+
 - `LoadAnimation(AnimatedGif)`: Load GIF frames
 - `Play()`: Start playback
 - `Pause()`: Pause playback
@@ -447,6 +474,7 @@ Algorithm: Characters must appear in order, not necessarily consecutive
 **Responsibility**: Manage custom layout modes (Grid, Filmstrip).
 
 **Properties**:
+
 - `CurrentLayout`: LayoutMode enum (Single, Grid, Filmstrip)
 - `GridRows`: int (grid row count)
 - `GridColumns`: int (grid column count)
@@ -454,6 +482,7 @@ Algorithm: Characters must appear in order, not necessarily consecutive
 - `FilmstripFocusIndex`: int (focus image in filmstrip)
 
 **Methods**:
+
 - `SetLayout(LayoutMode)`: Change layout mode
 - `SetGridSize(int rows, int columns)`: Configure grid
 - `IncreaseGridDensity()`: Add row/column
@@ -468,6 +497,7 @@ Algorithm: Characters must appear in order, not necessarily consecutive
 **Responsibility**: Manage slideshow timing, transitions, and automatic advancement.
 
 **Interface**:
+
 ```csharp
 public interface ISlideshowService
 {
@@ -490,35 +520,42 @@ public interface ISlideshowService
 **Methods**:
 
 `StartSlideshowAsync(PlaylistState playlist, SlideshowConfig config)`:
+
 - Initialize slideshow with playlist and configuration
 - Start advance timer with configured interval
 - Return success or SlideshowError
 
 `StopSlideshow()`:
+
 - Cancel advance timer
 - Clear slideshow state
 - Return success
 
 `PauseSlideshow()`:
+
 - Pause advance timer
 - Maintain current position
 - Return success
 
 `ResumeSlideshow()`:
+
 - Resume advance timer
 - Continue from current position
 - Return success
 
 `ResetTimer()`:
+
 - Cancel current timer
 - Start new timer with same interval
 - Return success
 
 `ApplyTransitionAsync(BitmapImage currentImage, BitmapImage nextImage, TransitionEffect effect)`:
+
 - Apply visual transition between images
 - Return transitioned image or TransitionError
 
 **Slideshow Algorithm**:
+
 ```
 1. Start timer with configured interval
 2. On timer tick:
@@ -538,12 +575,14 @@ public interface ISlideshowService
 ```
 
 **Transition Effects**:
+
 - **None**: Instant image swap
 - **Fade**: Fade out current (300ms) → Fade in next (300ms)
 - **Slide**: Slide next from right while current slides left (400ms)
 - **Zoom**: Zoom out current while fading in next (350ms)
 
 **Performance**:
+
 - Transitions render at 60 FPS
 - Preload next image during current image display
 - Cancel transition if user navigates manually
@@ -553,6 +592,7 @@ public interface ISlideshowService
 **Responsibility**: Manage multi-image comparison layouts and synchronization.
 
 **Interface**:
+
 ```csharp
 public interface IComparisonService
 {
@@ -580,27 +620,32 @@ public interface IComparisonService
 **Methods**:
 
 `LoadComparisonImagesAsync(PlaylistState playlist, int startIndex, int imageCount)`:
+
 - Load specified number of images starting from index
 - Decode images in parallel for performance
 - Return list of BitmapImages or ComparisonError
 
 `CalculateComparisonIndices(int currentIndex, int imageCount, int playlistSize)`:
+
 - Calculate playlist indices for comparison images
 - Handle boundary cases (near start/end of playlist)
 - Return list of indices
 
 `SynchronizeZoom(List<ImageCanvas> canvases, double zoomLevel, Point panOffset)`:
+
 - Apply same zoom level to all canvases
 - Convert pan offset to relative coordinates
 - Apply relative pan to each canvas
 - Return success or SyncError
 
 `ConvertToRelativePosition(Point absolutePosition, Size imageSize)`:
+
 - Convert absolute pixel coordinates to relative (0-1 range)
 - Used for synchronized panning with different image sizes
 - Return relative position
 
 **Comparison Layout Algorithm**:
+
 ```
 Side-by-Side (2 images):
 1. Divide canvas width by 2
@@ -628,6 +673,7 @@ Overlay:
 ```
 
 **Synchronized Zoom Algorithm**:
+
 ```
 1. User zooms in Image 1 to 200%
 2. Calculate relative pan position (e.g., 0.5, 0.3 = center-left)
@@ -643,6 +689,7 @@ Overlay:
 **Responsibility**: Provide fuzzy search and command execution for all viewer commands.
 
 **Interface**:
+
 ```csharp
 public interface ICommandPaletteService
 {
@@ -657,33 +704,39 @@ public interface ICommandPaletteService
 **Methods**:
 
 `GetAllCommands()`:
+
 - Return complete list of all available commands
 - Include commands from Phase 1, 2, and 3
 - Group by category
 - Return list or CommandPaletteError
 
 `FilterCommands(string query)`:
+
 - Apply fuzzy matching to command list
 - Rank results by match quality
 - Return filtered and ranked list
 
 `ExecuteCommandAsync(CommandItem command)`:
+
 - Execute command action
 - Add to recent commands
 - Return success or ExecutionError
 
 `GetRecentCommands()`:
+
 - Return last 10 executed commands
 - Most recent first
 - Return list
 
 `AddToRecentCommands(CommandItem command)`:
+
 - Add command to recent list
 - Remove duplicates (move to top)
 - Trim to 10 items
 - Return success
 
 **Fuzzy Matching Algorithm**:
+
 ```csharp
 public int CalculateMatchScore(string query, string target)
 {
@@ -725,6 +778,7 @@ public int CalculateMatchScore(string query, string target)
 ```
 
 **Command Registry**:
+
 ```csharp
 public class CommandItem
 {
@@ -738,6 +792,7 @@ public class CommandItem
 ```
 
 **Command Categories**:
+
 - File: Open, Close, Export, Recent Files
 - View: Zoom, Fit, Fullscreen, Theme
 - Image: Rotate, Flip, Metadata
@@ -752,6 +807,7 @@ public class CommandItem
 **Responsibility**: Extract GIF frames and manage animation playback.
 
 **Interface**:
+
 ```csharp
 public interface IAnimationService
 {
@@ -765,24 +821,29 @@ public interface IAnimationService
 **Methods**:
 
 `LoadAnimatedGifAsync(string filePath)`:
+
 - Open GIF file with WIC decoder
 - Extract all frames
 - Extract frame delays from metadata
 - Return AnimatedGif or AnimationError
 
 `GetFrameCount(AnimatedGif gif)`:
+
 - Return total number of frames
 - Return count or error
 
 `GetFrame(AnimatedGif gif, int frameIndex)`:
+
 - Return BitmapImage for specified frame
 - Return frame or error if index out of bounds
 
 `GetFrameDelay(AnimatedGif gif, int frameIndex)`:
+
 - Return delay in milliseconds for frame
 - Return delay or error if index out of bounds
 
 **GIF Frame Extraction Algorithm**:
+
 ```csharp
 public async Task<Result<AnimatedGif>> LoadAnimatedGifAsync(string filePath)
 {
@@ -851,6 +912,7 @@ public async Task<Result<AnimatedGif>> LoadAnimatedGifAsync(string filePath)
 ```
 
 **Animation Playback Algorithm**:
+
 ```
 1. Load all frames at GIF open
 2. Display first frame initially
@@ -875,6 +937,7 @@ public async Task<Result<AnimatedGif>> LoadAnimatedGifAsync(string filePath)
 **Responsibility**: Detect Windows codec availability for HEIC and AVIF formats.
 
 **Interface**:
+
 ```csharp
 public interface ICodecDetectionService
 {
@@ -889,28 +952,34 @@ public interface ICodecDetectionService
 **Methods**:
 
 `DetectCodecsAsync()`:
+
 - Check Windows Registry for HEIC codec
 - Check Windows Registry for AVIF codec
 - Cache results for session
 - Return CodecAvailability or DetectionError
 
 `IsHeicSupported()`:
+
 - Return cached HEIC codec availability
 - Return bool or error
 
 `IsAvifSupported()`:
+
 - Return cached AVIF codec availability
 - Return bool or error
 
 `GetHeicStoreUrl()`:
+
 - Return Microsoft Store URL for HEIF Image Extensions
 - Return URL string
 
 `GetAvifStoreUrl()`:
+
 - Return Microsoft Store URL for AV1 Video Extension
 - Return URL string
 
 **Codec Detection Algorithm**:
+
 ```csharp
 public async Task<Result<CodecAvailability>> DetectCodecsAsync()
 {
@@ -961,10 +1030,12 @@ public async Task<Result<CodecAvailability>> DetectCodecsAsync()
 ```
 
 **Store URLs**:
+
 - HEIC: `ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG` (HEIF Image Extensions)
 - AVIF: `ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V` (AV1 Video Extension)
 
 **Codec Unavailable Error Handling**:
+
 ```
 1. User opens HEIC file
 2. CodecDetectionService returns HeicSupported = false
@@ -984,6 +1055,7 @@ public async Task<Result<CodecAvailability>> DetectCodecsAsync()
 **Responsibility**: Manage grid and filmstrip custom layouts.
 
 **Interface**:
+
 ```csharp
 public interface ILayoutService
 {
@@ -1008,23 +1080,27 @@ public interface ILayoutService
 **Methods**:
 
 `LoadGridImagesAsync(PlaylistState playlist, int startIndex, int rows, int columns)`:
+
 - Calculate number of images needed (rows × columns)
 - Load images from playlist starting at index
 - Decode images in parallel
 - Return list of BitmapImages or LayoutError
 
 `CalculateGridLayout(int rows, int columns, Size canvasSize)`:
+
 - Calculate cell dimensions
 - Calculate spacing between cells
 - Return GridLayout with cell sizes and positions
 
 `LoadFilmstripDataAsync(PlaylistState playlist, int focusIndex, int thumbnailCount)`:
+
 - Load focus image at full resolution
 - Load thumbnails for strip (reuse ThumbnailService)
 - Calculate visible thumbnail range
 - Return FilmstripData or LayoutError
 
 **Grid Layout Algorithm**:
+
 ```
 1. Calculate total cells: rows × columns
 2. Calculate cell width: canvasWidth / columns
@@ -1037,6 +1113,7 @@ public interface ILayoutService
 ```
 
 **Filmstrip Layout Algorithm**:
+
 ```
 1. Divide canvas vertically: 75% focus area, 25% thumbnail strip
 2. Display focus image in top area (fit to area)
@@ -1046,12 +1123,12 @@ public interface ILayoutService
 ```
 
 **Grid Density Adjustment**:
+
 ```
 Default: 3×3 (9 images)
 Increase: 3×3 → 4×4 → 5×5 → 6×6 (max)
 Decrease: 6×6 → 5×5 → 4×4 → 3×3 → 2×2 (min)
 ```
-
 
 ## Data Models
 
@@ -1060,6 +1137,7 @@ Decrease: 6×6 → 5×5 → 4×4 → 3×3 → 2×2 (min)
 **Purpose**: Store slideshow configuration settings.
 
 **Properties**:
+
 ```csharp
 public class SlideshowConfig
 {
@@ -1070,6 +1148,7 @@ public class SlideshowConfig
 ```
 
 **Default Values**:
+
 - Interval: 3 seconds
 - Transition: Fade
 - IsLooping: true
@@ -1081,6 +1160,7 @@ public class SlideshowConfig
 **Purpose**: Define comparison display mode.
 
 **Definition**:
+
 ```csharp
 public enum ComparisonLayout
 {
@@ -1096,6 +1176,7 @@ public enum ComparisonLayout
 **Purpose**: Store extracted GIF frame data.
 
 **Properties**:
+
 ```csharp
 public class AnimatedGif
 {
@@ -1113,6 +1194,7 @@ public class AnimatedGif
 **Purpose**: Represent a single command in the command palette.
 
 **Properties**:
+
 ```csharp
 public class CommandItem
 {
@@ -1134,6 +1216,7 @@ public class CommandItem
 **Purpose**: Store grid and filmstrip layout settings.
 
 **Properties**:
+
 ```csharp
 public class LayoutConfig
 {
@@ -1152,6 +1235,7 @@ public enum LayoutMode
 ```
 
 **Default Values**:
+
 - Mode: Single
 - GridRows: 3
 - GridColumns: 3
@@ -1164,6 +1248,7 @@ public enum LayoutMode
 **Purpose**: Store codec detection results.
 
 **Properties**:
+
 ```csharp
 public class CodecAvailability
 {
@@ -1180,6 +1265,7 @@ public class CodecAvailability
 **Purpose**: Define slideshow transition types.
 
 **Definition**:
+
 ```csharp
 public enum TransitionEffect
 {
@@ -1191,6 +1277,7 @@ public enum TransitionEffect
 ```
 
 **Timing**:
+
 - None: 0ms
 - Fade: 300ms
 - Slide: 400ms
@@ -1201,6 +1288,7 @@ public enum TransitionEffect
 ### Extended ViewerSettings
 
 **New Properties** (added to Phase 2 ViewerSettings):
+
 ```csharp
 public class ViewerSettings
 {
@@ -1225,6 +1313,7 @@ public class ViewerSettings
 ### Extended ViewerError
 
 **New Error Categories**:
+
 ```csharp
 public enum ErrorCategory
 {
@@ -1246,6 +1335,7 @@ public enum ErrorCategory
 ```
 
 **New Factory Methods**:
+
 ```csharp
 public static ViewerError SlideshowError(string operation, Exception ex);
 public static ViewerError TransitionError(TransitionEffect effect, Exception ex);
@@ -1260,6 +1350,7 @@ public static ViewerError LayoutError(string operation, Exception ex);
 ```
 
 **New User Messages**:
+
 - SlideshowError: "Unable to start slideshow mode."
 - TransitionError: "Unable to apply transition effect."
 - ComparisonError: "Unable to load images for comparison."
@@ -1270,7 +1361,6 @@ public static ViewerError LayoutError(string operation, Exception ex);
 - CodecDetectionError: "Unable to detect codec availability."
 - CodecUnavailableError: "{Format} format requires the {CodecName} from the Microsoft Store. Would you like to open the Store page?"
 - LayoutError: "Unable to load custom layout."
-
 
 ## Correctness Properties
 
@@ -1384,7 +1474,6 @@ public static ViewerError LayoutError(string operation, Exception ex);
 
 **Validates: Requirements 20.5**
 
-
 ## Error Handling
 
 ### Error Handling Philosophy
@@ -1401,6 +1490,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### SlideshowError
 
 **Triggers**:
+
 - Timer initialization fails
 - Transition rendering fails
 - Playlist navigation fails during slideshow
@@ -1408,6 +1498,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to start slideshow mode."
 
 **Handling**:
+
 - Log error with operation and exception
 - Display user message
 - Return to manual viewing mode
@@ -1418,6 +1509,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### TransitionError
 
 **Triggers**:
+
 - Transition animation fails
 - Insufficient memory for transition rendering
 - Image decoding fails during transition
@@ -1425,6 +1517,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to apply transition effect."
 
 **Handling**:
+
 - Log error with transition type and exception
 - Fall back to instant transition (None)
 - Continue slideshow with fallback
@@ -1435,6 +1528,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### ComparisonError
 
 **Triggers**:
+
 - Unable to load multiple images
 - Insufficient memory for comparison
 - Playlist too small for requested image count
@@ -1442,6 +1536,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to load images for comparison."
 
 **Handling**:
+
 - Log error with operation and exception
 - Display user message
 - Return to single-image view
@@ -1452,6 +1547,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### SyncError
 
 **Triggers**:
+
 - Zoom synchronization calculation fails
 - Pan offset conversion fails
 - Canvas update fails
@@ -1459,6 +1555,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to synchronize zoom and pan."
 
 **Handling**:
+
 - Log error with operation and exception
 - Disable sync zoom temporarily
 - Display user message as warning
@@ -1469,6 +1566,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### CommandPaletteError
 
 **Triggers**:
+
 - Command registry loading fails
 - Fuzzy search algorithm fails
 - Command list is empty
@@ -1476,6 +1574,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to load command palette."
 
 **Handling**:
+
 - Log error with operation and exception
 - Display user message
 - Close palette
@@ -1486,6 +1585,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### ExecutionError
 
 **Triggers**:
+
 - Command action throws exception
 - Command is unavailable in current context
 - Command parameters are invalid
@@ -1493,6 +1593,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to execute command."
 
 **Handling**:
+
 - Log error with command ID and exception
 - Display user message
 - Close palette
@@ -1503,6 +1604,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### AnimationError
 
 **Triggers**:
+
 - GIF frame extraction fails
 - Frame delay metadata is missing or invalid
 - Insufficient memory for frame cache
@@ -1510,6 +1612,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to load animated GIF."
 
 **Handling**:
+
 - Log error with file path and exception
 - Display first frame as static image
 - Hide frame controls
@@ -1520,6 +1623,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### CodecDetectionError
 
 **Triggers**:
+
 - Registry access fails
 - WIC codec enumeration fails
 - Permissions insufficient
@@ -1527,6 +1631,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to detect codec availability."
 
 **Handling**:
+
 - Log error with exception
 - Assume codecs unavailable (safe default)
 - Display user message as warning
@@ -1537,12 +1642,14 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### CodecUnavailableError
 
 **Triggers**:
+
 - User opens HEIC file without HEIC codec
 - User opens AVIF file without AVIF codec
 
 **User Message**: "{Format} format requires the {CodecName} from the Microsoft Store. Would you like to open the Store page?"
 
 **Handling**:
+
 - Display dialog with Store link
 - If user accepts, open Store URL
 - If user declines, don't show again this session
@@ -1554,6 +1661,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 #### LayoutError
 
 **Triggers**:
+
 - Grid layout calculation fails
 - Filmstrip thumbnail loading fails
 - Insufficient memory for layout
@@ -1561,6 +1669,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 **User Message**: "Unable to load custom layout."
 
 **Handling**:
+
 - Log error with operation and exception
 - Display user message
 - Return to single-image view
@@ -1571,26 +1680,31 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 ### Graceful Degradation Strategies
 
 **Slideshow Failures**:
+
 - Fall back to instant transitions if transition fails
 - Continue slideshow with manual navigation if timer fails
 - Return to manual mode if critical failure
 
 **Comparison Failures**:
+
 - Reduce image count if memory insufficient (4 → 3 → 2)
 - Disable sync zoom if synchronization fails
 - Return to single-image view if critical failure
 
 **Animation Failures**:
+
 - Display first frame as static if animation fails
 - Hide frame controls if playback unavailable
 - Continue with static GIF display
 
 **Codec Unavailable**:
+
 - Exclude unsupported formats from playlist
 - Show helpful error with Store link
 - Don't repeatedly prompt user
 
 **Layout Failures**:
+
 - Reduce grid density if memory insufficient
 - Fall back to single-image view if critical failure
 - Maintain thumbnail strip if filmstrip fails
@@ -1598,6 +1712,7 @@ Phase 3 extends Phase 1 and Phase 2's structured error handling system with new 
 ### Error Logging Extensions
 
 **Log Entry Format** (same as Phase 1/2):
+
 ```
 [2024-01-15 14:32:18.456] [ERROR] [SlideshowError]
 Operation: StartSlideshow
@@ -1610,11 +1725,11 @@ Stack Trace:
 ```
 
 **Log File Management** (same as Phase 1/2):
+
 - Location: `ApplicationData.Current.LocalFolder/logs/`
 - Naming: `viewer-{yyyy-MM-dd}.log`
 - Rotation: Daily
 - Retention: 30 days
-
 
 ## Testing Strategy
 
@@ -1632,6 +1747,7 @@ Phase 3 extends Phase 1 and Phase 2's dual testing approach:
 **Framework**: CsCheck or FsCheck (same as Phase 1/2)
 
 **Configuration**:
+
 - Minimum 100 iterations per property test
 - Each test tagged with comment referencing design property
 - Tag format: `// Feature: phase-3-advanced-viewing, Property {number}: {property_text}`
@@ -1729,6 +1845,7 @@ Phase 3 extends Phase 1 and Phase 2's dual testing approach:
     - Edge cases: Multiple checks, different codecs
 
 **Example Property Test**:
+
 ```csharp
 // Feature: phase-3-advanced-viewing, Property 1: Slideshow Timing Accuracy
 [Fact]
@@ -1793,6 +1910,7 @@ public void SlideshowTiming_AdvancesAtConfiguredInterval()
    - LayoutState: Layout switching, grid density
 
 **Example Unit Test**:
+
 ```csharp
 [Fact]
 public void CommandPaletteService_FuzzyMatch_ReturnsCorrectMatches()
@@ -1859,6 +1977,7 @@ public void CommandPaletteService_FuzzyMatch_ReturnsCorrectMatches()
    - Test performance with 200+ commands
 
 **Example Integration Test**:
+
 ```csharp
 [Fact]
 public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
@@ -1941,6 +2060,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 ### Performance Testing
 
 **Performance Targets**:
+
 - Slideshow transition: < 400ms
 - Comparison rendering (2 images): < 600ms
 - Command palette search: < 50ms for 200 commands
@@ -1949,6 +2069,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 - Codec detection: < 100ms
 
 **Performance Test Scenarios**:
+
 - Slideshow with 1000+ images
 - Comparison with 4K images
 - Command palette with 500+ commands
@@ -1956,12 +2077,12 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 - Grid layout with 6×6 (36 images)
 - Filmstrip with 500+ thumbnails
 
-
 ## Implementation Guidance
 
 ### Development Phases
 
 **Phase 3A: Slideshow Mode (Week 1-2)**
+
 1. Implement SlideshowService with timing and transitions
 2. Implement SlideshowState and slideshow controls
 3. Implement transition effects (None, Fade, Slide, Zoom)
@@ -1970,6 +2091,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 6. Integration tests with real images and timing
 
 **Phase 3B: Comparison Mode (Week 3-4)**
+
 1. Implement ComparisonService with layout calculations
 2. Implement ComparisonState and ComparisonView UI
 3. Implement side-by-side layouts (2, 3, 4 images)
@@ -1979,6 +2101,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 7. Integration tests with real images
 
 **Phase 3C: Command Palette (Week 5)**
+
 1. Implement CommandPaletteService with fuzzy search
 2. Implement CommandPaletteState and CommandPalette UI
 3. Build command registry with all Phase 1/2/3 commands
@@ -1988,6 +2111,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 7. Performance tests with large command lists
 
 **Phase 3D: GIF Animation (Week 6)**
+
 1. Implement AnimationService with frame extraction
 2. Implement AnimationState and FrameControl UI
 3. Implement playback timing and looping
@@ -1996,6 +2120,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 6. Integration tests with real animated GIFs
 
 **Phase 3E: Codec Detection and Format Support (Week 7)**
+
 1. Implement CodecDetectionService with registry checks
 2. Extend ImageDecodeService with HEIC/AVIF support
 3. Implement codec unavailable error dialogs
@@ -2004,6 +2129,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 6. Write unit and integration tests for codec detection
 
 **Phase 3F: Custom Layouts (Week 8-9)**
+
 1. Implement LayoutService with grid and filmstrip
 2. Implement LayoutState and layout views
 3. Implement GridLayout with density adjustment
@@ -2013,6 +2139,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 7. Integration tests with real images
 
 **Phase 3G: Integration and Polish (Week 10-11)**
+
 1. Integrate all Phase 3 features with MainViewModel
 2. Implement slideshow in comparison and custom layouts
 3. Update settings persistence with Phase 3 preferences
@@ -2027,6 +2154,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 #### Slideshow Transition Rendering
 
 **Fade Transition**:
+
 ```csharp
 public async Task<Result<BitmapImage>> ApplyFadeTransitionAsync(
     BitmapImage currentImage,
@@ -2084,6 +2212,7 @@ public async Task<Result<BitmapImage>> ApplyFadeTransitionAsync(
 #### Comparison Synchronized Zoom
 
 **Relative Position Calculation**:
+
 ```csharp
 public Result<Point> ConvertToRelativePosition(
     Point absolutePosition,
@@ -2148,6 +2277,7 @@ public Result SynchronizeZoom(
 #### Command Palette Fuzzy Search
 
 **Fuzzy Matching Implementation**:
+
 ```csharp
 public Result<List<CommandItem>> FilterCommands(string query)
 {
@@ -2186,6 +2316,7 @@ public Result<List<CommandItem>> FilterCommands(string query)
 #### GIF Frame Extraction
 
 **Frame Extraction with WIC**:
+
 ```csharp
 public async Task<Result<AnimatedGif>> LoadAnimatedGifAsync(string filePath)
 {
@@ -2268,6 +2399,7 @@ private async Task<int> ExtractFrameDelay(BitmapFrame frame)
 #### Codec Detection
 
 **Windows Codec Detection**:
+
 ```csharp
 public async Task<Result<CodecAvailability>> DetectCodecsAsync()
 {
@@ -2330,6 +2462,7 @@ private async Task<bool> CheckAvifCodec()
 #### Grid Layout Calculation
 
 **Grid Cell Positioning**:
+
 ```csharp
 public Result<GridLayout> CalculateGridLayout(
     int rows,
@@ -2388,30 +2521,35 @@ public Result<GridLayout> CalculateGridLayout(
 ### Performance Optimization
 
 **Slideshow Performance**:
+
 - Preload next image during current image display
 - Use hardware-accelerated transitions
 - Cancel transitions on manual navigation
 - Reuse image canvases to avoid allocation
 
 **Comparison Performance**:
+
 - Load images in parallel
 - Use shared zoom/pan calculations
 - Optimize synchronized updates
 - Limit comparison to 4 images maximum
 
 **Command Palette Performance**:
+
 - Cache fuzzy match scores
 - Debounce search input (50ms)
 - Virtualize command list for large sets
 - Precompute lowercase strings
 
 **Animation Performance**:
+
 - Extract all frames at load time
 - Cache frames in memory
 - Use timer with variable delays
 - Optimize frame rendering
 
 **Layout Performance**:
+
 - Use virtualization for grid layout
 - Reuse thumbnails from Phase 2 cache
 - Load visible images first
@@ -2420,20 +2558,22 @@ public Result<GridLayout> CalculateGridLayout(
 ### Extensibility for Future Phases
 
 **Video Playback**:
+
 - AnimationService pattern can extend to video frames
 - Frame control UI reusable for video
 - Playback timing logic applicable
 
 **Advanced Editing**:
+
 - Comparison mode foundation for before/after editing
 - Transform operations from Phase 2 extensible
 - Layout modes support editing workflows
 
 **Cloud Integration**:
+
 - Playlist model supports remote sources
 - Codec detection pattern for cloud formats
 - Command palette extensible with cloud commands
-
 
 ## Acceptance Criteria
 
@@ -2509,4 +2649,3 @@ Phase 3 is complete when:
 68. ✅ Phase 1 and Phase 2 functionality remains unchanged and all tests still pass
 69. ✅ Settings persistence includes all Phase 3 preferences
 70. ✅ Service interfaces support future extensibility (video playback, advanced editing, cloud integration)
-

@@ -16,11 +16,13 @@
         KeyDown="OnRootKeyDown"
         PointerMoved="OnRootPointerMoved">
         <views:ImageCanvas x:Name="ImageCanvas" />
+        <views:ComparisonView x:Name="ComparisonView" />
         <views:ThumbnailStrip x:Name="ThumbnailStrip" />
         <views:FadingChrome x:Name="Chrome" />
         <views:SearchOverlay x:Name="SearchOverlay" />
         <views:MetadataPanel x:Name="MetadataPanel" />
         <views:DropIndicator x:Name="DropIndicator" />
+        <views:CommandPalette x:Name="CommandPalette" />
 
         <InfoBar
             x:Name="ErrorInfoBar"

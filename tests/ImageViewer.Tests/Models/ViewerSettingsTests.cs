@@ -15,6 +15,7 @@ public sealed class ViewerSettingsTests
         Assert.Equal(800, settings.WindowHeight);
         Assert.Equal(2000, settings.FadeDelayMs);
         Assert.Equal(300, settings.FadeDurationMs);
+        Assert.Equal(TransitionEffect.Fade, settings.SlideshowTransition);
     }
 
     [Fact]

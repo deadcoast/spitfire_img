@@ -59,6 +59,17 @@ public sealed partial class FadingChrome : UserControl
         _fadeTimer.Start();
     }
 
+    public void PauseFade()
+    {
+        _fadeTimer.Stop();
+        AnimateOpacity(1.0, 100);
+    }
+
+    public void ResumeFade()
+    {
+        ShowChrome();
+    }
+
     private void FadeOutChrome()
     {
         _fadeTimer.Stop();

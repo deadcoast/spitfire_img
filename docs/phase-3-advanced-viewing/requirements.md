@@ -343,4 +343,3 @@ All Phase 3 features integrate with existing Phase 1 and Phase 2 services and ma
 5. THE Codec_Detection_Service SHALL cache codec availability results to avoid repeated checks
 6. WHEN codec availability changes (user installs codec), THE Viewer SHALL detect the change on next restart
 7. WHEN a Codec_Unavailable_Error occurs, THE Viewer SHALL NOT display raw exception messages to users
-

@@ -17,6 +17,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IExportService _exportService;
     private readonly ITransformService _transformService;
     private readonly IMetadataService _metadataService;
+    private readonly IComparisonService _comparisonService;
     private ViewerSettings _settings = ViewerSettings.Default;
     private readonly Dictionary<string, ExifMetadata> _metadataCache = new(StringComparer.OrdinalIgnoreCase);
     private bool _isChromeVisible = true;
@@ -61,7 +62,8 @@ public sealed class MainViewModel : ObservableObject
         IRecentFilesService recentFilesService,
         IExportService exportService,
         ITransformService transformService,
-        IMetadataService metadataService)
+        IMetadataService metadataService,
+        IComparisonService? comparisonService = null)
     {
         _fileOpenService = fileOpenService;
         _imageDecodeService = imageDecodeService;
@@ -74,10 +76,12 @@ public sealed class MainViewModel : ObservableObject
         _exportService = exportService;
         _transformService = transformService;
         _metadataService = metadataService;
+        _comparisonService = comparisonService ?? new ComparisonService();
         SearchState = new SearchState(searchService);
         ThumbnailState = new ThumbnailState();
         TransformState = new TransformState();
         MetadataState = new MetadataState();
+        CommandPaletteState = new CommandPaletteState(BuildCommandPaletteService());
     }
 
     public ViewerState ViewerState { get; } = new();
@@ -93,6 +97,12 @@ public sealed class MainViewModel : ObservableObject
     public TransformState TransformState { get; }
 
     public MetadataState MetadataState { get; }
+
+    public ComparisonState ComparisonState { get; } = new();
+
+    public CommandPaletteState CommandPaletteState { get; }
+
+    public event EventHandler? OpenFileRequested;
 
     public ViewerSettings Settings
     {
@@ -208,13 +218,47 @@ public sealed class MainViewModel : ObservableObject
         IsChromeVisible = true;
     }
 
+    public void ShowCommandPalette()
+    {
+        CommandPaletteState.Show();
+        ShowChrome();
+    }
+
+    public void HideCommandPalette()
+    {
+        CommandPaletteState.Hide();
+        ShowChrome();
+    }
+
+    public async Task<Result> ExecuteSelectedCommandPaletteCommandAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await CommandPaletteState.ExecuteSelectedCommandAsync().ConfigureAwait(false);
+        if (result.IsFailure)
+        {
+            await HandleErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
+        }
+
+        ShowChrome();
+        return result;
+    }
+
     public Task NavigateNextAsync(CancellationToken cancellationToken = default)
     {
+        if (ComparisonState.IsActive)
+        {
+            return ShiftComparisonAsync(offset: 1, cancellationToken);
+        }
+
         return NavigateToIndexAsync(PlaylistState.CurrentIndex + 1, cancellationToken);
     }
 
     public Task NavigatePreviousAsync(CancellationToken cancellationToken = default)
     {
+        if (ComparisonState.IsActive)
+        {
+            return ShiftComparisonAsync(offset: -1, cancellationToken);
+        }
+
         return NavigateToIndexAsync(PlaylistState.CurrentIndex - 1, cancellationToken);
     }
 
@@ -230,18 +274,39 @@ public sealed class MainViewModel : ObservableObject
 
     public void ZoomIn()
     {
+        if (ComparisonState.IsActive)
+        {
+            ApplyComparisonZoom(GetActiveComparisonViewport().ZoomLevel + 25);
+            ShowChrome();
+            return;
+        }
+
         ViewerState.SetZoom(ViewerState.ZoomLevel + 25);
         ShowChrome();
     }
 
     public void ZoomOut()
     {
+        if (ComparisonState.IsActive)
+        {
+            ApplyComparisonZoom(Math.Max(100, GetActiveComparisonViewport().ZoomLevel - 25));
+            ShowChrome();
+            return;
+        }
+
         ViewerState.SetZoom(Math.Max(100, ViewerState.ZoomLevel - 25));
         ShowChrome();
     }
 
     public void FitToWindow()
     {
+        if (ComparisonState.IsActive)
+        {
+            ResetComparisonZoom();
+            ShowChrome();
+            return;
+        }
+
         ViewerState.SetDisplayMode(DisplayMode.FitToWindow);
         ViewerState.ResetPan();
         ShowChrome();
@@ -249,6 +314,13 @@ public sealed class MainViewModel : ObservableObject
 
     public void ActualSize()
     {
+        if (ComparisonState.IsActive)
+        {
+            ApplyComparisonZoom(100);
+            ShowChrome();
+            return;
+        }
+
         ViewerState.SetDisplayMode(DisplayMode.ActualSize);
         ViewerState.ResetPan();
         ShowChrome();
@@ -257,6 +329,162 @@ public sealed class MainViewModel : ObservableObject
     public void ToggleFullscreen()
     {
         ViewerState.IsFullscreen = !ViewerState.IsFullscreen;
+        ShowChrome();
+    }
+
+    public async Task EnterComparisonModeAsync(
+        ComparisonLayout layout,
+        CancellationToken cancellationToken = default)
+    {
+        var indicesResult = _comparisonService.CalculateComparisonIndices(
+            PlaylistState.CurrentIndex,
+            ComparisonService.DefaultImageCount,
+            PlaylistState.TotalCount);
+
+        if (indicesResult.IsFailure)
+        {
+            await HandleErrorAsync(indicesResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        ApplyComparisonWindow(layout, indicesResult.Value);
+        ShowChrome();
+    }
+
+    public void ExitComparisonMode()
+    {
+        ComparisonState.ExitComparison();
+        ShowChrome();
+    }
+
+    public Task SetComparisonImageCountAsync(
+        int imageCount,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ComparisonState.IsActive)
+        {
+            return Task.CompletedTask;
+        }
+
+        return ApplyComparisonImageCountAsync(imageCount, cancellationToken);
+    }
+
+    public void SetActiveComparisonImage(int visibleIndex)
+    {
+        if (!ComparisonState.IsActive)
+        {
+            return;
+        }
+
+        ComparisonState.SetActiveImage(visibleIndex);
+        ShowChrome();
+    }
+
+    public void CycleComparisonActiveImage()
+    {
+        if (!ComparisonState.IsActive)
+        {
+            return;
+        }
+
+        ComparisonState.CycleActiveImage();
+        ShowChrome();
+    }
+
+    public async Task OpenActiveComparisonImageAsync(CancellationToken cancellationToken = default)
+    {
+        if (!ComparisonState.IsActive || ComparisonState.ActivePlaylistIndex < 0)
+        {
+            return;
+        }
+
+        var targetIndex = ComparisonState.ActivePlaylistIndex;
+        ComparisonState.ExitComparison();
+        await NavigateToIndexAsync(targetIndex, cancellationToken).ConfigureAwait(false);
+    }
+
+    public void SetOverlayOpacity(double opacity)
+    {
+        if (!IsOverlayComparisonActive())
+        {
+            return;
+        }
+
+        ComparisonState.SetOverlayOpacity(opacity);
+        ShowChrome();
+    }
+
+    public void AdjustOverlayOpacity(double delta)
+    {
+        if (!IsOverlayComparisonActive())
+        {
+            return;
+        }
+
+        ComparisonState.AdjustOverlayOpacity(delta);
+        ShowChrome();
+    }
+
+    public void SwapOverlayLayers()
+    {
+        if (!IsOverlayComparisonActive())
+        {
+            return;
+        }
+
+        ComparisonState.SwapLayers();
+        ShowChrome();
+    }
+
+    public void ToggleComparisonSyncZoom()
+    {
+        if (!ComparisonState.IsActive)
+        {
+            return;
+        }
+
+        ComparisonState.ToggleSyncZoom();
+        ShowChrome();
+    }
+
+    public void SetComparisonImageDimensions(int visibleIndex, ImageDimensions dimensions)
+    {
+        if (!ComparisonState.IsActive)
+        {
+            return;
+        }
+
+        ComparisonState.SetImageDimensions(visibleIndex, dimensions);
+    }
+
+    public void SetComparisonPan(int visibleIndex, ImagePoint panOffset)
+    {
+        if (!ComparisonState.IsActive ||
+            visibleIndex < 0 ||
+            visibleIndex >= ComparisonState.ImageViewports.Count)
+        {
+            return;
+        }
+
+        if (!ComparisonState.SyncZoomEnabled)
+        {
+            var viewport = ComparisonState.ImageViewports[visibleIndex].WithPan(panOffset);
+            ComparisonState.ApplyViewportUpdate(visibleIndex, viewport);
+            ShowChrome();
+            return;
+        }
+
+        var synchronized = _comparisonService.SynchronizeZoom(
+            ComparisonState.ImageViewports.ToArray(),
+            visibleIndex,
+            ComparisonState.ImageViewports[visibleIndex].ZoomLevel,
+            panOffset);
+
+        if (synchronized.IsSuccess)
+        {
+            ComparisonState.ApplyViewportUpdates(synchronized.Value);
+        }
+
         ShowChrome();
     }
 
@@ -470,6 +698,24 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public async Task SetSlideshowTransitionAsync(
+        TransitionEffect transition,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(transition))
+        {
+            await HandleErrorAsync(
+                    ViewerError.UnexpectedViewerError("SetSlideshowTransition", filePath: null),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        Settings = Settings with { SlideshowTransition = transition };
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
     public async Task SaveWindowStateAsync(
         int width,
         int height,
@@ -529,6 +775,141 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    private async Task ShiftComparisonAsync(int offset, CancellationToken cancellationToken)
+    {
+        var startIndex = ComparisonState.DisplayedIndices.Count > 0
+            ? ComparisonState.DisplayedIndices[0]
+            : PlaylistState.CurrentIndex;
+        var indicesResult = _comparisonService.CalculateComparisonIndices(
+            startIndex + offset,
+            ComparisonState.ImageCount == 0 ? ComparisonService.DefaultImageCount : ComparisonState.ImageCount,
+            PlaylistState.TotalCount);
+
+        if (indicesResult.IsFailure)
+        {
+            await HandleErrorAsync(indicesResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        ApplyComparisonWindow(ComparisonState.Layout, indicesResult.Value);
+        ShowChrome();
+    }
+
+    private async Task ApplyComparisonImageCountAsync(int imageCount, CancellationToken cancellationToken)
+    {
+        var indicesResult = _comparisonService.CalculateComparisonIndices(
+            PlaylistState.CurrentIndex,
+            imageCount,
+            PlaylistState.TotalCount);
+
+        if (indicesResult.IsFailure)
+        {
+            await HandleErrorAsync(indicesResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        ApplyComparisonWindow(ComparisonState.Layout, indicesResult.Value);
+        ShowChrome();
+    }
+
+    private void ApplyComparisonWindow(ComparisonLayout layout, IReadOnlyList<int> displayedIndices)
+    {
+        var displayedItems = displayedIndices
+            .Where(index => index >= 0 && index < PlaylistState.TotalCount)
+            .Select(index => PlaylistState.Items[index])
+            .ToArray();
+
+        if (ComparisonState.IsActive)
+        {
+            ComparisonState.ShiftImages(displayedItems, displayedIndices);
+        }
+        else
+        {
+            ComparisonState.EnterComparison(layout, displayedItems, displayedIndices);
+        }
+
+        if (displayedIndices.Count > 0)
+        {
+            PlaylistState.SetCurrentIndex(displayedIndices[0]);
+        }
+    }
+
+    private ComparisonImageViewport GetActiveComparisonViewport()
+    {
+        var activeIndex = Math.Clamp(
+            ComparisonState.ActiveImageIndex,
+            0,
+            Math.Max(0, ComparisonState.ImageViewports.Count - 1));
+
+        return ComparisonState.ImageViewports.Count == 0
+            ? ComparisonImageViewport.Default
+            : ComparisonState.ImageViewports[activeIndex];
+    }
+
+    private void ApplyComparisonZoom(double zoomLevel)
+    {
+        if (ComparisonState.ImageViewports.Count == 0)
+        {
+            return;
+        }
+
+        if (!ComparisonState.SyncZoomEnabled)
+        {
+            var activeIndex = Math.Clamp(
+                ComparisonState.ActiveImageIndex,
+                0,
+                ComparisonState.ImageViewports.Count - 1);
+            ComparisonState.ApplyViewportUpdate(
+                activeIndex,
+                ComparisonState.ImageViewports[activeIndex].WithZoom(zoomLevel));
+            return;
+        }
+
+        var sourceIndex = Math.Clamp(
+            ComparisonState.ActiveImageIndex,
+            0,
+            ComparisonState.ImageViewports.Count - 1);
+        var sourceViewport = ComparisonState.ImageViewports[sourceIndex];
+        var synchronized = _comparisonService.SynchronizeZoom(
+            ComparisonState.ImageViewports.ToArray(),
+            sourceIndex,
+            zoomLevel,
+            sourceViewport.PanOffset);
+
+        if (synchronized.IsSuccess)
+        {
+            ComparisonState.ApplyViewportUpdates(synchronized.Value);
+        }
+    }
+
+    private void ResetComparisonZoom()
+    {
+        if (ComparisonState.ImageViewports.Count == 0)
+        {
+            return;
+        }
+
+        if (!ComparisonState.SyncZoomEnabled)
+        {
+            var activeIndex = Math.Clamp(
+                ComparisonState.ActiveImageIndex,
+                0,
+                ComparisonState.ImageViewports.Count - 1);
+            ComparisonState.ApplyViewportUpdate(
+                activeIndex,
+                ComparisonState.ImageViewports[activeIndex].FitToWindow());
+            return;
+        }
+
+        ComparisonState.ApplyViewportUpdates(
+            ComparisonState.ImageViewports.Select(viewport => viewport.FitToWindow()).ToArray());
+    }
+
+    private bool IsOverlayComparisonActive()
+    {
+        return ComparisonState.IsActive && ComparisonState.Layout == ComparisonLayout.Overlay;
+    }
+
     private async Task HandleErrorAsync(ViewerError error, CancellationToken cancellationToken)
     {
         CurrentErrorSeverity = error.Severity;
@@ -543,6 +924,67 @@ public sealed class MainViewModel : ObservableObject
         {
             await HandleErrorAsync(saveResult.Error, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private ICommandPaletteService BuildCommandPaletteService()
+    {
+        return new CommandPaletteService(
+        [
+            Register("file.open", "Open File", "File", "Ctrl+O", () => OpenFileRequested?.Invoke(this, EventArgs.Empty)),
+            Register("view.fullscreen", "Toggle Fullscreen", "View", "F11", ToggleFullscreen),
+            Register("view.fit", "Fit to Window", "View", "Ctrl+0", FitToWindow),
+            Register("view.actual-size", "Actual Size", "View", "Ctrl+1", ActualSize),
+            Register("view.zoom-in", "Zoom In", "View", "Ctrl++", ZoomIn),
+            Register("view.zoom-out", "Zoom Out", "View", "Ctrl+-", ZoomOut),
+            RegisterAsync("view.theme", "Toggle Theme", "View", "Theme", () => ToggleThemeAsync()),
+            RegisterAsync("view.thumbnails", "Toggle Thumbnails", "View", "Ctrl+T", () => ToggleThumbnailStrip()),
+            RegisterAsync("image.metadata", "Toggle Metadata", "Image", "Ctrl+I", () => ToggleMetadataPanelAsync()),
+            RegisterAsync("image.rotate-left", "Rotate Left", "Image", "Ctrl+L", () => ApplyTransformAsync(TransformOperation.RotateLeft)),
+            RegisterAsync("image.rotate-right", "Rotate Right", "Image", "Ctrl+R", () => ApplyTransformAsync(TransformOperation.RotateRight)),
+            RegisterAsync("image.flip-horizontal", "Flip Horizontal", "Image", "Ctrl+H", () => ApplyTransformAsync(TransformOperation.FlipHorizontal)),
+            RegisterAsync("image.flip-vertical", "Flip Vertical", "Image", "Ctrl+V", () => ApplyTransformAsync(TransformOperation.FlipVertical)),
+            Register("image.undo", "Undo", "Image", "Ctrl+Z", UndoTransform),
+            Register("image.redo", "Redo", "Image", "Ctrl+Shift+Z", RedoTransform),
+            RegisterAsync("navigation.next", "Next Image", "Navigation", "Right", () => NavigateNextAsync()),
+            RegisterAsync("navigation.previous", "Previous Image", "Navigation", "Left", () => NavigatePreviousAsync()),
+            RegisterAsync("navigation.first", "First Image", "Navigation", "Home", () => NavigateFirstAsync()),
+            RegisterAsync("navigation.last", "Last Image", "Navigation", "End", () => NavigateLastAsync()),
+            RegisterAsync("comparison.side-by-side", "Side-by-Side Comparison", "Comparison", "Ctrl+D", () => EnterComparisonModeAsync(ComparisonLayout.SideBySide)),
+            RegisterAsync("comparison.overlay", "Overlay Comparison", "Comparison", "Ctrl+Shift+D", () => EnterComparisonModeAsync(ComparisonLayout.Overlay)),
+            Register("comparison.sync-zoom", "Toggle Sync Zoom", "Comparison", "Ctrl+L", ToggleComparisonSyncZoom)
+        ]);
+    }
+
+    private static CommandRegistration Register(
+        string id,
+        string title,
+        string category,
+        string keyboardShortcut,
+        Action action)
+    {
+        return new CommandRegistration(
+            new CommandItem(id, title, category, keyboardShortcut),
+            () =>
+            {
+                action();
+                return Task.FromResult(Result.Success());
+            });
+    }
+
+    private static CommandRegistration RegisterAsync(
+        string id,
+        string title,
+        string category,
+        string keyboardShortcut,
+        Func<Task> action)
+    {
+        return new CommandRegistration(
+            new CommandItem(id, title, category, keyboardShortcut),
+            async () =>
+            {
+                await action().ConfigureAwait(false);
+                return Result.Success();
+            });
     }
 
     private void SetRecentFiles(IEnumerable<RecentFile> recentFiles)

@@ -13,7 +13,9 @@ public enum ErrorCategory
     ExportError,
     TransformError,
     TransformSaveError,
-    MetadataExtractionError
+    MetadataExtractionError,
+    ComparisonError,
+    CommandPaletteError
 }
 
 public enum ErrorSeverity
@@ -126,6 +128,39 @@ public sealed record ViewerError(
         return Create(ErrorCategory.MetadataExtractionError, operation, filePath, exception);
     }
 
+    public static ViewerError ComparisonError(
+        string operation,
+        string userMessage,
+        string? filePath = null,
+        Exception? exception = null)
+    {
+        return new ViewerError(
+            DateTimeOffset.UtcNow,
+            ErrorSeverity.Error,
+            ErrorCategory.ComparisonError,
+            userMessage,
+            operation,
+            filePath,
+            exception?.GetType().Name,
+            exception?.StackTrace);
+    }
+
+    public static ViewerError CommandPaletteError(
+        string operation,
+        string userMessage,
+        Exception? exception = null)
+    {
+        return new ViewerError(
+            DateTimeOffset.UtcNow,
+            ErrorSeverity.Error,
+            ErrorCategory.CommandPaletteError,
+            userMessage,
+            operation,
+            FilePath: null,
+            exception?.GetType().Name,
+            exception?.StackTrace);
+    }
+
     private static ErrorSeverity GetSeverity(ErrorCategory category)
     {
         return category is ErrorCategory.PlaylistScanError or ErrorCategory.SettingsPersistenceError or ErrorCategory.ThumbnailGenerationError
@@ -149,6 +184,8 @@ public sealed record ViewerError(
             ErrorCategory.TransformError => "Unable to apply the requested image change.",
             ErrorCategory.TransformSaveError => "Unable to save changes to this image.",
             ErrorCategory.MetadataExtractionError => "Unable to read detailed metadata for this image.",
+            ErrorCategory.ComparisonError => "Unable to enter comparison mode.",
+            ErrorCategory.CommandPaletteError => "Unable to load command palette.",
             _ => "An unexpected error occurred. The application will attempt to continue."
         };
     }
