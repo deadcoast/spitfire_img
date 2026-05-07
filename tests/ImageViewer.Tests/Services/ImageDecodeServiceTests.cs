@@ -186,15 +186,114 @@ public sealed class ImageDecodeServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DecodeImageAsync_DeferredFormat_ReturnsUnsupportedFormatError()
+    public async Task DecodeImageAsync_UnknownFormat_ReturnsUnsupportedFormatError()
     {
-        var path = Path.Combine(_tempDirectory, "future.avif");
+        var path = Path.Combine(_tempDirectory, "future.jxl");
         await File.WriteAllBytesAsync(path, [0x00, 0x00, 0x00]);
 
         var result = await _service.DecodeImageAsync(path);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorCategory.UnsupportedFormatError, result.Error.Category);
+    }
+
+    [Fact]
+    public async Task DecodeImageAsync_HeicWithoutCodec_ReturnsCodecUnavailableError()
+    {
+        var path = Path.Combine(_tempDirectory, "phone.heic");
+        await File.WriteAllBytesAsync(path, [0x00, 0x00, 0x00]);
+        var service = new ImageDecodeService(
+            new StubCodecDetectionService(heicSupported: false, avifSupported: false),
+            new StubPlatformImageDecodeService());
+
+        var result = await service.DecodeImageAsync(path);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCategory.CodecUnavailableError, result.Error.Category);
+        Assert.Equal(
+            "HEIC format requires the HEIF Image Extensions from the Microsoft Store. Would you like to open the Store page?",
+            result.Error.UserMessage);
+    }
+
+    [Fact]
+    public async Task DecodeImageAsync_AvifWithoutCodec_ReturnsCodecUnavailableError()
+    {
+        var path = Path.Combine(_tempDirectory, "modern.avif");
+        await File.WriteAllBytesAsync(path, [0x00, 0x00, 0x00]);
+        var service = new ImageDecodeService(
+            new StubCodecDetectionService(heicSupported: false, avifSupported: false),
+            new StubPlatformImageDecodeService());
+
+        var result = await service.DecodeImageAsync(path);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCategory.CodecUnavailableError, result.Error.Category);
+        Assert.Equal(
+            "AVIF format requires the AV1 Video Extension from the Microsoft Store. Would you like to open the Store page?",
+            result.Error.UserMessage);
+    }
+
+    [Fact]
+    public async Task DecodeImageAsync_HeicWithCodec_DelegatesToPlatformDecoder()
+    {
+        var path = Path.Combine(_tempDirectory, "phone.heic");
+        await File.WriteAllBytesAsync(path, [0x00, 0x00, 0x00]);
+        var platformDecoder = new StubPlatformImageDecodeService();
+        var service = new ImageDecodeService(
+            new StubCodecDetectionService(heicSupported: true, avifSupported: false),
+            platformDecoder);
+
+        var result = await service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(path, result.Value.FilePath);
+        Assert.Equal(4032, result.Value.Metadata.PixelWidth);
+        Assert.Equal(3024, result.Value.Metadata.PixelHeight);
+        Assert.Equal([path], platformDecoder.DecodedPaths);
+    }
+
+    [Fact]
+    public async Task DecodeImageAsync_AvifWithCodec_DelegatesToPlatformDecoder()
+    {
+        var path = Path.Combine(_tempDirectory, "modern.avif");
+        await File.WriteAllBytesAsync(path, [0x00, 0x00, 0x00]);
+        var platformDecoder = new StubPlatformImageDecodeService();
+        var service = new ImageDecodeService(
+            new StubCodecDetectionService(heicSupported: false, avifSupported: true),
+            platformDecoder);
+
+        var result = await service.DecodeImageAsync(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(path, result.Value.FilePath);
+        Assert.Equal(4032, result.Value.Metadata.PixelWidth);
+        Assert.Equal(3024, result.Value.Metadata.PixelHeight);
+        Assert.Equal([path], platformDecoder.DecodedPaths);
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void IsSupportedFormat_HeicReflectsCodecAvailability(bool heicSupported, bool expected)
+    {
+        var service = new ImageDecodeService(
+            new StubCodecDetectionService(heicSupported, avifSupported: false),
+            new StubPlatformImageDecodeService());
+
+        Assert.Equal(expected, service.IsSupportedFormat(".heic"));
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void IsSupportedFormat_AvifReflectsCodecAvailability(bool avifSupported, bool expected)
+    {
+        var service = new ImageDecodeService(
+            new StubCodecDetectionService(heicSupported: false, avifSupported),
+            new StubPlatformImageDecodeService());
+
+        Assert.Equal(expected, service.IsSupportedFormat(".avif"));
+        Assert.False(service.IsSupportedFormat(".heic"));
     }
 
     public void Dispose()
@@ -352,5 +451,57 @@ public sealed class ImageDecodeServiceTests : IDisposable
     {
         bytes[offset] = (byte)(value & 0xFF);
         bytes[offset + 1] = (byte)((value >> 8) & 0xFF);
+    }
+
+    private sealed class StubCodecDetectionService : ICodecDetectionService
+    {
+        private readonly bool _heicSupported;
+        private readonly bool _avifSupported;
+
+        public StubCodecDetectionService(bool heicSupported, bool avifSupported)
+        {
+            _heicSupported = heicSupported;
+            _avifSupported = avifSupported;
+        }
+
+        public Task<Result<CodecAvailability>> DetectCodecsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<CodecAvailability>.Success(
+                new CodecAvailability(_heicSupported, _avifSupported, DateTimeOffset.UnixEpoch)));
+        }
+
+        public Result<bool> IsHeicSupported()
+        {
+            return Result<bool>.Success(_heicSupported);
+        }
+
+        public Result<bool> IsAvifSupported()
+        {
+            return Result<bool>.Success(_avifSupported);
+        }
+
+        public Result<string> GetHeicStoreUrl()
+        {
+            return Result<string>.Success("ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG");
+        }
+
+        public Result<string> GetAvifStoreUrl()
+        {
+            return Result<string>.Success("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V");
+        }
+    }
+
+    private sealed class StubPlatformImageDecodeService : IPlatformImageDecodeService
+    {
+        public List<string> DecodedPaths { get; } = [];
+
+        public Task<Result<DecodedImage>> DecodeImageAsync(
+            string filePath,
+            CancellationToken cancellationToken = default)
+        {
+            DecodedPaths.Add(filePath);
+            return Task.FromResult(Result<DecodedImage>.Success(
+                new DecodedImage(filePath, new ImageMetadata(4032, 3024, new FileInfo(filePath).Length))));
+        }
     }
 }

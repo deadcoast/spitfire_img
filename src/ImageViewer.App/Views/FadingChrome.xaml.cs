@@ -33,6 +33,7 @@ public sealed partial class FadingChrome : UserControl
     {
         _viewModel = viewModel;
         InfoBar.Attach(viewModel);
+        FrameControl.Attach(viewModel);
         viewModel.RecentFiles.CollectionChanged += OnRecentFilesChanged;
         viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
         RebuildRecentFilesMenu();

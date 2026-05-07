@@ -44,17 +44,26 @@ public sealed class FileOpenServiceTests : IDisposable
         Assert.Equal(ErrorCategory.FileAccessError, result.Error.Category);
     }
 
-    [Theory]
-    [InlineData("phone.heic")]
-    [InlineData("modern.avif")]
-    public void ValidateFilePath_DeferredFormat_ReturnsUnsupportedFormatError(string filename)
+    [Fact]
+    public void ValidateFilePath_ExistingHeicFile_ReturnsSuccessSoCodecDetectionCanHandleIt()
     {
-        var path = CreateFile(filename);
+        var path = CreateFile("phone.heic");
 
         var result = _service.ValidateFilePath(path);
 
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorCategory.UnsupportedFormatError, result.Error.Category);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(path, result.Value);
+    }
+
+    [Fact]
+    public void ValidateFilePath_ExistingAvifFile_ReturnsSuccessSoCodecDetectionCanHandleIt()
+    {
+        var path = CreateFile("modern.avif");
+
+        var result = _service.ValidateFilePath(path);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(path, result.Value);
     }
 
     [Theory]

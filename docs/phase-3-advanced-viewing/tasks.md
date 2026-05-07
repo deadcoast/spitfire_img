@@ -178,7 +178,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Cache all frames in memory at load time
   - _Requirements: 10.1, 10.2, 10.3, 10.8, 10.10_
 
-- [ ] 15. Implement GIF animation playback
+- [x] 15. Implement GIF animation playback
   - Implement automatic animation playback on load
   - Implement play/pause toggle with P key
   - Respect frame delays embedded in GIF
@@ -196,7 +196,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - **Property 13: GIF Animation Looping**
   - **Validates: Requirements 10.8**
 
-- [ ] 16. Implement GIF frame control UI
+- [x] 16. Implement GIF frame control UI
   - Create FrameControl XAML component
   - Add play/pause button with icon toggle
   - Add previous frame button
@@ -213,10 +213,10 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Test playback timing with real GIFs
   - Test with single-frame GIFs
 
-- [ ] 17. Checkpoint - Ensure GIF animation tests pass
+- [x] 17. Checkpoint - Ensure GIF animation tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 18. Implement codec detection service
+- [x] 18. Implement codec detection service
   - Create CodecDetectionService with registry checks
   - Create CodecAvailability model
   - Implement HEIC codec detection at startup
@@ -230,7 +230,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - **Property 18: Codec Detection Caching**
   - **Validates: Requirements 20.5**
 
-- [ ] 19. Implement HEIC format support with codec detection
+- [x] 19. Implement HEIC format support with codec detection
   - Extend ImageDecodeService with HEIC support
   - Add ".heic" to supported formats when codec available
   - Implement CodecUnavailableError for missing HEIC codec
@@ -240,7 +240,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Don't repeat codec prompt during same session
   - _Requirements: 12.2, 12.3, 12.4, 12.5, 12.6, 12.9, 12.10_
 
-- [ ] 20. Implement AVIF format support with codec detection
+- [x] 20. Implement AVIF format support with codec detection
   - Extend ImageDecodeService with AVIF support
   - Add ".avif" to supported formats when codec available
   - Implement CodecUnavailableError for missing AVIF codec
@@ -259,10 +259,10 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Test caching behavior
   - Test with mock registry access
 
-- [ ] 21. Checkpoint - Ensure codec detection tests pass
+- [x] 21. Checkpoint - Ensure codec detection tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 22. Implement grid layout mode
+- [x] 22. Implement grid layout mode
   - Create LayoutService with grid calculations
   - Create LayoutState ViewModel
   - Create GridLayout XAML component

@@ -45,6 +45,63 @@ public sealed class FolderPlaylistServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task BuildPlaylistAsync_IncludesHeicWhenCodecIsSupported()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("a.png");
+        CreateFile("c.heic");
+        var service = new FolderPlaylistService(new StubImageDecodeService(heicSupported: true, avifSupported: false));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a.png", "b.jpg", "c.heic"], result.Value.Items.Select(item => item.Filename).ToArray());
+    }
+
+    [Fact]
+    public async Task BuildPlaylistAsync_ExcludesHeicWhenCodecIsUnavailable()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("a.png");
+        CreateFile("c.heic");
+        var service = new FolderPlaylistService(new StubImageDecodeService(heicSupported: false, avifSupported: false));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a.png", "b.jpg"], result.Value.Items.Select(item => item.Filename).ToArray());
+    }
+
+    [Fact]
+    public async Task BuildPlaylistAsync_IncludesAvifWhenCodecIsSupported()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("a.png");
+        CreateFile("c.heic");
+        CreateFile("d.avif");
+        var service = new FolderPlaylistService(new StubImageDecodeService(heicSupported: false, avifSupported: true));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a.png", "b.jpg", "d.avif"], result.Value.Items.Select(item => item.Filename).ToArray());
+    }
+
+    [Fact]
+    public async Task BuildPlaylistAsync_ExcludesAvifWhenCodecIsUnavailable()
+    {
+        var opened = CreateFile("b.jpg");
+        CreateFile("a.png");
+        CreateFile("d.avif");
+        var service = new FolderPlaylistService(new StubImageDecodeService(heicSupported: false, avifSupported: false));
+
+        var result = await service.BuildPlaylistAsync(opened);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a.png", "b.jpg"], result.Value.Items.Select(item => item.Filename).ToArray());
+    }
+
+    [Fact]
     public async Task BuildPlaylistAsync_UsesCaseInsensitiveNaturalSort()
     {
         var opened = CreateFile("img10.jpg");
@@ -104,5 +161,41 @@ public sealed class FolderPlaylistServiceTests : IDisposable
         var path = Path.Combine(_tempDirectory, filename);
         File.WriteAllText(path, "test");
         return path;
+    }
+
+    private sealed class StubImageDecodeService : IImageDecodeService
+    {
+        private readonly bool _heicSupported;
+        private readonly bool _avifSupported;
+
+        public StubImageDecodeService(bool heicSupported, bool avifSupported)
+        {
+            _heicSupported = heicSupported;
+            _avifSupported = avifSupported;
+        }
+
+        public Task<Result<DecodedImage>> DecodeImageAsync(
+            string filePath,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<DecodedImage>.Failure(ViewerError.DecodeError("DecodeImage", filePath)));
+        }
+
+        public bool IsSupportedFormat(string extension)
+        {
+            return ImageFormatCatalog.IsSupportedFormat(extension)
+                || (_heicSupported && extension.Equals(".heic", StringComparison.OrdinalIgnoreCase))
+                || (_avifSupported && extension.Equals(".avif", StringComparison.OrdinalIgnoreCase));
+        }
+
+        public bool IsDeferredFormat(string extension)
+        {
+            return ImageFormatCatalog.IsDeferredFormat(extension);
+        }
+
+        public Task<Result<int>> GetFrameCountAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<int>.Success(1));
+        }
     }
 }

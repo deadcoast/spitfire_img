@@ -4,6 +4,23 @@ namespace ImageViewer.Core.Services;
 
 public sealed class FileOpenService : IFileOpenService
 {
+    private readonly Func<string, bool> _isSupportedFormat;
+
+    public FileOpenService()
+        : this(ImageFormatCatalog.IsSupportedFormat)
+    {
+    }
+
+    public FileOpenService(IImageDecodeService imageDecodeService)
+        : this(imageDecodeService.IsSupportedFormat)
+    {
+    }
+
+    private FileOpenService(Func<string, bool> isSupportedFormat)
+    {
+        _isSupportedFormat = isSupportedFormat;
+    }
+
     public Result<string> ValidateFilePath(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
@@ -21,7 +38,9 @@ public sealed class FileOpenService : IFileOpenService
         }
 
         var extension = Path.GetExtension(filePath);
-        if (!ImageFormatCatalog.IsSupportedFormat(extension))
+        if (!_isSupportedFormat(extension) &&
+            !ImageFormatCatalog.IsHeicFormat(extension) &&
+            !ImageFormatCatalog.IsAvifFormat(extension))
         {
             return Result<string>.Failure(ViewerError.UnsupportedFormatError("ValidateFilePath", filePath));
         }

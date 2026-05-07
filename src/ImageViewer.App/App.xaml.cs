@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using ImageViewer.App.Services;
 using Microsoft.UI.Xaml;
+using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
 using ImageViewer.Core.ViewModels;
 
@@ -21,6 +22,8 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        _ = DetectCodecsOnStartupAsync(_services);
+
         var window = _services.GetRequiredService<MainWindow>();
         window.Activate();
 
@@ -29,6 +32,11 @@ public partial class App : Application
         {
             _ = window.OpenInitialFileAsync(filePath);
         }
+    }
+
+    public static Task<Result<CodecAvailability>> DetectCodecsOnStartupAsync(IServiceProvider services)
+    {
+        return services.GetRequiredService<ICodecDetectionService>().DetectCodecsAsync();
     }
 
     public static string? ParseInitialFilePath(string? activationArguments, IReadOnlyList<string> commandLineArguments)
@@ -49,10 +57,14 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "spitfire.img");
 
-        services.AddSingleton<IFileOpenService, FileOpenService>();
+        services.AddSingleton<IWindowsCodecRegistry, WindowsCodecRegistry>();
+        services.AddSingleton<ICodecDetectionService, WindowsCodecDetectionService>();
+        services.AddSingleton<IPlatformImageDecodeService, WindowsPlatformImageDecodeService>();
         services.AddSingleton<IImageDecodeService, ImageDecodeService>();
+        services.AddSingleton<IFileOpenService, FileOpenService>();
         services.AddSingleton<IFolderPlaylistService, FolderPlaylistService>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<ILayoutService, LayoutService>();
         services.AddSingleton<ISettingsService>(_ => new SettingsService(localDataFolder));
         services.AddSingleton<IErrorLogService>(_ => new ErrorLogService(localDataFolder));
         services.AddSingleton<ISearchService, SearchService>();

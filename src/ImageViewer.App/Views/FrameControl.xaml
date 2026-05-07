@@ -1,0 +1,56 @@
+<UserControl
+    x:Class="ImageViewer.App.Views.FrameControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Visibility="Collapsed">
+    <Border Padding="10,6" Style="{StaticResource ChromePanelBorderStyle}">
+        <Grid ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="220" />
+            </Grid.ColumnDefinitions>
+            <Button
+                x:Name="PreviousButton"
+                Width="36"
+                Height="32"
+                Click="OnPreviousClicked"
+                ToolTipService.ToolTip="Previous frame">
+                <SymbolIcon Symbol="Previous" />
+            </Button>
+            <Button
+                x:Name="PlayPauseButton"
+                Grid.Column="1"
+                Width="36"
+                Height="32"
+                Click="OnPlayPauseClicked"
+                ToolTipService.ToolTip="Play or pause">
+                <SymbolIcon x:Name="PlayPauseIcon" Symbol="Pause" />
+            </Button>
+            <Button
+                x:Name="NextButton"
+                Grid.Column="2"
+                Width="36"
+                Height="32"
+                Click="OnNextClicked"
+                ToolTipService.ToolTip="Next frame">
+                <SymbolIcon Symbol="Next" />
+            </Button>
+            <TextBlock
+                x:Name="FrameText"
+                Grid.Column="3"
+                MinWidth="92"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource SecondaryTextBrush}" />
+            <Slider
+                x:Name="FrameSlider"
+                Grid.Column="4"
+                VerticalAlignment="Center"
+                IsEnabled="False"
+                StepFrequency="1"
+                ValueChanged="OnFrameSliderValueChanged" />
+        </Grid>
+    </Border>
+</UserControl>

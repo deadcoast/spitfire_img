@@ -18,8 +18,11 @@ public sealed class MainViewModel : ObservableObject
     private readonly ITransformService _transformService;
     private readonly IMetadataService _metadataService;
     private readonly IComparisonService _comparisonService;
+    private readonly ILayoutService _layoutService;
     private readonly IAnimationService _animationService;
     private readonly IAnimationPlaybackTimer _animationPlaybackTimer;
+    private readonly ICodecDetectionService _codecDetectionService;
+    private readonly HashSet<string> _codecInstallPromptsShown = new(StringComparer.OrdinalIgnoreCase);
     private ViewerSettings _settings = ViewerSettings.Default;
     private readonly Dictionary<string, ExifMetadata> _metadataCache = new(StringComparer.OrdinalIgnoreCase);
     private bool _isChromeVisible = true;
@@ -66,8 +69,10 @@ public sealed class MainViewModel : ObservableObject
         ITransformService transformService,
         IMetadataService metadataService,
         IComparisonService? comparisonService = null,
+        ILayoutService? layoutService = null,
         IAnimationService? animationService = null,
-        IAnimationPlaybackTimer? animationPlaybackTimer = null)
+        IAnimationPlaybackTimer? animationPlaybackTimer = null,
+        ICodecDetectionService? codecDetectionService = null)
     {
         _fileOpenService = fileOpenService;
         _imageDecodeService = imageDecodeService;
@@ -81,8 +86,10 @@ public sealed class MainViewModel : ObservableObject
         _transformService = transformService;
         _metadataService = metadataService;
         _comparisonService = comparisonService ?? new ComparisonService();
+        _layoutService = layoutService ?? new LayoutService();
         _animationService = animationService ?? new NoopAnimationService();
         _animationPlaybackTimer = animationPlaybackTimer ?? new NoopAnimationPlaybackTimer();
+        _codecDetectionService = codecDetectionService ?? new NoopCodecDetectionService();
         _animationPlaybackTimer.Tick += OnAnimationPlaybackTimerTick;
         SearchState = new SearchState(searchService);
         ThumbnailState = new ThumbnailState();
@@ -107,11 +114,15 @@ public sealed class MainViewModel : ObservableObject
 
     public ComparisonState ComparisonState { get; } = new();
 
+    public LayoutState LayoutState { get; } = new();
+
     public AnimationState AnimationState { get; } = new();
 
     public CommandPaletteState CommandPaletteState { get; }
 
     public event EventHandler? OpenFileRequested;
+
+    public event EventHandler<CodecInstallPromptRequest>? CodecInstallPromptRequested;
 
     public ViewerSettings Settings
     {
@@ -223,6 +234,13 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public bool CanAttemptOpenFormat(string extension)
+    {
+        return _imageDecodeService.IsSupportedFormat(extension) ||
+               ImageFormatCatalog.IsHeicFormat(extension) ||
+               ImageFormatCatalog.IsAvifFormat(extension);
+    }
+
     public void ShowChrome()
     {
         IsChromeVisible = true;
@@ -294,6 +312,43 @@ public sealed class MainViewModel : ObservableObject
         ShowChrome();
     }
 
+    public void AdvanceAnimationFrameFromControl()
+    {
+        if (!AnimationState.IsAnimated)
+        {
+            return;
+        }
+
+        PauseAnimationForManualControl();
+        AnimationState.NextFrame();
+        ShowChrome();
+    }
+
+    public void RewindAnimationFrameFromControl()
+    {
+        if (!AnimationState.IsAnimated)
+        {
+            return;
+        }
+
+        PauseAnimationForManualControl();
+        AnimationState.PreviousFrame();
+        ShowChrome();
+    }
+
+    public Result SeekAnimationFrameFromControl(int frameIndex)
+    {
+        if (!AnimationState.IsAnimated)
+        {
+            return Result.Failure(ViewerError.AnimationError("SeekAnimationFrame", null));
+        }
+
+        PauseAnimationForManualControl();
+        var result = AnimationState.SeekToFrame(frameIndex);
+        ShowChrome();
+        return result;
+    }
+
     public void AdvanceAnimationPlaybackFrame()
     {
         if (!AnimationState.IsAnimated || !AnimationState.IsPlaying)
@@ -303,6 +358,12 @@ public sealed class MainViewModel : ObservableObject
 
         AnimationState.NextFrame();
         ScheduleCurrentAnimationFrame();
+    }
+
+    private void PauseAnimationForManualControl()
+    {
+        AnimationState.Pause();
+        _animationPlaybackTimer.Stop();
     }
 
     public Task NavigateNextAsync(CancellationToken cancellationToken = default)
@@ -410,6 +471,7 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        LayoutState.ExitLayout();
         ApplyComparisonWindow(layout, indicesResult.Value);
         ShowChrome();
     }
@@ -417,6 +479,48 @@ public sealed class MainViewModel : ObservableObject
     public void ExitComparisonMode()
     {
         ComparisonState.ExitComparison();
+        ShowChrome();
+    }
+
+    public async Task EnterGridLayoutAsync(
+        ImageDimensions? canvasSize = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            await HandleErrorAsync(
+                ViewerError.LayoutError("EnterGridLayout", "Grid layout requires an active playlist."),
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        var layoutSize = canvasSize ?? new ImageDimensions(Settings.WindowWidth, Settings.WindowHeight);
+        var layoutResult = _layoutService.CalculateGridLayout(
+            LayoutConfig.DefaultGridRows,
+            LayoutConfig.DefaultGridColumns,
+            layoutSize);
+        if (layoutResult.IsFailure)
+        {
+            await HandleErrorAsync(layoutResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        var startIndex = Math.Max(0, PlaylistState.CurrentIndex);
+        var imagesResult = _layoutService.LoadGridImages(PlaylistState, startIndex, layoutResult.Value);
+        if (imagesResult.IsFailure)
+        {
+            await HandleErrorAsync(imagesResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        ComparisonState.ExitComparison();
+        LayoutState.EnterGrid(layoutResult.Value, imagesResult.Value, startIndex);
+        ShowChrome();
+    }
+
+    public void ExitLayoutMode()
+    {
+        LayoutState.ExitLayout();
         ShowChrome();
     }
 
@@ -979,6 +1083,52 @@ public sealed class MainViewModel : ObservableObject
         CurrentErrorSeverity = error.Severity;
         ErrorMessage = error.UserMessage;
         await _errorLogService.LogErrorAsync(error, cancellationToken).ConfigureAwait(false);
+        RequestCodecInstallPrompt(error);
+    }
+
+    private void RequestCodecInstallPrompt(ViewerError error)
+    {
+        if (error.Category != ErrorCategory.CodecUnavailableError)
+        {
+            return;
+        }
+
+        var extension = Path.GetExtension(error.FilePath);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            return;
+        }
+
+        var prompt = GetCodecPromptDetails(extension);
+        if (prompt is null || !_codecInstallPromptsShown.Add(extension))
+        {
+            return;
+        }
+
+        var storeUrl = prompt.Value.GetStoreUrl();
+        if (storeUrl.IsFailure)
+        {
+            return;
+        }
+
+        CodecInstallPromptRequested?.Invoke(
+            this,
+            new CodecInstallPromptRequest(prompt.Value.FormatName, error.UserMessage, storeUrl.Value));
+    }
+
+    private (string FormatName, Func<Result<string>> GetStoreUrl)? GetCodecPromptDetails(string? extension)
+    {
+        if (ImageFormatCatalog.IsHeicFormat(extension))
+        {
+            return ("HEIC", _codecDetectionService.GetHeicStoreUrl);
+        }
+
+        if (ImageFormatCatalog.IsAvifFormat(extension))
+        {
+            return ("AVIF", _codecDetectionService.GetAvifStoreUrl);
+        }
+
+        return null;
     }
 
     private async Task SaveSettingsOrReportErrorAsync(CancellationToken cancellationToken)
@@ -1015,7 +1165,8 @@ public sealed class MainViewModel : ObservableObject
             RegisterAsync("navigation.last", "Last Image", "Navigation", "End", () => NavigateLastAsync()),
             RegisterAsync("comparison.side-by-side", "Side-by-Side Comparison", "Comparison", "Ctrl+D", () => EnterComparisonModeAsync(ComparisonLayout.SideBySide)),
             RegisterAsync("comparison.overlay", "Overlay Comparison", "Comparison", "Ctrl+Shift+D", () => EnterComparisonModeAsync(ComparisonLayout.Overlay)),
-            Register("comparison.sync-zoom", "Toggle Sync Zoom", "Comparison", "Ctrl+L", ToggleComparisonSyncZoom)
+            Register("comparison.sync-zoom", "Toggle Sync Zoom", "Comparison", "Ctrl+L", ToggleComparisonSyncZoom),
+            RegisterAsync("layout.grid", "Grid Layout", "Layout", "Ctrl+G", () => EnterGridLayoutAsync())
         ]);
     }
 
@@ -1190,6 +1341,35 @@ public sealed class MainViewModel : ObservableObject
 
         public void Stop()
         {
+        }
+    }
+
+    private sealed class NoopCodecDetectionService : ICodecDetectionService
+    {
+        public Task<Result<CodecAvailability>> DetectCodecsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<CodecAvailability>.Success(
+                new CodecAvailability(HeicSupported: false, AvifSupported: false, DateTimeOffset.UtcNow)));
+        }
+
+        public Result<bool> IsHeicSupported()
+        {
+            return Result<bool>.Success(false);
+        }
+
+        public Result<bool> IsAvifSupported()
+        {
+            return Result<bool>.Success(false);
+        }
+
+        public Result<string> GetHeicStoreUrl()
+        {
+            return Result<string>.Failure(ViewerError.CodecDetectionError("GetHeicStoreUrl"));
+        }
+
+        public Result<string> GetAvifStoreUrl()
+        {
+            return Result<string>.Failure(ViewerError.CodecDetectionError("GetAvifStoreUrl"));
         }
     }
 }

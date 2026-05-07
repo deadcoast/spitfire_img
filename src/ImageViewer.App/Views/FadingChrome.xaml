@@ -44,6 +44,11 @@
                 Text="Unsaved changes" />
         </Border>
 
+        <views:FrameControl
+            x:Name="FrameControl"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            Margin="12,12,12,58" />
         <views:BottomInfoBar x:Name="InfoBar" VerticalAlignment="Bottom" Margin="12" />
     </Grid>
 </UserControl>

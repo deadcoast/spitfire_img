@@ -5,11 +5,36 @@ namespace ImageViewer.Core.Services;
 
 public sealed class ImageDecodeService : IImageDecodeService
 {
+    private readonly ICodecDetectionService? _codecDetectionService;
+    private readonly IPlatformImageDecodeService? _platformImageDecodeService;
+
+    public ImageDecodeService()
+    {
+    }
+
+    public ImageDecodeService(
+        ICodecDetectionService codecDetectionService,
+        IPlatformImageDecodeService platformImageDecodeService)
+    {
+        _codecDetectionService = codecDetectionService;
+        _platformImageDecodeService = platformImageDecodeService;
+    }
+
     public async Task<Result<DecodedImage>> DecodeImageAsync(
         string filePath,
         CancellationToken cancellationToken = default)
     {
         var extension = Path.GetExtension(filePath);
+        if (ImageFormatCatalog.IsHeicFormat(extension))
+        {
+            return await DecodeHeicImageAsync(filePath, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (ImageFormatCatalog.IsAvifFormat(extension))
+        {
+            return await DecodeAvifImageAsync(filePath, cancellationToken).ConfigureAwait(false);
+        }
+
         if (!IsSupportedFormat(extension))
         {
             return Result<DecodedImage>.Failure(ViewerError.UnsupportedFormatError("DecodeImage", filePath));
@@ -35,7 +60,9 @@ public sealed class ImageDecodeService : IImageDecodeService
 
     public bool IsSupportedFormat(string extension)
     {
-        return ImageFormatCatalog.IsSupportedFormat(extension);
+        return ImageFormatCatalog.IsSupportedFormat(extension) ||
+               (ImageFormatCatalog.IsHeicFormat(extension) && IsHeicCodecSupported()) ||
+               (ImageFormatCatalog.IsAvifFormat(extension) && IsAvifCodecSupported());
     }
 
     public bool IsDeferredFormat(string extension)
@@ -80,6 +107,62 @@ public sealed class ImageDecodeService : IImageDecodeService
             ".tiff" or ".tif" => ReadTiffDimensions(bytes),
             _ => throw new InvalidDataException("Unsupported image format.")
         };
+    }
+
+    private async Task<Result<DecodedImage>> DecodeHeicImageAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        if (!IsHeicCodecSupported())
+        {
+            return Result<DecodedImage>.Failure(ViewerError.CodecUnavailableError(
+                "DecodeImage",
+                "HEIC",
+                "HEIF Image Extensions",
+                filePath));
+        }
+
+        if (_platformImageDecodeService is null)
+        {
+            return Result<DecodedImage>.Failure(ViewerError.DecodeError("DecodeImage", filePath));
+        }
+
+        return await _platformImageDecodeService.DecodeImageAsync(filePath, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<DecodedImage>> DecodeAvifImageAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAvifCodecSupported())
+        {
+            return Result<DecodedImage>.Failure(ViewerError.CodecUnavailableError(
+                "DecodeImage",
+                "AVIF",
+                "AV1 Video Extension",
+                filePath));
+        }
+
+        if (_platformImageDecodeService is null)
+        {
+            return Result<DecodedImage>.Failure(ViewerError.DecodeError("DecodeImage", filePath));
+        }
+
+        return await _platformImageDecodeService.DecodeImageAsync(filePath, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private bool IsHeicCodecSupported()
+    {
+        var result = _codecDetectionService?.IsHeicSupported();
+        return result?.IsSuccess == true && result.Value;
+    }
+
+    private bool IsAvifCodecSupported()
+    {
+        var result = _codecDetectionService?.IsAvifSupported();
+        return result?.IsSuccess == true && result.Value;
     }
 
     private static (int Width, int Height) ReadPngDimensions(byte[] bytes)

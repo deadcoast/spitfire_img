@@ -29,4 +29,14 @@ public static class ImageFormatCatalog
     {
         return !string.IsNullOrWhiteSpace(extension) && DeferredExtensions.Contains(extension);
     }
+
+    public static bool IsHeicFormat(string? extension)
+    {
+        return string.Equals(extension, ".heic", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsAvifFormat(string? extension)
+    {
+        return string.Equals(extension, ".avif", StringComparison.OrdinalIgnoreCase);
+    }
 }

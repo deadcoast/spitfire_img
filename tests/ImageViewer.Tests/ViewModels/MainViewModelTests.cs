@@ -136,6 +136,67 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task FrameControlNext_PausesPlaybackAndAdvancesFrame()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
+        var timer = new RecordingAnimationPlaybackTimer();
+        var services = TestServices.Success(
+            image,
+            new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos"),
+            new RecordingAnimationService(Result<AnimatedGif>.Success(CreateAnimatedGif(image.FilePath))),
+            timer);
+        var viewModel = services.CreateViewModel();
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        viewModel.AdvanceAnimationFrameFromControl();
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(1, viewModel.AnimationState.CurrentFrame);
+        Assert.True(timer.IsStopped);
+    }
+
+    [Fact]
+    public async Task FrameControlPrevious_PausesPlaybackAndRewindsFrame()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
+        var timer = new RecordingAnimationPlaybackTimer();
+        var services = TestServices.Success(
+            image,
+            new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos"),
+            new RecordingAnimationService(Result<AnimatedGif>.Success(CreateAnimatedGif(image.FilePath))),
+            timer);
+        var viewModel = services.CreateViewModel();
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        viewModel.RewindAnimationFrameFromControl();
+
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(1, viewModel.AnimationState.CurrentFrame);
+        Assert.True(timer.IsStopped);
+    }
+
+    [Fact]
+    public async Task FrameControlSeek_PausesPlaybackAndMovesToRequestedFrame()
+    {
+        var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
+        var timer = new RecordingAnimationPlaybackTimer();
+        var services = TestServices.Success(
+            image,
+            new Playlist([new ImageItem(image.FilePath)], 0, @"C:\Photos"),
+            new RecordingAnimationService(Result<AnimatedGif>.Success(CreateAnimatedGif(image.FilePath))),
+            timer);
+        var viewModel = services.CreateViewModel();
+        await viewModel.OpenFileAsync(image.FilePath);
+
+        var result = viewModel.SeekAnimationFrameFromControl(1);
+
+        Assert.True(result.IsSuccess);
+        Assert.False(viewModel.AnimationState.IsPlaying);
+        Assert.Equal(1, viewModel.AnimationState.CurrentFrame);
+        Assert.True(timer.IsStopped);
+    }
+
+    [Fact]
     public async Task OpenFileAsync_ValidationFailure_LogsErrorAndSetsUserMessage()
     {
         var error = ViewerError.FileAccessError("ValidateFilePath", @"C:\missing.png");
@@ -149,6 +210,90 @@ public sealed class MainViewModelTests
         Assert.False(viewModel.IsLoading);
         Assert.Single(services.ErrorLogService.LoggedErrors);
         Assert.Equal(error, services.ErrorLogService.LoggedErrors[0]);
+    }
+
+    [Fact]
+    public async Task OpenFileAsync_HeicCodecUnavailable_RequestsStorePromptOnlyOncePerSession()
+    {
+        var path = @"C:\Photos\phone.heic";
+        var error = ViewerError.CodecUnavailableError(
+            "DecodeImage",
+            "HEIC",
+            "HEIF Image Extensions",
+            path);
+        var codecDetection = new RecordingCodecDetectionService(heicSupported: false);
+        var services = TestServices.WithDecoder(
+            path,
+            new StubImageDecodeService(Result<DecodedImage>.Failure(error)),
+            codecDetection);
+        var viewModel = services.CreateViewModel();
+        var prompts = new List<CodecInstallPromptRequest>();
+        viewModel.CodecInstallPromptRequested += (_, request) => prompts.Add(request);
+
+        await viewModel.OpenFileAsync(path);
+        await viewModel.OpenFileAsync(path);
+
+        Assert.Equal(2, services.ErrorLogService.LoggedErrors.Count);
+        Assert.All(services.ErrorLogService.LoggedErrors, logged => Assert.Equal(ErrorCategory.CodecUnavailableError, logged.Category));
+        var prompt = Assert.Single(prompts);
+        Assert.Equal("HEIC", prompt.FormatName);
+        Assert.Equal(error.UserMessage, prompt.Message);
+        Assert.Equal("ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG", prompt.StoreUrl);
+    }
+
+    [Fact]
+    public async Task OpenFileAsync_HeicCodecUnavailable_DoesNotPromptWhenStoreUrlCannotBeResolved()
+    {
+        var path = @"C:\Photos\phone.heic";
+        var error = ViewerError.CodecUnavailableError(
+            "DecodeImage",
+            "HEIC",
+            "HEIF Image Extensions",
+            path);
+        var codecDetection = new RecordingCodecDetectionService(
+            heicSupported: false,
+            heicStoreUrl: Result<string>.Failure(ViewerError.CodecDetectionError("GetHeicStoreUrl")));
+        var services = TestServices.WithDecoder(
+            path,
+            new StubImageDecodeService(Result<DecodedImage>.Failure(error)),
+            codecDetection);
+        var viewModel = services.CreateViewModel();
+        var prompts = new List<CodecInstallPromptRequest>();
+        viewModel.CodecInstallPromptRequested += (_, request) => prompts.Add(request);
+
+        await viewModel.OpenFileAsync(path);
+
+        Assert.Empty(prompts);
+        Assert.Equal(ErrorCategory.CodecUnavailableError, services.ErrorLogService.LoggedErrors.Single().Category);
+    }
+
+    [Fact]
+    public async Task OpenFileAsync_AvifCodecUnavailable_RequestsStorePromptOnlyOncePerSession()
+    {
+        var path = @"C:\Photos\modern.avif";
+        var error = ViewerError.CodecUnavailableError(
+            "DecodeImage",
+            "AVIF",
+            "AV1 Video Extension",
+            path);
+        var codecDetection = new RecordingCodecDetectionService(heicSupported: false, avifSupported: false);
+        var services = TestServices.WithDecoder(
+            path,
+            new StubImageDecodeService(Result<DecodedImage>.Failure(error)),
+            codecDetection);
+        var viewModel = services.CreateViewModel();
+        var prompts = new List<CodecInstallPromptRequest>();
+        viewModel.CodecInstallPromptRequested += (_, request) => prompts.Add(request);
+
+        await viewModel.OpenFileAsync(path);
+        await viewModel.OpenFileAsync(path);
+
+        Assert.Equal(2, services.ErrorLogService.LoggedErrors.Count);
+        Assert.All(services.ErrorLogService.LoggedErrors, logged => Assert.Equal(ErrorCategory.CodecUnavailableError, logged.Category));
+        var prompt = Assert.Single(prompts);
+        Assert.Equal("AVIF", prompt.FormatName);
+        Assert.Equal(error.UserMessage, prompt.Message);
+        Assert.Equal("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V", prompt.StoreUrl);
     }
 
     [Fact]
@@ -209,6 +354,40 @@ public sealed class MainViewModelTests
         viewModel.ExitComparisonMode();
 
         Assert.False(viewModel.ComparisonState.IsActive);
+    }
+
+    [Fact]
+    public async Task EnterGridLayoutAsync_ActivatesDefaultGridWithCurrentPlaylistWindow()
+    {
+        var playlist = CreateTwelveItemPlaylist(currentIndex: 2);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+
+        await viewModel.EnterGridLayoutAsync(new ImageDimensions(900, 600));
+
+        Assert.True(viewModel.LayoutState.IsGridActive);
+        Assert.Equal(LayoutMode.Grid, viewModel.LayoutState.CurrentLayout);
+        Assert.Equal(3, viewModel.LayoutState.GridRows);
+        Assert.Equal(3, viewModel.LayoutState.GridColumns);
+        Assert.Equal(2, viewModel.LayoutState.GridStartIndex);
+        Assert.Equal(9, viewModel.LayoutState.GridImages.Count);
+        Assert.Equal([2, 3, 4, 5, 6, 7, 8, 9, 10], viewModel.LayoutState.GridImages.Select(image => image.PlaylistIndex));
+        Assert.False(viewModel.ComparisonState.IsActive);
+    }
+
+    [Fact]
+    public async Task EnterComparisonModeAsync_ExitsGridLayout()
+    {
+        var playlist = CreateTwelveItemPlaylist(currentIndex: 0);
+        var viewModel = TestServices.WithPlaylist(playlist).CreateViewModel();
+        viewModel.PlaylistState.SetPlaylist(playlist);
+        await viewModel.EnterGridLayoutAsync(new ImageDimensions(900, 600));
+
+        await viewModel.EnterComparisonModeAsync(ComparisonLayout.SideBySide);
+
+        Assert.False(viewModel.LayoutState.IsGridActive);
+        Assert.Empty(viewModel.LayoutState.GridImages);
+        Assert.True(viewModel.ComparisonState.IsActive);
     }
 
     [Fact]
@@ -492,6 +671,7 @@ public sealed class MainViewModelTests
         Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "Image");
         Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "Navigation");
         Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "Comparison");
+        Assert.Contains(viewModel.CommandPaletteState.AllCommands, command => command.Category == "Layout");
         Assert.All(viewModel.CommandPaletteState.AllCommands, command => Assert.False(string.IsNullOrWhiteSpace(command.KeyboardShortcut)));
     }
 
@@ -853,6 +1033,16 @@ public sealed class MainViewModelTests
             @"C:\Photos");
     }
 
+    private static Playlist CreateTwelveItemPlaylist(int currentIndex)
+    {
+        return new Playlist(
+            Enumerable.Range(0, 12)
+                .Select(index => new ImageItem($@"C:\Photos\image-{index:00}.png"))
+                .ToArray(),
+            currentIndex,
+            @"C:\Photos");
+    }
+
     private static AnimatedGif CreateAnimatedGif(string filePath)
     {
         return new AnimatedGif(
@@ -877,7 +1067,8 @@ public sealed class MainViewModelTests
             RecordingExportService? exportService = null,
             RecordingTransformService? transformService = null,
             RecordingAnimationService? animationService = null,
-            RecordingAnimationPlaybackTimer? animationPlaybackTimer = null)
+            RecordingAnimationPlaybackTimer? animationPlaybackTimer = null,
+            RecordingCodecDetectionService? codecDetectionService = null)
         {
             FileOpenService = fileOpenService;
             ImageDecodeService = imageDecodeService;
@@ -892,6 +1083,7 @@ public sealed class MainViewModelTests
             AnimationService = animationService ?? new RecordingAnimationService(
                 Result<AnimatedGif>.Success(new AnimatedGif(string.Empty, [])));
             AnimationPlaybackTimer = animationPlaybackTimer ?? new RecordingAnimationPlaybackTimer();
+            CodecDetectionService = codecDetectionService ?? new RecordingCodecDetectionService(heicSupported: false);
         }
 
         public IFileOpenService FileOpenService { get; }
@@ -917,6 +1109,8 @@ public sealed class MainViewModelTests
         public RecordingAnimationService AnimationService { get; }
 
         public RecordingAnimationPlaybackTimer AnimationPlaybackTimer { get; }
+
+        public RecordingCodecDetectionService CodecDetectionService { get; }
 
         public static TestServices Success(
             DecodedImage image,
@@ -980,7 +1174,10 @@ public sealed class MainViewModelTests
                 new RecordingErrorLogService());
         }
 
-        public static TestServices WithDecoder(string filePath, IImageDecodeService decoder)
+        public static TestServices WithDecoder(
+            string filePath,
+            IImageDecodeService decoder,
+            RecordingCodecDetectionService? codecDetectionService = null)
         {
             var playlist = new Playlist([new ImageItem(filePath)], 0, Path.GetDirectoryName(filePath) ?? string.Empty);
             return new TestServices(
@@ -989,7 +1186,8 @@ public sealed class MainViewModelTests
                 new StubFolderPlaylistService(Result<Playlist>.Success(playlist)),
                 new NavigationService(decoder),
                 new StubSettingsService(),
-                new RecordingErrorLogService());
+                new RecordingErrorLogService(),
+                codecDetectionService: codecDetectionService);
         }
 
         public MainViewModel CreateViewModel()
@@ -1008,7 +1206,8 @@ public sealed class MainViewModelTests
                 TransformService,
                 MetadataService,
                 animationService: AnimationService,
-                animationPlaybackTimer: AnimationPlaybackTimer);
+                animationPlaybackTimer: AnimationPlaybackTimer,
+                codecDetectionService: CodecDetectionService);
         }
     }
 
@@ -1325,6 +1524,52 @@ public sealed class MainViewModelTests
         public void RaiseTick()
         {
             Tick?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private sealed class RecordingCodecDetectionService : ICodecDetectionService
+    {
+        private readonly bool _heicSupported;
+        private readonly Result<string> _heicStoreUrl;
+        private readonly bool _avifSupported;
+        private readonly Result<string> _avifStoreUrl;
+
+        public RecordingCodecDetectionService(
+            bool heicSupported,
+            bool avifSupported = false,
+            Result<string>? heicStoreUrl = null,
+            Result<string>? avifStoreUrl = null)
+        {
+            _heicSupported = heicSupported;
+            _avifSupported = avifSupported;
+            _heicStoreUrl = heicStoreUrl ?? Result<string>.Success("ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG");
+            _avifStoreUrl = avifStoreUrl ?? Result<string>.Success("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V");
+        }
+
+        public Task<Result<CodecAvailability>> DetectCodecsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<CodecAvailability>.Success(
+                new CodecAvailability(_heicSupported, _avifSupported, DateTimeOffset.UnixEpoch)));
+        }
+
+        public Result<bool> IsHeicSupported()
+        {
+            return Result<bool>.Success(_heicSupported);
+        }
+
+        public Result<bool> IsAvifSupported()
+        {
+            return Result<bool>.Success(_avifSupported);
+        }
+
+        public Result<string> GetHeicStoreUrl()
+        {
+            return _heicStoreUrl;
+        }
+
+        public Result<string> GetAvifStoreUrl()
+        {
+            return _avifStoreUrl;
         }
     }
 }

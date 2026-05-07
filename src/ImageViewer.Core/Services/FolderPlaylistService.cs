@@ -4,6 +4,23 @@ namespace ImageViewer.Core.Services;
 
 public sealed class FolderPlaylistService : IFolderPlaylistService
 {
+    private readonly Func<string, bool> _isSupportedFormat;
+
+    public FolderPlaylistService()
+        : this(ImageFormatCatalog.IsSupportedFormat)
+    {
+    }
+
+    public FolderPlaylistService(IImageDecodeService imageDecodeService)
+        : this(imageDecodeService.IsSupportedFormat)
+    {
+    }
+
+    private FolderPlaylistService(Func<string, bool> isSupportedFormat)
+    {
+        _isSupportedFormat = isSupportedFormat;
+    }
+
     public Task<Result<Playlist>> BuildPlaylistAsync(
         string openedFilePath,
         CancellationToken cancellationToken = default)
@@ -18,7 +35,7 @@ public sealed class FolderPlaylistService : IFolderPlaylistService
             }
 
             var files = Directory.EnumerateFiles(folderPath)
-                .Where(path => ImageFormatCatalog.IsSupportedFormat(Path.GetExtension(path)))
+                .Where(path => _isSupportedFormat(Path.GetExtension(path)))
                 .Select(path => new ImageItem(path))
                 .OrderBy(item => item.Filename, NaturalStringComparer.OrdinalIgnoreCase)
                 .ToList();

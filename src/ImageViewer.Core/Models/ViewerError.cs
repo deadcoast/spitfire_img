@@ -16,7 +16,10 @@ public enum ErrorCategory
     MetadataExtractionError,
     ComparisonError,
     CommandPaletteError,
-    AnimationError
+    LayoutError,
+    AnimationError,
+    CodecDetectionError,
+    CodecUnavailableError
 }
 
 public enum ErrorSeverity
@@ -162,9 +165,48 @@ public sealed record ViewerError(
             exception?.StackTrace);
     }
 
+    public static ViewerError LayoutError(
+        string operation,
+        string userMessage,
+        Exception? exception = null)
+    {
+        return new ViewerError(
+            DateTimeOffset.UtcNow,
+            ErrorSeverity.Error,
+            ErrorCategory.LayoutError,
+            userMessage,
+            operation,
+            FilePath: null,
+            exception?.GetType().Name,
+            exception?.StackTrace);
+    }
+
     public static ViewerError AnimationError(string operation, string? filePath, Exception? exception = null)
     {
         return Create(ErrorCategory.AnimationError, operation, filePath, exception);
+    }
+
+    public static ViewerError CodecDetectionError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.CodecDetectionError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError CodecUnavailableError(
+        string operation,
+        string formatName,
+        string codecName,
+        string? filePath,
+        Exception? exception = null)
+    {
+        return new ViewerError(
+            DateTimeOffset.UtcNow,
+            ErrorSeverity.Warning,
+            ErrorCategory.CodecUnavailableError,
+            $"{formatName} format requires the {codecName} from the Microsoft Store. Would you like to open the Store page?",
+            operation,
+            filePath,
+            exception?.GetType().Name,
+            exception?.StackTrace);
     }
 
     private static ErrorSeverity GetSeverity(ErrorCategory category)
@@ -173,6 +215,8 @@ public sealed record ViewerError(
                 or ErrorCategory.SettingsPersistenceError
                 or ErrorCategory.ThumbnailGenerationError
                 or ErrorCategory.AnimationError
+                or ErrorCategory.CodecDetectionError
+                or ErrorCategory.CodecUnavailableError
             ? ErrorSeverity.Warning
             : ErrorSeverity.Error;
     }
@@ -195,7 +239,10 @@ public sealed record ViewerError(
             ErrorCategory.MetadataExtractionError => "Unable to read detailed metadata for this image.",
             ErrorCategory.ComparisonError => "Unable to enter comparison mode.",
             ErrorCategory.CommandPaletteError => "Unable to load command palette.",
+            ErrorCategory.LayoutError => "Unable to enter layout mode.",
             ErrorCategory.AnimationError => "Unable to load animated GIF.",
+            ErrorCategory.CodecDetectionError => "Unable to detect codec availability.",
+            ErrorCategory.CodecUnavailableError => "This image requires a Windows codec from the Microsoft Store.",
             _ => "An unexpected error occurred. The application will attempt to continue."
         };
     }

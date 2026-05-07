@@ -35,6 +35,7 @@ public sealed partial class MainWindow : Window
         RootGrid.DataContext = viewModel;
         ImageCanvas.Attach(viewModel);
         ComparisonView.Attach(viewModel);
+        GridLayout.Attach(viewModel);
         ThumbnailStrip.Attach(viewModel);
         SearchOverlay.Attach(viewModel);
         CommandPalette.Attach(viewModel);
@@ -48,6 +49,7 @@ public sealed partial class MainWindow : Window
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ViewerState.PropertyChanged += OnViewerStatePropertyChanged;
         viewModel.CommandPaletteState.PropertyChanged += OnCommandPaletteStatePropertyChanged;
+        viewModel.CodecInstallPromptRequested += OnCodecInstallPromptRequested;
         Activated += OnActivated;
         Closed += OnClosed;
         _ = InitializeWindowAsync();
@@ -63,6 +65,7 @@ public sealed partial class MainWindow : Window
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.ViewerState.PropertyChanged -= OnViewerStatePropertyChanged;
         _viewModel.CommandPaletteState.PropertyChanged -= OnCommandPaletteStatePropertyChanged;
+        _viewModel.CodecInstallPromptRequested -= OnCodecInstallPromptRequested;
         _viewModel.OpenFileRequested -= OnViewModelOpenFileRequested;
         await _viewModel.SaveWindowStateAsync(
             _appWindow.Size.Width,
@@ -108,6 +111,16 @@ public sealed partial class MainWindow : Window
         foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp" })
         {
             picker.FileTypeFilter.Add(extension);
+        }
+
+        if (_viewModel.CanAttemptOpenFormat(".heic"))
+        {
+            picker.FileTypeFilter.Add(".heic");
+        }
+
+        if (_viewModel.CanAttemptOpenFormat(".avif"))
+        {
+            picker.FileTypeFilter.Add(".avif");
         }
 
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
@@ -183,6 +196,11 @@ public sealed partial class MainWindow : Window
                     _viewModel.ExitComparisonMode();
                     e.Handled = true;
                 }
+                else if (_viewModel.LayoutState.CurrentLayout != LayoutMode.Single)
+                {
+                    _viewModel.ExitLayoutMode();
+                    e.Handled = true;
+                }
                 else if (_viewModel.MetadataState.IsVisible)
                 {
                     _viewModel.MetadataState.HidePanel();
@@ -229,6 +247,10 @@ public sealed partial class MainWindow : Window
             case VirtualKey.F when isControlPressed:
                 _viewModel.ShowSearch();
                 SearchOverlay.Show();
+                e.Handled = true;
+                break;
+            case VirtualKey.G when isControlPressed:
+                await _viewModel.EnterGridLayoutAsync(GetLayoutCanvasSize());
                 e.Handled = true;
                 break;
             case VirtualKey.P when isControlPressed && isShiftPressed:
@@ -312,6 +334,13 @@ public sealed partial class MainWindow : Window
                _viewModel.ComparisonState.Layout == ComparisonLayout.Overlay;
     }
 
+    private ImageDimensions GetLayoutCanvasSize()
+    {
+        var width = RootGrid.ActualWidth > 0 ? RootGrid.ActualWidth : _viewModel.Settings.WindowWidth;
+        var height = RootGrid.ActualHeight > 0 ? RootGrid.ActualHeight : _viewModel.Settings.WindowHeight;
+        return new ImageDimensions(width, height);
+    }
+
     private void OnRootPointerMoved(object sender, PointerRoutedEventArgs e)
     {
         if (_viewModel.CommandPaletteState.IsVisible)
@@ -379,6 +408,31 @@ public sealed partial class MainWindow : Window
     private async void OnViewModelOpenFileRequested(object? sender, EventArgs e)
     {
         await OpenFileFromPickerAsync();
+    }
+
+    private void OnCodecInstallPromptRequested(object? sender, CodecInstallPromptRequest request)
+    {
+        DispatcherQueue.TryEnqueue(async () => await ShowCodecInstallPromptAsync(request));
+    }
+
+    private async Task ShowCodecInstallPromptAsync(CodecInstallPromptRequest request)
+    {
+        var dialog = new Microsoft.UI.Xaml.Controls.ContentDialog
+        {
+            XamlRoot = RootGrid.XamlRoot,
+            Title = $"{request.FormatName} codec required",
+            Content = request.Message,
+            PrimaryButtonText = "Open Store",
+            CloseButtonText = "Not now",
+            DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Primary
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary &&
+            Uri.TryCreate(request.StoreUrl, UriKind.Absolute, out var storeUri))
+        {
+            await Launcher.LaunchUriAsync(storeUri);
+        }
     }
 
     private void ApplyFullscreenState()
@@ -498,7 +552,7 @@ public sealed partial class MainWindow : Window
 
         if (path is not null)
         {
-            isValid = new ImageViewer.Core.Services.ImageDecodeService().IsSupportedFormat(Path.GetExtension(path));
+            isValid = _viewModel.CanAttemptOpenFormat(Path.GetExtension(path));
         }
 
         DropIndicator.Show(isValid);
