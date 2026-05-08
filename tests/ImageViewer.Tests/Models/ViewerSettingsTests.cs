@@ -16,6 +16,13 @@ public sealed class ViewerSettingsTests
         Assert.Equal(2000, settings.FadeDelayMs);
         Assert.Equal(300, settings.FadeDurationMs);
         Assert.Equal(TransitionEffect.Fade, settings.SlideshowTransition);
+        Assert.Equal(TimeSpan.FromSeconds(3), settings.SlideshowInterval);
+        Assert.Equal(LayoutMode.Single, settings.PreferredLayout);
+        Assert.Equal(3, settings.PreferredGridRows);
+        Assert.Equal(3, settings.PreferredGridColumns);
+        Assert.Equal(7, settings.PreferredFilmstripThumbnailCount);
+        Assert.True(settings.ComparisonSyncZoom);
+        Assert.True(settings.GifAutoPlay);
     }
 
     [Fact]
@@ -29,7 +36,14 @@ public sealed class ViewerSettingsTests
             WindowX: 50,
             WindowY: 60,
             FadeDelayMs: 100,
-            FadeDurationMs: 20);
+            FadeDurationMs: 20,
+            SlideshowInterval: TimeSpan.FromMilliseconds(100),
+            PreferredLayout: (LayoutMode)999,
+            PreferredGridRows: 0,
+            PreferredGridColumns: 99,
+            PreferredFilmstripThumbnailCount: 99,
+            ComparisonSyncZoom: false,
+            GifAutoPlay: false);
 
         var normalized = settings.Normalize();
 
@@ -37,5 +51,12 @@ public sealed class ViewerSettingsTests
         Assert.Equal(600, normalized.WindowHeight);
         Assert.Equal(500, normalized.FadeDelayMs);
         Assert.Equal(100, normalized.FadeDurationMs);
+        Assert.Equal(TimeSpan.FromSeconds(1), normalized.SlideshowInterval);
+        Assert.Equal(LayoutMode.Single, normalized.PreferredLayout);
+        Assert.Equal(2, normalized.PreferredGridRows);
+        Assert.Equal(6, normalized.PreferredGridColumns);
+        Assert.Equal(11, normalized.PreferredFilmstripThumbnailCount);
+        Assert.False(normalized.ComparisonSyncZoom);
+        Assert.False(normalized.GifAutoPlay);
     }
 }

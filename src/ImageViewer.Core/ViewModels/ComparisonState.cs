@@ -142,6 +142,11 @@ public sealed class ComparisonState : ObservableObject
         SyncZoomEnabled = !SyncZoomEnabled;
     }
 
+    public void SetSyncZoom(bool isEnabled)
+    {
+        SyncZoomEnabled = isEnabled;
+    }
+
     public void ApplyViewportUpdate(int visibleIndex, ComparisonImageViewport viewport)
     {
         if (visibleIndex < 0 || visibleIndex >= ImageViewports.Count)

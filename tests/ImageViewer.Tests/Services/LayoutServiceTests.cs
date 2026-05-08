@@ -59,6 +59,38 @@ public sealed class LayoutServiceTests
     }
 
     [Fact]
+    public void LoadFilmstripData_CentersThumbnailsAroundFocusIndex()
+    {
+        var service = new LayoutService();
+        var playlist = CreatePlaylistState(12, currentIndex: 6);
+
+        var result = service.LoadFilmstripData(playlist, focusIndex: 6, thumbnailCount: 7);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(6, result.Value.FocusIndex);
+        Assert.Equal(@"C:\Photos\image-06.png", result.Value.FocusItem.FilePath);
+        Assert.Equal([3, 4, 5, 6, 7, 8, 9], result.Value.Thumbnails.Select(image => image.PlaylistIndex));
+        Assert.Single(result.Value.Thumbnails.Where(image => image.IsFocused));
+        Assert.True(result.Value.Thumbnails.Single(image => image.IsFocused).PlaylistIndex == 6);
+    }
+
+    [Theory]
+    [InlineData(3, 7)]
+    [InlineData(12, 11)]
+    public void LoadFilmstripData_ClampsVisibleThumbnailCountToDocumentedRange(
+        int requestedThumbnailCount,
+        int expectedThumbnailCount)
+    {
+        var service = new LayoutService();
+        var playlist = CreatePlaylistState(20, currentIndex: 10);
+
+        var result = service.LoadFilmstripData(playlist, focusIndex: 10, requestedThumbnailCount);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expectedThumbnailCount, result.Value.Thumbnails.Count);
+    }
+
+    [Fact]
     public void CalculateGridLayout_RejectsInvalidDimensions()
     {
         var service = new LayoutService();

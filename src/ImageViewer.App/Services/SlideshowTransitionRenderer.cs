@@ -36,8 +36,7 @@ public sealed class SlideshowTransitionRenderer
                 currentTransform,
                 nextTransform,
                 CreateZoomStoryboard(currentImage, nextImage, currentTransform, plan.Duration)),
-            _ => Task.FromResult(Result.Failure(
-                ViewerError.UnexpectedViewerError("ApplyTransition", filePath: null)))
+            _ => ApplyInstantTransitionAsync(currentImage, nextImage, currentTransform, nextTransform)
         };
     }
 
@@ -66,10 +65,11 @@ public sealed class SlideshowTransitionRenderer
             ResetVisualState(currentImage, nextImage, currentTransform, nextTransform);
             return Result.Success();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
+            currentImage.Source = nextImage.Source;
             ResetVisualState(currentImage, nextImage, currentTransform, nextTransform);
-            return Result.Failure(ViewerError.UnexpectedViewerError("ApplyTransition", filePath: null, ex));
+            return Result.Success();
         }
     }
 

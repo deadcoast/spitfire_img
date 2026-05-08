@@ -15,6 +15,11 @@ public interface ILayoutService
         int startIndex,
         GridLayoutPlan layout);
 
+    Result<FilmstripData> LoadFilmstripData(
+        PlaylistState playlist,
+        int focusIndex,
+        int thumbnailCount);
+
     Result<int> CalculateGridStartIndex(
         int currentStartIndex,
         int offset,

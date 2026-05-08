@@ -10,7 +10,7 @@ This design document specifies the technical implementation for Phase 3 of spitf
 
 1. **Architectural Consistency**: All Phase 3 features integrate seamlessly with Phase 1 and Phase 2 services without breaking changes
 2. **Service Separation**: New services follow established patterns (interfaces, Result types, async operations)
-3. **Performance**: Advanced modes remain responsive (slideshow transitions < 400ms, comparison rendering < 600ms, command palette search < 50ms)
+3. **Performance**: Advanced modes remain responsive (slideshow transitions use specified durations, comparison rendering < 600ms, command palette search < 50ms)
 4. **User Experience**: Features enhance the presentation-first philosophy without adding complexity
 5. **Extensibility**: Design supports future enhancements (video playback, advanced editing, cloud integration)
 
@@ -2061,7 +2061,7 @@ public async Task AnimationService_RealAnimatedGif_ExtractsAllFrames()
 
 **Performance Targets**:
 
-- Slideshow transition: < 400ms
+- Slideshow transitions: specified durations (Fade 300ms, Slide 400ms, Zoom 350ms)
 - Comparison rendering (2 images): < 600ms
 - Command palette search: < 50ms for 200 commands
 - GIF frame extraction: < 2s for 100 frames

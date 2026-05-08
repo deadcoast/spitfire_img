@@ -192,6 +192,25 @@ public sealed class CommandPaletteServiceTests
             $"Expected fuzzy search under 50ms, but took {stopwatch.ElapsedMilliseconds}ms.");
     }
 
+    [Fact]
+    public void FilterCommands_RepeatedQueryReusesCachedFuzzyMatches()
+    {
+        var service = new CommandPaletteService(
+            [
+                CreateRegistration(new CommandItem("view.zoom-mode", "Toggle Zoom Mode", "View", "Z")),
+                CreateRegistration(new CommandItem("view.zoom-in", "Zoom In", "View", "Ctrl++")),
+                CreateRegistration(new CommandItem("view.reset-zoom", "Reset Zoom", "View", "0"))
+            ]);
+
+        var firstResult = service.FilterCommands("zoom");
+        var secondResult = service.FilterCommands("zoom");
+
+        Assert.True(firstResult.IsSuccess);
+        Assert.True(secondResult.IsSuccess);
+        Assert.Same(firstResult.Value[0], secondResult.Value[0]);
+        Assert.Same(firstResult.Value[1], secondResult.Value[1]);
+    }
+
     private static CommandRegistration[] CreateSearchRegistrations()
     {
         return

@@ -71,6 +71,23 @@ public sealed class LayoutStateTests
     }
 
     [Fact]
+    public void EnterFilmstrip_ActivatesFilmstripAndStoresFocusWindow()
+    {
+        var state = new LayoutState();
+        var service = new LayoutService();
+        var playlist = CreatePlaylistState(12, currentIndex: 6);
+        var data = service.LoadFilmstripData(playlist, playlist.CurrentIndex, thumbnailCount: 7).Value;
+
+        state.EnterFilmstrip(data);
+
+        Assert.Equal(LayoutMode.Filmstrip, state.CurrentLayout);
+        Assert.True(state.IsFilmstripActive);
+        Assert.Equal(6, state.FilmstripFocusIndex);
+        Assert.Equal(@"C:\Photos\image-06.png", state.FilmstripFocusItem?.FilePath);
+        Assert.Equal([3, 4, 5, 6, 7, 8, 9], state.FilmstripThumbnails.Select(image => image.PlaylistIndex));
+    }
+
+    [Fact]
     public void UpdateGrid_ReplacesImagesAndPreservesActivePlaylistWhenStillVisible()
     {
         var state = new LayoutState();
@@ -102,7 +119,9 @@ public sealed class LayoutStateTests
 
         Assert.Equal(LayoutMode.Single, state.CurrentLayout);
         Assert.False(state.IsGridActive);
+        Assert.False(state.IsFilmstripActive);
         Assert.Empty(state.GridImages);
+        Assert.Empty(state.FilmstripThumbnails);
         Assert.Empty(state.GridLayout.Cells);
         Assert.Equal(0, state.ActiveGridImageIndex);
         Assert.Equal(-1, state.ActiveGridPlaylistIndex);

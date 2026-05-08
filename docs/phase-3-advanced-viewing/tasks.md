@@ -8,7 +8,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
 
 ## Tasks
 
-- [ ] 1. Implement slideshow mode foundation
+- [x] 1. Implement slideshow mode foundation
   - Create SlideshowService with timing and state management
   - Create SlideshowState ViewModel for playback state
   - Implement slideshow activation, pause, resume, and stop
@@ -27,7 +27,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - **Property 3: Slideshow Timer Reset on Manual Navigation**
   - **Validates: Requirements 1.8**
 
-- [ ] 2. Implement slideshow timing configuration
+- [x] 2. Implement slideshow timing configuration
   - Add slideshow interval configuration (1s to 60s)
   - Implement interval stepping with Plus/Minus keys
   - Add slideshow settings to ViewerSettings model
@@ -59,7 +59,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Test transition cancellation on manual navigation
   - Test memory usage during transitions
 
-- [ ] 4. Checkpoint - Ensure slideshow mode tests pass
+- [x] 4. Checkpoint - Ensure slideshow mode tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 5. Implement comparison mode foundation
@@ -283,11 +283,11 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Implement grid scrolling to load additional images
   - _Requirements: 14.4, 14.5, 14.7, 14.8, 14.9, 14.10_
 
-- [ ]* 23.1 Write property test for grid layout cell distribution
+- [x]* 23.1 Write property test for grid layout cell distribution
   - **Property 15: Grid Layout Cell Distribution**
   - **Validates: Requirements 14.2, 14.3**
 
-- [ ] 24. Implement filmstrip layout mode
+- [x] 24. Implement filmstrip layout mode
   - Create FilmstripView XAML component
   - Implement filmstrip activation with Ctrl+F (in layout context)
   - Divide canvas into focus area (75%) and thumbnail strip (25%)
@@ -296,7 +296,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Reuse ThumbnailService from Phase 2 for thumbnails
   - _Requirements: 15.1, 15.2, 15.6, 15.8_
 
-- [ ] 25. Implement filmstrip navigation and scrolling
+- [x] 25. Implement filmstrip navigation and scrolling
   - Implement thumbnail click to change focus image
   - Implement Left/Right arrow navigation in filmstrip
   - Scroll thumbnail strip to keep current image centered
@@ -315,10 +315,10 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Test layout switching
   - Test memory usage with many images
 
-- [ ] 26. Checkpoint - Ensure custom layout tests pass
+- [x] 26. Checkpoint - Ensure custom layout tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 27. Implement layout persistence
+- [x] 27. Implement layout persistence
   - Add layout preferences to ViewerSettings
   - Save layout mode on layout change
   - Restore saved layout on app start
@@ -326,7 +326,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Add Ctrl+1 shortcut to return to single-image view
   - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-- [ ] 28. Implement slideshow in advanced modes
+- [x] 28. Implement slideshow in advanced modes
   - Implement slideshow in comparison mode (advance both images)
   - Implement slideshow in grid layout (advance all visible images)
   - Implement slideshow in filmstrip mode (advance focus image)
@@ -338,7 +338,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - **Property 17: Slideshow in Comparison Mode**
   - **Validates: Requirements 17.1, 17.2**
 
-- [ ] 29. Extend error handling for Phase 3
+- [x] 29. Extend error handling for Phase 3
   - Add new error categories to ViewerError enum
   - Implement SlideshowError factory method
   - Implement TransitionError factory method
@@ -354,7 +354,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Extend ErrorLogService with Phase 3 error logging
   - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7_
 
-- [ ] 30. Implement graceful degradation strategies
+- [x] 30. Implement graceful degradation strategies
   - Fall back to instant transitions if transition fails
   - Reduce image count in comparison if memory insufficient
   - Display first frame as static if GIF animation fails
@@ -363,7 +363,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Fall back to single-image view for critical layout failures
   - _Requirements: Error Handling section_
 
-- [ ] 31. Optimize performance for advanced modes
+- [x] 31. Optimize performance for advanced modes
   - Preload next image during slideshow
   - Load comparison images in parallel
   - Cache fuzzy match scores in command palette
@@ -373,7 +373,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Implement progressive loading for layouts
   - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5, 19.6, 19.7_
 
-- [ ] 32. Integrate Phase 3 features with MainViewModel
+- [x] 32. Integrate Phase 3 features with MainViewModel
   - Add slideshow commands to MainViewModel
   - Add comparison commands to MainViewModel
   - Add command palette commands to MainViewModel
@@ -383,7 +383,7 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Update Chrome UI with Phase 3 indicators
   - _Requirements: Integration section_
 
-- [ ] 33. Update settings persistence with Phase 3 preferences
+- [x] 33. Update settings persistence with Phase 3 preferences
   - Add SlideshowInterval to ViewerSettings
   - Add SlideshowTransition to ViewerSettings
   - Add PreferredLayout to ViewerSettings
@@ -393,17 +393,17 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
   - Serialize and deserialize Phase 3 settings via SettingsService
   - _Requirements: Extended ViewerSettings section_
 
-- [ ] 34. Final checkpoint - Ensure all Phase 3 tests pass
+- [x] 34. Final checkpoint - Ensure all Phase 3 tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 35. Manual testing and polish
+- [x] 35. Manual testing and polish
   - Verify slideshow timing accuracy and transitions
   - Verify comparison mode layouts and sync zoom
   - Verify command palette fuzzy search and responsiveness
   - Verify GIF animation playback and frame controls
   - Verify codec detection and Store link functionality
   - Verify grid and filmstrip layouts
-  - Verify performance targets (transitions < 400ms, comparison < 600ms, search < 50ms)
+  - Verify performance targets (specified transition durations, comparison < 600ms, search < 50ms)
   - Verify UI polish and Chrome fade behavior
   - Verify all keyboard shortcuts work correctly
   - Test with large playlists (1000+ images)
@@ -420,6 +420,6 @@ All tasks build incrementally on Phase 1 MVP Viewer and Phase 2 Browse And Quali
 - Integration tests validate real-world scenarios with actual files
 - All Phase 3 features build on Phase 1 and Phase 2 foundations
 - Service separation and Result types maintained throughout
-- Performance targets: slideshow transitions < 400ms, comparison < 600ms, command palette search < 50ms
+- Performance targets: slideshow transitions use specified durations (Fade 300ms, Slide 400ms, Zoom 350ms), comparison < 600ms, command palette search < 50ms
 - All new error categories logged with structured information
 - Graceful degradation ensures features fail safely without blocking core functionality

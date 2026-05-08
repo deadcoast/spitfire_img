@@ -36,7 +36,14 @@ public sealed class SettingsServiceTests : IDisposable
             10,
             20,
             2500,
-            350);
+            350,
+            SlideshowInterval: TimeSpan.FromSeconds(5),
+            PreferredLayout: LayoutMode.Grid,
+            PreferredGridRows: 4,
+            PreferredGridColumns: 4,
+            PreferredFilmstripThumbnailCount: 9,
+            ComparisonSyncZoom: false,
+            GifAutoPlay: false);
 
         var saveResult = await service.SaveSettingsAsync(settings);
         var loadResult = await service.LoadSettingsAsync();

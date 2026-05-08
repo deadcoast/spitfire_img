@@ -4,6 +4,7 @@
     <SolidColorBrush x:Key="CanvasBackgroundBrush" Color="#FFF2F0EC" />
     <SolidColorBrush x:Key="ChromeBackgroundBrush" Color="#DDFBFAF7" />
     <SolidColorBrush x:Key="SubtlePanelBackgroundBrush" Color="#FFE8E2D8" />
+    <SolidColorBrush x:Key="SubtleBorderBrush" Color="#55171717" />
     <SolidColorBrush x:Key="PrimaryTextBrush" Color="#FF171717" />
     <SolidColorBrush x:Key="SecondaryTextBrush" Color="#CC171717" />
     <SolidColorBrush x:Key="MutedTextBrush" Color="#99171717" />

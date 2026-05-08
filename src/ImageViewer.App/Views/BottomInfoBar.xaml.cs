@@ -20,6 +20,7 @@ public sealed partial class BottomInfoBar : UserControl
         viewModel.PlaylistState.PropertyChanged += OnStateChanged;
         viewModel.ComparisonState.PropertyChanged += OnStateChanged;
         viewModel.AnimationState.PropertyChanged += OnStateChanged;
+        viewModel.SlideshowState.PropertyChanged += OnStateChanged;
         Update();
     }
 
@@ -43,8 +44,8 @@ public sealed partial class BottomInfoBar : UserControl
             ? $"{_viewModel.PlaylistState.CurrentIndex + 1} / {_viewModel.PlaylistState.TotalCount}"
             : string.Empty;
         PositionText.Text = string.IsNullOrWhiteSpace(_viewModel.AnimationState.FrameDisplayText)
-            ? positionText
-            : $"{positionText}  {_viewModel.AnimationState.FrameDisplayText}";
+            ? $"{positionText}{GetSlideshowIndicator()}"
+            : $"{positionText}  {_viewModel.AnimationState.FrameDisplayText}{GetSlideshowIndicator()}";
         DimensionsText.Text = _viewModel.ViewerState.Metadata?.FormattedDimensions ?? string.Empty;
         FolderText.Text = string.IsNullOrWhiteSpace(_viewModel.PlaylistState.FolderPath)
             ? string.Empty
@@ -54,5 +55,16 @@ public sealed partial class BottomInfoBar : UserControl
     private string GetSyncIndicator()
     {
         return _viewModel?.ComparisonState.SyncZoomEnabled == true ? "  Sync" : string.Empty;
+    }
+
+    private string GetSlideshowIndicator()
+    {
+        if (_viewModel?.SlideshowState.IsActive != true)
+        {
+            return string.Empty;
+        }
+
+        var status = _viewModel.SlideshowState.IsPaused ? "Paused" : "Slideshow";
+        return $"  {status} {_viewModel.SlideshowState.Interval.TotalSeconds:0}s";
     }
 }

@@ -14,8 +14,12 @@ public enum ErrorCategory
     TransformError,
     TransformSaveError,
     MetadataExtractionError,
+    SlideshowError,
+    TransitionError,
     ComparisonError,
+    SyncError,
     CommandPaletteError,
+    ExecutionError,
     LayoutError,
     AnimationError,
     CodecDetectionError,
@@ -132,6 +136,16 @@ public sealed record ViewerError(
         return Create(ErrorCategory.MetadataExtractionError, operation, filePath, exception);
     }
 
+    public static ViewerError SlideshowError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.SlideshowError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError TransitionError(TransitionEffect effect, Exception? exception = null)
+    {
+        return Create(ErrorCategory.TransitionError, $"Transition:{effect}", filePath: null, exception);
+    }
+
     public static ViewerError ComparisonError(
         string operation,
         string userMessage,
@@ -163,6 +177,21 @@ public sealed record ViewerError(
             FilePath: null,
             exception?.GetType().Name,
             exception?.StackTrace);
+    }
+
+    public static ViewerError CommandPaletteError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.CommandPaletteError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError SyncError(string operation, Exception? exception = null)
+    {
+        return Create(ErrorCategory.SyncError, operation, filePath: null, exception);
+    }
+
+    public static ViewerError ExecutionError(string commandId, Exception? exception = null)
+    {
+        return Create(ErrorCategory.ExecutionError, commandId, filePath: null, exception);
     }
 
     public static ViewerError LayoutError(
@@ -237,9 +266,13 @@ public sealed record ViewerError(
             ErrorCategory.TransformError => "Unable to apply the requested image change.",
             ErrorCategory.TransformSaveError => "Unable to save changes to this image.",
             ErrorCategory.MetadataExtractionError => "Unable to read detailed metadata for this image.",
-            ErrorCategory.ComparisonError => "Unable to enter comparison mode.",
+            ErrorCategory.SlideshowError => "Unable to start slideshow mode.",
+            ErrorCategory.TransitionError => "Unable to apply transition effect.",
+            ErrorCategory.ComparisonError => "Unable to load images for comparison.",
+            ErrorCategory.SyncError => "Unable to synchronize zoom and pan.",
             ErrorCategory.CommandPaletteError => "Unable to load command palette.",
-            ErrorCategory.LayoutError => "Unable to enter layout mode.",
+            ErrorCategory.ExecutionError => "Unable to execute command.",
+            ErrorCategory.LayoutError => "Unable to load custom layout.",
             ErrorCategory.AnimationError => "Unable to load animated GIF.",
             ErrorCategory.CodecDetectionError => "Unable to detect codec availability.",
             ErrorCategory.CodecUnavailableError => "This image requires a Windows codec from the Microsoft Store.",

@@ -6,5 +6,6 @@ obj/
 .vs/
 .notes/
 TestResults/
+artifacts/
 *.user
 *.suo

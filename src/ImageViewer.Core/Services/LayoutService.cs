@@ -74,6 +74,43 @@ public sealed class LayoutService : ILayoutService
         return Result<IReadOnlyList<GridImage>>.Success(images);
     }
 
+    public Result<FilmstripData> LoadFilmstripData(
+        PlaylistState playlist,
+        int focusIndex,
+        int thumbnailCount)
+    {
+        if (playlist.TotalCount == 0)
+        {
+            return Result<FilmstripData>.Failure(
+                ViewerError.LayoutError("LoadFilmstripData", "Filmstrip layout requires an active playlist."));
+        }
+
+        var clampedFocusIndex = Math.Clamp(focusIndex, 0, playlist.TotalCount - 1);
+        var visibleThumbnailCount = Math.Clamp(
+            thumbnailCount,
+            LayoutConfig.MinimumFilmstripThumbnailCount,
+            LayoutConfig.MaximumFilmstripThumbnailCount);
+        visibleThumbnailCount = Math.Min(visibleThumbnailCount, playlist.TotalCount);
+
+        var maxStartIndex = Math.Max(0, playlist.TotalCount - visibleThumbnailCount);
+        var startIndex = Math.Clamp(clampedFocusIndex - visibleThumbnailCount / 2, 0, maxStartIndex);
+        var thumbnails = new List<FilmstripImage>(visibleThumbnailCount);
+
+        for (var offset = 0; offset < visibleThumbnailCount; offset++)
+        {
+            var playlistIndex = startIndex + offset;
+            thumbnails.Add(new FilmstripImage(
+                playlist.Items[playlistIndex],
+                playlistIndex,
+                playlistIndex == clampedFocusIndex));
+        }
+
+        return Result<FilmstripData>.Success(new FilmstripData(
+            playlist.Items[clampedFocusIndex],
+            clampedFocusIndex,
+            thumbnails));
+    }
+
     public Result<int> CalculateGridStartIndex(
         int currentStartIndex,
         int offset,

@@ -14,12 +14,16 @@ namespace ImageViewer.App.Views;
 
 public sealed partial class CommandPalette : UserControl
 {
+    private static readonly TimeSpan SearchDebounceInterval = TimeSpan.FromMilliseconds(50);
+    private readonly DispatcherTimer _searchDebounceTimer;
     private MainViewModel? _viewModel;
     private bool _isUpdating;
 
     public CommandPalette()
     {
         InitializeComponent();
+        _searchDebounceTimer = new DispatcherTimer { Interval = SearchDebounceInterval };
+        _searchDebounceTimer.Tick += OnSearchDebounceElapsed;
     }
 
     public void Attach(MainViewModel viewModel)
@@ -37,6 +41,7 @@ public sealed partial class CommandPalette : UserControl
 
     public void Hide()
     {
+        _searchDebounceTimer.Stop();
         Visibility = Visibility.Collapsed;
     }
 
@@ -80,6 +85,13 @@ public sealed partial class CommandPalette : UserControl
             return;
         }
 
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
+    }
+
+    private void OnSearchDebounceElapsed(object? sender, object e)
+    {
+        _searchDebounceTimer.Stop();
         _viewModel?.CommandPaletteState.SetSearchText(SearchInput.Text);
     }
 
@@ -124,7 +136,52 @@ public sealed partial class CommandPalette : UserControl
 
     private void OnCommandHeaderLoaded(object sender, RoutedEventArgs e)
     {
-        if (sender is not TextBlock textBlock || textBlock.Tag is not CommandPaletteEntry entry)
+        if (sender is TextBlock textBlock)
+        {
+            UpdateCommandHeader(textBlock);
+        }
+    }
+
+    private void OnCommandHeaderDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+    {
+        if (sender is TextBlock textBlock)
+        {
+            UpdateCommandHeader(textBlock);
+        }
+    }
+
+    private void OnCommandRowLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element)
+        {
+            UpdateCommandRow(element);
+        }
+    }
+
+    private void OnCommandRowDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+    {
+        UpdateCommandRow(sender);
+    }
+
+    private void OnCommandTitleLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBlock textBlock)
+        {
+            UpdateCommandTitle(textBlock);
+        }
+    }
+
+    private void OnCommandTitleDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+    {
+        if (sender is TextBlock textBlock)
+        {
+            UpdateCommandTitle(textBlock);
+        }
+    }
+
+    private static void UpdateCommandHeader(TextBlock textBlock)
+    {
+        if (GetEntry(textBlock) is not { } entry)
         {
             return;
         }
@@ -133,9 +190,9 @@ public sealed partial class CommandPalette : UserControl
         textBlock.Visibility = entry.IsHeader ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void OnCommandRowLoaded(object sender, RoutedEventArgs e)
+    private static void UpdateCommandRow(FrameworkElement element)
     {
-        if (sender is not FrameworkElement element || element.Tag is not CommandPaletteEntry entry)
+        if (GetEntry(element) is not { } entry)
         {
             return;
         }
@@ -143,9 +200,9 @@ public sealed partial class CommandPalette : UserControl
         element.Visibility = entry.IsHeader ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void OnCommandTitleLoaded(object sender, RoutedEventArgs e)
+    private static void UpdateCommandTitle(TextBlock textBlock)
     {
-        if (sender is not TextBlock textBlock || textBlock.Tag is not CommandPaletteMatch match)
+        if (GetMatch(textBlock) is not { } match)
         {
             return;
         }
@@ -164,6 +221,17 @@ public sealed partial class CommandPalette : UserControl
 
             textBlock.Inlines.Add(run);
         }
+    }
+
+    private static CommandPaletteEntry? GetEntry(FrameworkElement element)
+    {
+        return element.DataContext as CommandPaletteEntry ?? element.Tag as CommandPaletteEntry;
+    }
+
+    private static CommandPaletteMatch? GetMatch(FrameworkElement element)
+    {
+        return element.Tag as CommandPaletteMatch ??
+               (element.DataContext as CommandPaletteEntry)?.Match;
     }
 
     private void OnPaletteRootPointerPressed(object sender, PointerRoutedEventArgs e)

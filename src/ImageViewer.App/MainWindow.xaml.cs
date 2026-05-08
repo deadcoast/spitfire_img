@@ -38,6 +38,7 @@ public sealed partial class MainWindow : Window
         ImageCanvas.Attach(viewModel);
         ComparisonView.Attach(viewModel);
         GridLayout.Attach(viewModel);
+        FilmstripView.Attach(viewModel);
         ThumbnailStrip.Attach(viewModel);
         SearchOverlay.Attach(viewModel);
         CommandPalette.Attach(viewModel);
@@ -187,6 +188,14 @@ public sealed partial class MainWindow : Window
                 await _viewModel.OpenActiveGridImageAsync();
                 e.Handled = true;
                 break;
+            case VirtualKey.F5:
+                await _viewModel.ToggleSlideshowAsync();
+                e.Handled = true;
+                break;
+            case VirtualKey.Space when _viewModel.SlideshowState.IsActive:
+                _viewModel.ToggleSlideshowPause();
+                e.Handled = true;
+                break;
             case VirtualKey.F11:
                 _viewModel.ToggleFullscreen();
                 e.Handled = true;
@@ -197,6 +206,11 @@ public sealed partial class MainWindow : Window
                     _viewModel.HideCommandPalette();
                     e.Handled = true;
                 }
+                else if (_viewModel.SlideshowState.IsActive)
+                {
+                    await _viewModel.ToggleSlideshowAsync();
+                    e.Handled = true;
+                }
                 else if (_viewModel.ComparisonState.IsActive)
                 {
                     _viewModel.ExitComparisonMode();
@@ -204,7 +218,7 @@ public sealed partial class MainWindow : Window
                 }
                 else if (_viewModel.LayoutState.CurrentLayout != LayoutMode.Single)
                 {
-                    _viewModel.ExitLayoutMode();
+                    await _viewModel.ExitLayoutModeAsync();
                     e.Handled = true;
                 }
                 else if (_viewModel.MetadataState.IsVisible)
@@ -222,8 +236,12 @@ public sealed partial class MainWindow : Window
                 _viewModel.FitToWindow();
                 e.Handled = true;
                 break;
-            case VirtualKey.Number1 when isControlPressed:
+            case VirtualKey.Number1 when isControlPressed && isShiftPressed:
                 _viewModel.ActualSize();
+                e.Handled = true;
+                break;
+            case VirtualKey.Number1 when isControlPressed:
+                await _viewModel.ExitLayoutModeAsync();
                 e.Handled = true;
                 break;
             case VirtualKey.Number2 when isControlPressed && _viewModel.ComparisonState.IsActive:
@@ -236,6 +254,14 @@ public sealed partial class MainWindow : Window
                 break;
             case VirtualKey.Number4 when isControlPressed && _viewModel.ComparisonState.IsActive:
                 await _viewModel.SetComparisonImageCountAsync(4);
+                e.Handled = true;
+                break;
+            case var key when IsPlusKey(key) && _viewModel.SlideshowState.IsActive:
+                await _viewModel.IncreaseSlideshowIntervalAsync();
+                e.Handled = true;
+                break;
+            case var key when IsMinusKey(key) && _viewModel.SlideshowState.IsActive:
+                await _viewModel.DecreaseSlideshowIntervalAsync();
                 e.Handled = true;
                 break;
             case var key when IsPlusKey(key) && isControlPressed && _viewModel.LayoutState.IsGridActive:
@@ -258,9 +284,12 @@ public sealed partial class MainWindow : Window
                 await OpenFileFromPickerAsync();
                 e.Handled = true;
                 break;
+            case VirtualKey.F when isControlPressed && isShiftPressed:
+                await _viewModel.EnterFilmstripLayoutAsync();
+                e.Handled = true;
+                break;
             case VirtualKey.F when isControlPressed:
                 _viewModel.ShowSearch();
-                SearchOverlay.Show();
                 e.Handled = true;
                 break;
             case VirtualKey.G when isControlPressed:
@@ -312,7 +341,7 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.L when isControlPressed && _viewModel.ComparisonState.IsActive:
-                _viewModel.ToggleComparisonSyncZoom();
+                await _viewModel.ToggleComparisonSyncZoomAsync();
                 e.Handled = true;
                 break;
             case VirtualKey.L when isControlPressed:

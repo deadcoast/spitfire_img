@@ -18,6 +18,8 @@ public sealed record LayoutConfig(
     public const int MinimumGridDensity = 2;
     public const int MaximumGridDensity = 6;
     public const int DefaultFilmstripThumbnailCount = 7;
+    public const int MinimumFilmstripThumbnailCount = 7;
+    public const int MaximumFilmstripThumbnailCount = 11;
     public const int DefaultGridSpacing = 8;
 
     public static LayoutConfig Default { get; } = new();

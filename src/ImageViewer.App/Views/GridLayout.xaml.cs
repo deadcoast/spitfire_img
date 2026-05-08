@@ -62,56 +62,56 @@ public sealed partial class GridLayout : UserControl
         }
 
         var gridImages = _viewModel.LayoutState.GridImages.ToArray();
-        var frames = new List<FrameworkElement>(gridImages.Length);
+        ImageHost.Children.Clear();
 
-        for (var visibleIndex = 0; visibleIndex < gridImages.Length; visibleIndex++)
+        var frameTasks = gridImages
+            .Select((gridImage, visibleIndex) => LoadGridFrameAsync(gridImage, visibleIndex))
+            .ToList();
+
+        while (frameTasks.Count > 0)
         {
-            var gridImage = gridImages[visibleIndex];
-            var bitmap = await TryLoadBitmapAsync(gridImage.Item.FilePath);
+            var completedTask = await Task.WhenAny(frameTasks).ConfigureAwait(true);
+            frameTasks.Remove(completedTask);
+            var frame = await completedTask.ConfigureAwait(true);
             if (loadVersion != _loadVersion)
             {
                 return;
             }
 
-            var image = new Image
-            {
-                Source = bitmap,
-                Stretch = Stretch.Uniform,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
-            };
-
-            var frame = new Border
-            {
-                Tag = visibleIndex,
-                Width = gridImage.Cell.Width,
-                Height = gridImage.Cell.Height,
-                Padding = new Thickness(4),
-                BorderThickness = visibleIndex == _viewModel.LayoutState.ActiveGridImageIndex
-                    ? new Thickness(3)
-                    : new Thickness(1),
-                BorderBrush = new SolidColorBrush(visibleIndex == _viewModel.LayoutState.ActiveGridImageIndex
-                    ? Colors.White
-                    : Colors.Transparent),
-                Child = image
-            };
-            frame.Tapped += OnGridImageTapped;
-
-            Canvas.SetLeft(frame, gridImage.Cell.X);
-            Canvas.SetTop(frame, gridImage.Cell.Y);
-            frames.Add(frame);
-        }
-
-        if (loadVersion != _loadVersion)
-        {
-            return;
-        }
-
-        ImageHost.Children.Clear();
-        foreach (var frame in frames)
-        {
             ImageHost.Children.Add(frame);
         }
+    }
+
+    private async Task<FrameworkElement> LoadGridFrameAsync(GridImage gridImage, int visibleIndex)
+    {
+        var bitmap = await TryLoadBitmapAsync(gridImage.Item.FilePath).ConfigureAwait(true);
+        var image = new Image
+        {
+            Source = bitmap,
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+
+        var frame = new Border
+        {
+            Tag = visibleIndex,
+            Width = gridImage.Cell.Width,
+            Height = gridImage.Cell.Height,
+            Padding = new Thickness(4),
+            BorderThickness = visibleIndex == _viewModel?.LayoutState.ActiveGridImageIndex
+                ? new Thickness(3)
+                : new Thickness(1),
+            BorderBrush = new SolidColorBrush(visibleIndex == _viewModel?.LayoutState.ActiveGridImageIndex
+                ? Colors.White
+                : Colors.Transparent),
+            Child = image
+        };
+        frame.Tapped += OnGridImageTapped;
+
+        Canvas.SetLeft(frame, gridImage.Cell.X);
+        Canvas.SetTop(frame, gridImage.Cell.Y);
+        return frame;
     }
 
     private static async Task<BitmapImage?> TryLoadBitmapAsync(string filePath)

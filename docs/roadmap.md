@@ -55,6 +55,29 @@ Acceptance criteria draft:
 - Advanced formats produce structured unsupported/decode errors when unavailable.
 - New layouts preserve the low-distraction fading UI principle.
 
+## Phase 4: Release Readiness
+
+Goal: make the completed local image viewer releasable, installable, supportable, and reproducible without adding new viewing workflows.
+
+Candidate features:
+
+- Reproducible release build and artifact manifest.
+- Application identity, icons, and release assets.
+- Distribution package or portable release strategy.
+- File association or Open With behavior for supported formats.
+- First-run and upgrade safety.
+- Local diagnostic support bundle.
+- Release documentation, release notes template, and release evidence gate.
+
+Acceptance criteria draft:
+
+- Release artifacts are produced from a documented x64 Release command.
+- Generated artifacts stay out of source control.
+- The app launches from the release artifact and preserves folder-as-playlist behavior.
+- Startup file path activation works for paths with spaces and non-ASCII characters.
+- HEIC and AVIF remain codec-dependent formats with structured user-facing fallback.
+- Release evidence is stored under `TestResults/phase4-evidence/`.
+
 ## Deferred Means Planned
 
-Features listed in Phase 2 or Phase 3 are deferred to protect Phase 1 delivery. They are not rejected. Phase 1 code should preserve service boundaries that allow these features to be added without rewriting the viewer shell.
+Features listed in later phases are deferred to protect earlier delivery. They are not rejected. Earlier-phase code should preserve service boundaries that allow these features to be added without rewriting the viewer shell.

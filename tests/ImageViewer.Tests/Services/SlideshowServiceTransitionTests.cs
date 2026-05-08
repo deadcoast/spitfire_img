@@ -68,4 +68,16 @@ public sealed class SlideshowServiceTransitionTests
         Assert.False(service.IsTransitionPlaying);
         Assert.True(service.CanNavigate);
     }
+
+    [Fact]
+    public void BeginTransition_WhenTransitionCannotBeCreated_FallsBackToInstantTransition()
+    {
+        var service = new SlideshowService();
+
+        var result = service.BeginTransition((TransitionEffect)999);
+
+        Assert.True(result.IsSuccess);
+        Assert.False(service.IsTransitionPlaying);
+        Assert.True(service.CanNavigate);
+    }
 }

@@ -44,6 +44,9 @@ The docs are the source of truth for scope.
 - `docs/phase-3-advanced-viewing/requirements.md`: next-phase scope.
 - `docs/phase-3-advanced-viewing/design.md`: planned Phase 3 architecture.
 - `docs/phase-3-advanced-viewing/tasks.md`: Phase 3 execution checklist.
+- `docs/phase-4-release-readiness/requirements.md`: release readiness scope.
+- `docs/phase-4-release-readiness/design.md`: release artifact, distribution, support, and evidence architecture.
+- `docs/phase-4-release-readiness/tasks.md`: Phase 4 execution checklist.
 
 For any phase, read the three files together:
 

@@ -36,7 +36,8 @@ public sealed class SlideshowService : ISlideshowService
         var planResult = CreateTransitionPlan(effect);
         if (planResult.IsFailure)
         {
-            return Result.Failure(planResult.Error);
+            IsTransitionPlaying = false;
+            return Result.Success();
         }
 
         IsTransitionPlaying = planResult.Value.BlocksNavigation;

@@ -10,6 +10,7 @@ public sealed class LayoutState : ObservableObject
     private int _gridStartIndex;
     private int _activeGridImageIndex;
     private int _filmstripFocusIndex;
+    private ImageItem? _filmstripFocusItem;
 
     public LayoutConfig Config
     {
@@ -20,6 +21,7 @@ public sealed class LayoutState : ObservableObject
             {
                 OnPropertyChanged(nameof(CurrentLayout));
                 OnPropertyChanged(nameof(IsGridActive));
+                OnPropertyChanged(nameof(IsFilmstripActive));
                 OnPropertyChanged(nameof(GridRows));
                 OnPropertyChanged(nameof(GridColumns));
             }
@@ -29,6 +31,8 @@ public sealed class LayoutState : ObservableObject
     public LayoutMode CurrentLayout => Config.Mode;
 
     public bool IsGridActive => CurrentLayout == LayoutMode.Grid;
+
+    public bool IsFilmstripActive => CurrentLayout == LayoutMode.Filmstrip;
 
     public int GridRows => Config.GridRows;
 
@@ -52,6 +56,12 @@ public sealed class LayoutState : ObservableObject
         private set => SetProperty(ref _filmstripFocusIndex, value);
     }
 
+    public ImageItem? FilmstripFocusItem
+    {
+        get => _filmstripFocusItem;
+        private set => SetProperty(ref _filmstripFocusItem, value);
+    }
+
     public int ActiveGridImageIndex
     {
         get => _activeGridImageIndex;
@@ -69,6 +79,8 @@ public sealed class LayoutState : ObservableObject
         : -1;
 
     public ObservableCollection<GridImage> GridImages { get; } = [];
+
+    public ObservableCollection<FilmstripImage> FilmstripThumbnails { get; } = [];
 
     public void EnterGrid(
         GridLayoutPlan layout,
@@ -97,14 +109,36 @@ public sealed class LayoutState : ObservableObject
         ActiveGridImageIndex = Math.Clamp(visibleIndex, 0, GridImages.Count - 1);
     }
 
+    public void EnterFilmstrip(FilmstripData data)
+    {
+        Config = Config with
+        {
+            Mode = LayoutMode.Filmstrip,
+            FilmstripThumbnailCount = data.Thumbnails.Count
+        };
+        GridLayout = GridLayoutPlan.Empty;
+        GridStartIndex = 0;
+        GridImages.Clear();
+        ActiveGridImageIndex = 0;
+        FilmstripFocusIndex = data.FocusIndex;
+        FilmstripFocusItem = data.FocusItem;
+        ReplaceFilmstripThumbnails(data.Thumbnails);
+        OnPropertyChanged(nameof(GridImages));
+        OnPropertyChanged(nameof(ActiveGridPlaylistIndex));
+    }
+
     public void ExitLayout()
     {
         Config = Config.WithMode(LayoutMode.Single);
         GridLayout = GridLayoutPlan.Empty;
         GridStartIndex = 0;
         GridImages.Clear();
+        FilmstripThumbnails.Clear();
+        FilmstripFocusIndex = 0;
+        FilmstripFocusItem = null;
         ActiveGridImageIndex = 0;
         OnPropertyChanged(nameof(GridImages));
+        OnPropertyChanged(nameof(FilmstripThumbnails));
         OnPropertyChanged(nameof(ActiveGridPlaylistIndex));
     }
 
@@ -136,6 +170,17 @@ public sealed class LayoutState : ObservableObject
 
         OnPropertyChanged(nameof(GridImages));
         OnPropertyChanged(nameof(ActiveGridPlaylistIndex));
+    }
+
+    private void ReplaceFilmstripThumbnails(IEnumerable<FilmstripImage> thumbnails)
+    {
+        FilmstripThumbnails.Clear();
+        foreach (var thumbnail in thumbnails)
+        {
+            FilmstripThumbnails.Add(thumbnail);
+        }
+
+        OnPropertyChanged(nameof(FilmstripThumbnails));
     }
 
     private void SelectGridImageByPlaylistIndex(int playlistIndex)

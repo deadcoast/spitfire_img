@@ -21,8 +21,10 @@ public sealed class MainViewModel : ObservableObject
     private readonly ILayoutService _layoutService;
     private readonly IAnimationService _animationService;
     private readonly IAnimationPlaybackTimer _animationPlaybackTimer;
+    private readonly ISlideshowTimer _slideshowTimer;
     private readonly ICodecDetectionService _codecDetectionService;
     private readonly HashSet<string> _codecInstallPromptsShown = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DecodedImage> _slideshowPreloadCache = new(StringComparer.OrdinalIgnoreCase);
     private ViewerSettings _settings = ViewerSettings.Default;
     private readonly Dictionary<string, ExifMetadata> _metadataCache = new(StringComparer.OrdinalIgnoreCase);
     private bool _isChromeVisible = true;
@@ -72,6 +74,7 @@ public sealed class MainViewModel : ObservableObject
         ILayoutService? layoutService = null,
         IAnimationService? animationService = null,
         IAnimationPlaybackTimer? animationPlaybackTimer = null,
+        ISlideshowTimer? slideshowTimer = null,
         ICodecDetectionService? codecDetectionService = null)
     {
         _fileOpenService = fileOpenService;
@@ -89,8 +92,10 @@ public sealed class MainViewModel : ObservableObject
         _layoutService = layoutService ?? new LayoutService();
         _animationService = animationService ?? new NoopAnimationService();
         _animationPlaybackTimer = animationPlaybackTimer ?? new NoopAnimationPlaybackTimer();
+        _slideshowTimer = slideshowTimer ?? new NoopSlideshowTimer();
         _codecDetectionService = codecDetectionService ?? new NoopCodecDetectionService();
         _animationPlaybackTimer.Tick += OnAnimationPlaybackTimerTick;
+        _slideshowTimer.Tick += OnSlideshowTimerTick;
         SearchState = new SearchState(searchService);
         ThumbnailState = new ThumbnailState();
         TransformState = new TransformState();
@@ -117,6 +122,8 @@ public sealed class MainViewModel : ObservableObject
     public LayoutState LayoutState { get; } = new();
 
     public AnimationState AnimationState { get; } = new();
+
+    public SlideshowState SlideshowState { get; } = new();
 
     public CommandPaletteState CommandPaletteState { get; }
 
@@ -166,6 +173,7 @@ public sealed class MainViewModel : ObservableObject
         if (settingsResult.IsSuccess)
         {
             Settings = settingsResult.Value;
+            Settings = Settings.Normalize();
             ThumbnailState.SetVisibility(Settings.ThumbnailStripVisible);
             ThumbnailState.SetStripPosition(Settings.ThumbnailStripPosition);
             var recentFilesResult = await _recentFilesService.LoadRecentFilesAsync(cancellationToken).ConfigureAwait(false);
@@ -220,6 +228,7 @@ public sealed class MainViewModel : ObservableObject
             ViewerState.SetImage(decodeResult.Value);
             await LoadAnimationForImageAsync(decodeResult.Value.FilePath, operationToken).ConfigureAwait(false);
             SearchState.SetPlaylist(PlaylistState.Items);
+            await RestorePreferredLayoutAsync(operationToken).ConfigureAwait(false);
             var recentResult = await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken).ConfigureAwait(false);
             if (recentResult.IsSuccess)
             {
@@ -373,6 +382,11 @@ public sealed class MainViewModel : ObservableObject
             return ShiftComparisonAsync(offset: 1, cancellationToken);
         }
 
+        if (LayoutState.IsFilmstripActive)
+        {
+            return SetFilmstripFocusAsync(PlaylistState.CurrentIndex + 1, cancellationToken);
+        }
+
         return NavigateToIndexAsync(PlaylistState.CurrentIndex + 1, cancellationToken);
     }
 
@@ -381,6 +395,11 @@ public sealed class MainViewModel : ObservableObject
         if (ComparisonState.IsActive)
         {
             return ShiftComparisonAsync(offset: -1, cancellationToken);
+        }
+
+        if (LayoutState.IsFilmstripActive)
+        {
+            return SetFilmstripFocusAsync(PlaylistState.CurrentIndex - 1, cancellationToken);
         }
 
         return NavigateToIndexAsync(PlaylistState.CurrentIndex - 1, cancellationToken);
@@ -495,8 +514,8 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var applied = await ApplyGridLayoutAsync(
-            LayoutConfig.DefaultGridRows,
-            LayoutConfig.DefaultGridColumns,
+            Settings.PreferredGridRows,
+            Settings.PreferredGridColumns,
             Math.Max(0, PlaylistState.CurrentIndex),
             canvasSize,
             isNewGrid: true,
@@ -505,6 +524,7 @@ public sealed class MainViewModel : ObservableObject
         if (applied)
         {
             ComparisonState.ExitComparison();
+            await SaveLayoutPreferenceAsync(LayoutMode.Grid, cancellationToken).ConfigureAwait(false);
             ShowChrome();
         }
     }
@@ -513,6 +533,123 @@ public sealed class MainViewModel : ObservableObject
     {
         LayoutState.ExitLayout();
         ShowChrome();
+    }
+
+    public async Task ExitLayoutModeAsync(CancellationToken cancellationToken = default)
+    {
+        LayoutState.ExitLayout();
+        await SaveLayoutPreferenceAsync(LayoutMode.Single, cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    public async Task EnterFilmstripLayoutAsync(CancellationToken cancellationToken = default)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            await HandleErrorAsync(
+                ViewerError.LayoutError("EnterFilmstripLayout", "Filmstrip layout requires an active playlist."),
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        var dataResult = _layoutService.LoadFilmstripData(
+            PlaylistState,
+            Math.Max(0, PlaylistState.CurrentIndex),
+            LayoutConfig.DefaultFilmstripThumbnailCount);
+        if (dataResult.IsFailure)
+        {
+            await HandleErrorAsync(dataResult.Error, cancellationToken).ConfigureAwait(false);
+            LayoutState.ExitLayout();
+            return;
+        }
+
+        LayoutState.EnterFilmstrip(dataResult.Value);
+        ComparisonState.ExitComparison();
+        await SaveLayoutPreferenceAsync(LayoutMode.Filmstrip, cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    public async Task SetFilmstripFocusAsync(
+        int playlistIndex,
+        CancellationToken cancellationToken = default)
+    {
+        if (!LayoutState.IsFilmstripActive || PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        var targetIndex = Math.Clamp(playlistIndex, 0, PlaylistState.TotalCount - 1);
+        await NavigateToIndexAsync(targetIndex, cancellationToken).ConfigureAwait(false);
+
+        var dataResult = _layoutService.LoadFilmstripData(
+            PlaylistState,
+            PlaylistState.CurrentIndex,
+            LayoutState.Config.FilmstripThumbnailCount);
+        if (dataResult.IsFailure)
+        {
+            await HandleErrorAsync(dataResult.Error, cancellationToken).ConfigureAwait(false);
+            LayoutState.ExitLayout();
+            return;
+        }
+
+        LayoutState.EnterFilmstrip(dataResult.Value);
+        ShowChrome();
+    }
+
+    public async Task ToggleSlideshowAsync(CancellationToken cancellationToken = default)
+    {
+        if (SlideshowState.IsActive)
+        {
+            StopSlideshow();
+            return;
+        }
+
+        if (PlaylistState.TotalCount == 0)
+        {
+            await HandleErrorAsync(
+                ViewerError.UnexpectedViewerError("StartSlideshow", filePath: null),
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        var config = new SlideshowConfig(
+            Settings.Normalize().SlideshowInterval,
+            Settings.SlideshowTransition);
+        SlideshowState.Start(config, PlaylistState.CurrentIndex);
+        _slideshowTimer.Start(config.Interval);
+        ScheduleNextSlideshowPreload();
+        ShowChrome();
+    }
+
+    public void ToggleSlideshowPause()
+    {
+        if (!SlideshowState.IsActive)
+        {
+            return;
+        }
+
+        if (SlideshowState.IsPaused)
+        {
+            SlideshowState.Resume();
+            _slideshowTimer.Start(SlideshowState.Interval);
+        }
+        else
+        {
+            SlideshowState.Pause();
+            _slideshowTimer.Stop();
+        }
+
+        ShowChrome();
+    }
+
+    public async Task IncreaseSlideshowIntervalAsync(CancellationToken cancellationToken = default)
+    {
+        await StepSlideshowIntervalAsync(delta: 1, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task DecreaseSlideshowIntervalAsync(CancellationToken cancellationToken = default)
+    {
+        await StepSlideshowIntervalAsync(delta: -1, cancellationToken).ConfigureAwait(false);
     }
 
     public Task IncreaseGridDensityAsync(
@@ -670,7 +807,17 @@ public sealed class MainViewModel : ObservableObject
         }
 
         ComparisonState.ToggleSyncZoom();
+        Settings = Settings with { ComparisonSyncZoom = ComparisonState.SyncZoomEnabled };
         ShowChrome();
+    }
+
+    public async Task ToggleComparisonSyncZoomAsync(CancellationToken cancellationToken = default)
+    {
+        ToggleComparisonSyncZoom();
+        if (ComparisonState.IsActive)
+        {
+            await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     public void SetComparisonImageDimensions(int visibleIndex, ImageDimensions dimensions)
@@ -980,19 +1127,31 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
-            var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
-            var navigationResult = await _navigationService.NavigateToIndexAsync(playlist, targetIndex, operationToken)
-                .ConfigureAwait(false);
-
-            if (navigationResult.IsFailure)
+            var resolvedIndex = Math.Clamp(targetIndex, 0, PlaylistState.TotalCount - 1);
+            var targetItem = PlaylistState.Items[resolvedIndex];
+            NavigationResult navigationResult;
+            if (_slideshowPreloadCache.Remove(targetItem.FilePath, out var preloadedImage))
             {
-                await HandleErrorAsync(navigationResult.Error, CancellationToken.None).ConfigureAwait(false);
-                return;
+                navigationResult = new NavigationResult(resolvedIndex, preloadedImage);
+            }
+            else
+            {
+                var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
+                var navigationServiceResult = await _navigationService.NavigateToIndexAsync(playlist, targetIndex, operationToken)
+                    .ConfigureAwait(false);
+
+                if (navigationServiceResult.IsFailure)
+                {
+                    await HandleErrorAsync(navigationServiceResult.Error, CancellationToken.None).ConfigureAwait(false);
+                    return;
+                }
+
+                navigationResult = navigationServiceResult.Value;
             }
 
-            PlaylistState.SetCurrentIndex(navigationResult.Value.Index);
-            ViewerState.SetImage(navigationResult.Value.Image);
-            await LoadAnimationForImageAsync(navigationResult.Value.Image.FilePath, operationToken).ConfigureAwait(false);
+            PlaylistState.SetCurrentIndex(navigationResult.Index);
+            ViewerState.SetImage(navigationResult.Image);
+            await LoadAnimationForImageAsync(navigationResult.Image.FilePath, operationToken).ConfigureAwait(false);
             TransformState.DiscardTransforms();
             ShowChrome();
         }
@@ -1007,7 +1166,7 @@ public sealed class MainViewModel : ObservableObject
         var startIndex = ComparisonState.DisplayedIndices.Count > 0
             ? ComparisonState.DisplayedIndices[0]
             : PlaylistState.CurrentIndex;
-        var indicesResult = _comparisonService.CalculateComparisonIndices(
+        var indicesResult = CalculateComparisonIndicesWithDegradation(
             startIndex + offset,
             ComparisonState.ImageCount == 0 ? ComparisonService.DefaultImageCount : ComparisonState.ImageCount,
             PlaylistState.TotalCount);
@@ -1015,6 +1174,7 @@ public sealed class MainViewModel : ObservableObject
         if (indicesResult.IsFailure)
         {
             await HandleErrorAsync(indicesResult.Error, cancellationToken).ConfigureAwait(false);
+            ComparisonState.ExitComparison();
             return;
         }
 
@@ -1024,7 +1184,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ApplyComparisonImageCountAsync(int imageCount, CancellationToken cancellationToken)
     {
-        var indicesResult = _comparisonService.CalculateComparisonIndices(
+        var indicesResult = CalculateComparisonIndicesWithDegradation(
             PlaylistState.CurrentIndex,
             imageCount,
             PlaylistState.TotalCount);
@@ -1032,11 +1192,56 @@ public sealed class MainViewModel : ObservableObject
         if (indicesResult.IsFailure)
         {
             await HandleErrorAsync(indicesResult.Error, cancellationToken).ConfigureAwait(false);
+            ComparisonState.ExitComparison();
             return;
         }
 
         ApplyComparisonWindow(ComparisonState.Layout, indicesResult.Value);
         ShowChrome();
+    }
+
+    private Result<IReadOnlyList<int>> CalculateComparisonIndicesWithDegradation(
+        int currentIndex,
+        int imageCount,
+        int playlistSize)
+    {
+        if (playlistSize < ComparisonService.MinimumImageCount)
+        {
+            return _comparisonService.CalculateComparisonIndices(currentIndex, imageCount, playlistSize);
+        }
+
+        var requestedImageCount = Math.Clamp(
+            imageCount,
+            ComparisonService.MinimumImageCount,
+            Math.Min(ComparisonService.MaximumImageCount, playlistSize));
+
+        ViewerError? lastMemoryError = null;
+        for (var candidateImageCount = requestedImageCount;
+             candidateImageCount >= ComparisonService.MinimumImageCount;
+             candidateImageCount--)
+        {
+            var indicesResult = _comparisonService.CalculateComparisonIndices(
+                currentIndex,
+                candidateImageCount,
+                playlistSize);
+
+            if (indicesResult.IsSuccess)
+            {
+                return indicesResult;
+            }
+
+            if (!IsMemoryError(indicesResult.Error))
+            {
+                return indicesResult;
+            }
+
+            lastMemoryError = indicesResult.Error;
+        }
+
+        return Result<IReadOnlyList<int>>.Failure(
+            lastMemoryError ?? ViewerError.ComparisonError(
+                "CalculateComparisonIndices",
+                "Unable to load images for comparison."));
     }
 
     private async Task ChangeGridDensityAsync(
@@ -1063,6 +1268,7 @@ public sealed class MainViewModel : ObservableObject
             cancellationToken).ConfigureAwait(false);
         if (applied)
         {
+            await SaveLayoutPreferenceAsync(LayoutMode.Grid, cancellationToken).ConfigureAwait(false);
             ShowChrome();
         }
     }
@@ -1076,30 +1282,132 @@ public sealed class MainViewModel : ObservableObject
         CancellationToken cancellationToken)
     {
         var layoutSize = canvasSize ?? new ImageDimensions(Settings.WindowWidth, Settings.WindowHeight);
-        var layoutResult = _layoutService.CalculateGridLayout(rows, columns, layoutSize);
-        if (layoutResult.IsFailure)
+        ViewerError? lastMemoryError = null;
+
+        foreach (var (candidateRows, candidateColumns) in GetGridDensityFallbacks(rows, columns))
         {
-            await HandleErrorAsync(layoutResult.Error, cancellationToken).ConfigureAwait(false);
-            return false;
+            var layoutResult = _layoutService.CalculateGridLayout(candidateRows, candidateColumns, layoutSize);
+            if (layoutResult.IsFailure)
+            {
+                if (IsMemoryError(layoutResult.Error))
+                {
+                    lastMemoryError = layoutResult.Error;
+                    continue;
+                }
+
+                await HandleLayoutFailureAsync(layoutResult.Error, cancellationToken).ConfigureAwait(false);
+                return false;
+            }
+
+            var imagesResult = _layoutService.LoadGridImages(PlaylistState, startIndex, layoutResult.Value);
+            if (imagesResult.IsFailure)
+            {
+                if (IsMemoryError(imagesResult.Error))
+                {
+                    lastMemoryError = imagesResult.Error;
+                    continue;
+                }
+
+                await HandleLayoutFailureAsync(imagesResult.Error, cancellationToken).ConfigureAwait(false);
+                return false;
+            }
+
+            if (isNewGrid)
+            {
+                LayoutState.EnterGrid(layoutResult.Value, imagesResult.Value, startIndex);
+            }
+            else
+            {
+                LayoutState.UpdateGrid(layoutResult.Value, imagesResult.Value, startIndex);
+            }
+
+            return true;
         }
 
-        var imagesResult = _layoutService.LoadGridImages(PlaylistState, startIndex, layoutResult.Value);
-        if (imagesResult.IsFailure)
+        if (lastMemoryError is not null)
         {
-            await HandleErrorAsync(imagesResult.Error, cancellationToken).ConfigureAwait(false);
-            return false;
+            await HandleLayoutFailureAsync(lastMemoryError, cancellationToken).ConfigureAwait(false);
         }
 
-        if (isNewGrid)
-        {
-            LayoutState.EnterGrid(layoutResult.Value, imagesResult.Value, startIndex);
-        }
-        else
-        {
-            LayoutState.UpdateGrid(layoutResult.Value, imagesResult.Value, startIndex);
-        }
+        return false;
+    }
 
-        return true;
+    private static IEnumerable<(int Rows, int Columns)> GetGridDensityFallbacks(int rows, int columns)
+    {
+        var seen = new HashSet<(int Rows, int Columns)>();
+        var maxDensity = Math.Max(rows, columns);
+        for (var density = maxDensity; density >= LayoutConfig.MinimumGridDensity; density--)
+        {
+            var candidateRows = Math.Clamp(rows, LayoutConfig.MinimumGridDensity, density);
+            var candidateColumns = Math.Clamp(columns, LayoutConfig.MinimumGridDensity, density);
+            var candidate = (candidateRows, candidateColumns);
+            if (seen.Add(candidate))
+            {
+                yield return candidate;
+            }
+        }
+    }
+
+    private async Task HandleLayoutFailureAsync(ViewerError error, CancellationToken cancellationToken)
+    {
+        await HandleErrorAsync(error, cancellationToken).ConfigureAwait(false);
+        LayoutState.ExitLayout();
+    }
+
+    private static bool IsMemoryError(ViewerError error)
+    {
+        return string.Equals(error.ExceptionType, nameof(OutOfMemoryException), StringComparison.Ordinal)
+            || error.UserMessage.Contains("memory", StringComparison.OrdinalIgnoreCase)
+            || error.UserMessage.Contains("too large", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task RestorePreferredLayoutAsync(CancellationToken cancellationToken)
+    {
+        switch (Settings.PreferredLayout)
+        {
+            case LayoutMode.Grid:
+                await ApplyGridLayoutAsync(
+                    Settings.PreferredGridRows,
+                    Settings.PreferredGridColumns,
+                    Math.Max(0, PlaylistState.CurrentIndex),
+                    canvasSize: null,
+                    isNewGrid: true,
+                    cancellationToken).ConfigureAwait(false);
+                break;
+            case LayoutMode.Filmstrip:
+                var dataResult = _layoutService.LoadFilmstripData(
+                    PlaylistState,
+                    Math.Max(0, PlaylistState.CurrentIndex),
+                    Settings.PreferredFilmstripThumbnailCount);
+                if (dataResult.IsFailure)
+                {
+                    await HandleErrorAsync(dataResult.Error, cancellationToken).ConfigureAwait(false);
+                    LayoutState.ExitLayout();
+                    return;
+                }
+
+                LayoutState.EnterFilmstrip(dataResult.Value);
+                ComparisonState.ExitComparison();
+                break;
+            case LayoutMode.Single:
+            default:
+                LayoutState.ExitLayout();
+                break;
+        }
+    }
+
+    private async Task SaveLayoutPreferenceAsync(
+        LayoutMode preferredLayout,
+        CancellationToken cancellationToken)
+    {
+        Settings = Settings with
+        {
+            PreferredLayout = preferredLayout,
+            PreferredGridRows = LayoutState.GridRows,
+            PreferredGridColumns = LayoutState.GridColumns,
+            PreferredFilmstripThumbnailCount = LayoutState.Config.FilmstripThumbnailCount
+        };
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private void ApplyComparisonWindow(ComparisonLayout layout, IReadOnlyList<int> displayedIndices)
@@ -1117,6 +1425,8 @@ public sealed class MainViewModel : ObservableObject
         {
             ComparisonState.EnterComparison(layout, displayedItems, displayedIndices);
         }
+
+        ComparisonState.SetSyncZoom(Settings.ComparisonSyncZoom);
 
         if (displayedIndices.Count > 0)
         {
@@ -1269,9 +1579,10 @@ public sealed class MainViewModel : ObservableObject
             Register("file.open", "Open File", "File", "Ctrl+O", () => OpenFileRequested?.Invoke(this, EventArgs.Empty)),
             Register("view.fullscreen", "Toggle Fullscreen", "View", "F11", ToggleFullscreen),
             Register("view.fit", "Fit to Window", "View", "Ctrl+0", FitToWindow),
-            Register("view.actual-size", "Actual Size", "View", "Ctrl+1", ActualSize),
+            Register("view.actual-size", "Actual Size", "View", "Ctrl+Shift+1", ActualSize),
             Register("view.zoom-in", "Zoom In", "View", "Ctrl++", ZoomIn),
             Register("view.zoom-out", "Zoom Out", "View", "Ctrl+-", ZoomOut),
+            Register("view.command-palette", "Open Command Palette", "View", "Ctrl+Shift+P", ShowCommandPalette),
             RegisterAsync("view.theme", "Toggle Theme", "View", "Theme", () => ToggleThemeAsync()),
             RegisterAsync("view.thumbnails", "Toggle Thumbnails", "View", "Ctrl+T", () => ToggleThumbnailStrip()),
             RegisterAsync("image.metadata", "Toggle Metadata", "Image", "Ctrl+I", () => ToggleMetadataPanelAsync()),
@@ -1285,10 +1596,26 @@ public sealed class MainViewModel : ObservableObject
             RegisterAsync("navigation.previous", "Previous Image", "Navigation", "Left", () => NavigatePreviousAsync()),
             RegisterAsync("navigation.first", "First Image", "Navigation", "Home", () => NavigateFirstAsync()),
             RegisterAsync("navigation.last", "Last Image", "Navigation", "End", () => NavigateLastAsync()),
+            Register("navigation.search", "Search Images", "Navigation", "Ctrl+F", ShowSearch),
+            RegisterAsync("slideshow.toggle", "Toggle Slideshow", "Slideshow", "F5", () => ToggleSlideshowAsync()),
+            Register("slideshow.pause", "Pause or Resume Slideshow", "Slideshow", "Space", ToggleSlideshowPause),
+            RegisterAsync("slideshow.interval-up", "Increase Slideshow Interval", "Slideshow", "+", () => IncreaseSlideshowIntervalAsync()),
+            RegisterAsync("slideshow.interval-down", "Decrease Slideshow Interval", "Slideshow", "-", () => DecreaseSlideshowIntervalAsync()),
             RegisterAsync("comparison.side-by-side", "Side-by-Side Comparison", "Comparison", "Ctrl+D", () => EnterComparisonModeAsync(ComparisonLayout.SideBySide)),
             RegisterAsync("comparison.overlay", "Overlay Comparison", "Comparison", "Ctrl+Shift+D", () => EnterComparisonModeAsync(ComparisonLayout.Overlay)),
-            Register("comparison.sync-zoom", "Toggle Sync Zoom", "Comparison", "Ctrl+L", ToggleComparisonSyncZoom),
-            RegisterAsync("layout.grid", "Grid Layout", "Layout", "Ctrl+G", () => EnterGridLayoutAsync())
+            RegisterAsync("comparison.sync-zoom", "Toggle Sync Zoom", "Comparison", "Ctrl+L", () => ToggleComparisonSyncZoomAsync()),
+            Register("comparison.swap-overlay", "Swap Overlay Layers", "Comparison", "S", SwapOverlayLayers),
+            RegisterAsync("comparison.count-two", "Show Two Comparison Images", "Comparison", "Ctrl+2", () => SetComparisonImageCountAsync(2)),
+            RegisterAsync("comparison.count-three", "Show Three Comparison Images", "Comparison", "Ctrl+3", () => SetComparisonImageCountAsync(3)),
+            RegisterAsync("comparison.count-four", "Show Four Comparison Images", "Comparison", "Ctrl+4", () => SetComparisonImageCountAsync(4)),
+            RegisterAsync("layout.single", "Single Image View", "Layout", "Ctrl+1", () => ExitLayoutModeAsync()),
+            RegisterAsync("layout.grid", "Grid Layout", "Layout", "Ctrl+G", () => EnterGridLayoutAsync()),
+            RegisterAsync("layout.filmstrip", "Filmstrip Layout", "Layout", "Ctrl+Shift+F", () => EnterFilmstripLayoutAsync()),
+            RegisterAsync("layout.grid-density-up", "Increase Grid Density", "Layout", "Ctrl++", () => IncreaseGridDensityAsync()),
+            RegisterAsync("layout.grid-density-down", "Decrease Grid Density", "Layout", "Ctrl+-", () => DecreaseGridDensityAsync()),
+            Register("animation.toggle-playback", "Play or Pause Animation", "Animation", "P", ToggleAnimationPlayback),
+            Register("animation.next-frame", "Next Animation Frame", "Animation", ".", AdvanceAnimationFrame),
+            Register("animation.previous-frame", "Previous Animation Frame", "Animation", ",", RewindAnimationFrame)
         ]);
     }
 
@@ -1371,6 +1698,11 @@ public sealed class MainViewModel : ObservableObject
         if (animationResult.IsSuccess)
         {
             AnimationState.LoadAnimation(animationResult.Value);
+            if (!Settings.GifAutoPlay)
+            {
+                AnimationState.Pause();
+            }
+
             if (AnimationState.IsPlaying)
             {
                 ScheduleCurrentAnimationFrame();
@@ -1400,6 +1732,183 @@ public sealed class MainViewModel : ObservableObject
     private void OnAnimationPlaybackTimerTick(object? sender, EventArgs e)
     {
         AdvanceAnimationPlaybackFrame();
+    }
+
+    private async void OnSlideshowTimerTick(object? sender, EventArgs e)
+    {
+        await AdvanceSlideshowAsync().ConfigureAwait(false);
+    }
+
+    private async Task AdvanceSlideshowAsync(CancellationToken cancellationToken = default)
+    {
+        if (!SlideshowState.IsActive || SlideshowState.IsPaused || PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        if (ComparisonState.IsActive)
+        {
+            await AdvanceComparisonSlideshowAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else if (LayoutState.IsGridActive)
+        {
+            await AdvanceGridSlideshowAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else if (LayoutState.IsFilmstripActive)
+        {
+            await SetFilmstripFocusAsync(GetNextPlaylistIndex(PlaylistState.CurrentIndex), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            await NavigateToIndexAsync(GetNextPlaylistIndex(PlaylistState.CurrentIndex), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        SlideshowState.SetCurrentImageIndex(PlaylistState.CurrentIndex);
+
+        if (SlideshowState.IsActive && !SlideshowState.IsPaused)
+        {
+            _slideshowTimer.Start(SlideshowState.Interval);
+            ScheduleNextSlideshowPreload();
+        }
+    }
+
+    private async Task AdvanceComparisonSlideshowAsync(CancellationToken cancellationToken)
+    {
+        var startIndex = ComparisonState.DisplayedIndices.Count > 0
+            ? ComparisonState.DisplayedIndices[0]
+            : PlaylistState.CurrentIndex;
+        var nextStartIndex = GetNextPlaylistIndex(startIndex);
+        var indicesResult = _comparisonService.CalculateComparisonIndices(
+            nextStartIndex,
+            ComparisonState.ImageCount == 0 ? ComparisonService.DefaultImageCount : ComparisonState.ImageCount,
+            PlaylistState.TotalCount);
+        if (indicesResult.IsFailure)
+        {
+            await HandleErrorAsync(indicesResult.Error, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        ApplyComparisonWindow(ComparisonState.Layout, indicesResult.Value);
+        ShowChrome();
+    }
+
+    private async Task AdvanceGridSlideshowAsync(CancellationToken cancellationToken)
+    {
+        var nextStartIndex = GetNextPlaylistIndex(LayoutState.GridStartIndex);
+        await ApplyGridLayoutAsync(
+            LayoutState.GridRows,
+            LayoutState.GridColumns,
+            nextStartIndex,
+            canvasSize: null,
+            isNewGrid: false,
+            cancellationToken).ConfigureAwait(false);
+        ShowChrome();
+    }
+
+    private int GetNextPlaylistIndex(int currentIndex)
+    {
+        if (PlaylistState.TotalCount == 0)
+        {
+            return 0;
+        }
+
+        var nextIndex = currentIndex + 1;
+        return nextIndex >= PlaylistState.TotalCount ? 0 : nextIndex;
+    }
+
+    private void StopSlideshow()
+    {
+        SlideshowState.Stop();
+        _slideshowTimer.Stop();
+        _slideshowPreloadCache.Clear();
+        ShowChrome();
+    }
+
+    private void ScheduleNextSlideshowPreload()
+    {
+        _ = PreloadNextSlideshowImageAsync();
+    }
+
+    private async Task PreloadNextSlideshowImageAsync()
+    {
+        if (!SlideshowState.IsActive || SlideshowState.IsPaused || PlaylistState.TotalCount == 0)
+        {
+            return;
+        }
+
+        var nextIndex = GetNextPlaylistIndex(PlaylistState.CurrentIndex);
+        var item = PlaylistState.Items[nextIndex];
+        if (_slideshowPreloadCache.ContainsKey(item.FilePath))
+        {
+            return;
+        }
+
+        var decodeResult = await _imageDecodeService.DecodeImageAsync(item.FilePath, CancellationToken.None)
+            .ConfigureAwait(false);
+        if (decodeResult.IsFailure)
+        {
+            return;
+        }
+
+        _slideshowPreloadCache[item.FilePath] = decodeResult.Value;
+        TrimSlideshowPreloadCache();
+    }
+
+    private void TrimSlideshowPreloadCache()
+    {
+        const int maximumPreloadedImages = 2;
+        if (_slideshowPreloadCache.Count <= maximumPreloadedImages)
+        {
+            return;
+        }
+
+        foreach (var key in _slideshowPreloadCache.Keys.Take(_slideshowPreloadCache.Count - maximumPreloadedImages).ToArray())
+        {
+            _slideshowPreloadCache.Remove(key);
+        }
+    }
+
+    private async Task StepSlideshowIntervalAsync(
+        int delta,
+        CancellationToken cancellationToken)
+    {
+        var intervals = SlideshowConfig.AllowedIntervals;
+        var currentInterval = SlideshowState.IsActive
+            ? SlideshowState.Interval
+            : Settings.Normalize().SlideshowInterval;
+        var currentIndex = FindIntervalIndex(intervals, currentInterval);
+        if (currentIndex < 0)
+        {
+            currentIndex = FindIntervalIndex(intervals, SlideshowConfig.DefaultInterval);
+        }
+
+        var nextIndex = Math.Clamp(currentIndex + delta, 0, intervals.Count - 1);
+        var nextInterval = intervals[nextIndex];
+        SlideshowState.SetInterval(nextInterval);
+        Settings = Settings with { SlideshowInterval = nextInterval };
+        await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
+
+        if (SlideshowState.IsActive && !SlideshowState.IsPaused)
+        {
+            _slideshowTimer.Start(nextInterval);
+        }
+
+        ShowChrome();
+    }
+
+    private static int FindIntervalIndex(IReadOnlyList<TimeSpan> intervals, TimeSpan interval)
+    {
+        for (var index = 0; index < intervals.Count; index++)
+        {
+            if (intervals[index] == interval)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private CancellationTokenSource BeginOperation(CancellationToken cancellationToken)
@@ -1450,6 +1959,23 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private sealed class NoopAnimationPlaybackTimer : IAnimationPlaybackTimer
+    {
+        public event EventHandler? Tick
+        {
+            add { }
+            remove { }
+        }
+
+        public void Start(TimeSpan interval)
+        {
+        }
+
+        public void Stop()
+        {
+        }
+    }
+
+    private sealed class NoopSlideshowTimer : ISlideshowTimer
     {
         public event EventHandler? Tick
         {

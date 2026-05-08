@@ -33,7 +33,14 @@ public sealed record ViewerSettings(
     ThumbnailPosition ThumbnailStripPosition = ThumbnailPosition.Bottom,
     int DefaultJpegQuality = 90,
     bool PreserveExifOnExport = true,
-    TransitionEffect SlideshowTransition = TransitionEffect.Fade)
+    TimeSpan SlideshowInterval = default,
+    TransitionEffect SlideshowTransition = TransitionEffect.Fade,
+    LayoutMode PreferredLayout = LayoutMode.Single,
+    int PreferredGridRows = LayoutConfig.DefaultGridRows,
+    int PreferredGridColumns = LayoutConfig.DefaultGridColumns,
+    int PreferredFilmstripThumbnailCount = LayoutConfig.DefaultFilmstripThumbnailCount,
+    bool ComparisonSyncZoom = true,
+    bool GifAutoPlay = true)
 {
     public const int DefaultWindowWidth = 1200;
     public const int DefaultWindowHeight = 800;
@@ -52,7 +59,8 @@ public sealed record ViewerSettings(
         WindowX: -1,
         WindowY: -1,
         DefaultFadeDelayMs,
-        DefaultFadeDurationMs);
+        DefaultFadeDurationMs,
+        SlideshowInterval: SlideshowConfig.DefaultInterval);
 
     public ViewerSettings Normalize()
     {
@@ -63,9 +71,35 @@ public sealed record ViewerSettings(
             FadeDelayMs = FadeDelayMs < MinimumFadeDelayMs ? MinimumFadeDelayMs : FadeDelayMs,
             FadeDurationMs = FadeDurationMs < MinimumFadeDurationMs ? MinimumFadeDurationMs : FadeDurationMs,
             DefaultJpegQuality = Math.Clamp(DefaultJpegQuality, 1, 100),
+            SlideshowInterval = NormalizeSlideshowInterval(SlideshowInterval),
             SlideshowTransition = Enum.IsDefined(SlideshowTransition)
                 ? SlideshowTransition
-                : TransitionEffect.Fade
+                : TransitionEffect.Fade,
+            PreferredLayout = Enum.IsDefined(PreferredLayout)
+                ? PreferredLayout
+                : LayoutMode.Single,
+            PreferredGridRows = Math.Clamp(
+                PreferredGridRows,
+                LayoutConfig.MinimumGridDensity,
+                LayoutConfig.MaximumGridDensity),
+            PreferredGridColumns = Math.Clamp(
+                PreferredGridColumns,
+                LayoutConfig.MinimumGridDensity,
+                LayoutConfig.MaximumGridDensity),
+            PreferredFilmstripThumbnailCount = Math.Clamp(
+                PreferredFilmstripThumbnailCount,
+                LayoutConfig.MinimumFilmstripThumbnailCount,
+                LayoutConfig.MaximumFilmstripThumbnailCount)
         };
+    }
+
+    private static TimeSpan NormalizeSlideshowInterval(TimeSpan interval)
+    {
+        if (interval == default)
+        {
+            return SlideshowConfig.DefaultInterval;
+        }
+
+        return TimeSpan.FromSeconds(Math.Clamp(interval.TotalSeconds, 1, 60));
     }
 }

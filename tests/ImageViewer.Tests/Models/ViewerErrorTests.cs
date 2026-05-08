@@ -12,6 +12,15 @@ public sealed class ViewerErrorTests
     [InlineData(ErrorCategory.NavigationError, "Unable to load the requested image.")]
     [InlineData(ErrorCategory.SettingsPersistenceError, "Unable to save settings. Your preferences may not persist.")]
     [InlineData(ErrorCategory.UnexpectedViewerError, "An unexpected error occurred. The application will attempt to continue.")]
+    [InlineData(ErrorCategory.SlideshowError, "Unable to start slideshow mode.")]
+    [InlineData(ErrorCategory.TransitionError, "Unable to apply transition effect.")]
+    [InlineData(ErrorCategory.ComparisonError, "Unable to load images for comparison.")]
+    [InlineData(ErrorCategory.SyncError, "Unable to synchronize zoom and pan.")]
+    [InlineData(ErrorCategory.CommandPaletteError, "Unable to load command palette.")]
+    [InlineData(ErrorCategory.ExecutionError, "Unable to execute command.")]
+    [InlineData(ErrorCategory.AnimationError, "Unable to load animated GIF.")]
+    [InlineData(ErrorCategory.CodecDetectionError, "Unable to detect codec availability.")]
+    [InlineData(ErrorCategory.LayoutError, "Unable to load custom layout.")]
     public void Create_UsesSpecifiedUserSafeMessages(ErrorCategory category, string expectedMessage)
     {
         var exception = new InvalidOperationException("raw exception detail");
@@ -33,5 +42,24 @@ public sealed class ViewerErrorTests
 
         Assert.Equal(ErrorCategory.DecodeError, error.Category);
         Assert.Equal("This image is too large to display.", error.UserMessage);
+    }
+
+    [Fact]
+    public void Phase3Factories_CreateExpectedErrorCategories()
+    {
+        var exception = new InvalidOperationException("raw exception detail");
+
+        var errors = new[]
+        {
+            ViewerError.SlideshowError("StartSlideshow", exception),
+            ViewerError.TransitionError(TransitionEffect.Fade, exception),
+            ViewerError.SyncError("SynchronizeZoom", exception),
+            ViewerError.ExecutionError("layout.grid", exception)
+        };
+
+        Assert.Equal(
+            [ErrorCategory.SlideshowError, ErrorCategory.TransitionError, ErrorCategory.SyncError, ErrorCategory.ExecutionError],
+            errors.Select(error => error.Category));
+        Assert.All(errors, error => Assert.DoesNotContain("raw exception detail", error.UserMessage));
     }
 }

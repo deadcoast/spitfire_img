@@ -7,6 +7,7 @@ public sealed class CommandPaletteService : ICommandPaletteService
     private const int RecentCommandLimit = 10;
     private readonly IReadOnlyList<CommandRegistration> _registrations;
     private readonly List<CommandItem> _recentCommands = [];
+    private readonly Dictionary<CommandScoreCacheKey, CommandPaletteMatch?> _matchCache = [];
 
     public CommandPaletteService(IEnumerable<CommandRegistration> registrations)
     {
@@ -25,7 +26,7 @@ public sealed class CommandPaletteService : ICommandPaletteService
         var matches = _registrations
             .Select((registration, index) => new
             {
-                Match = MatchCommand(registration.Command, normalizedQuery),
+                Match = MatchCommandWithCache(registration.Command, normalizedQuery),
                 Index = index
             })
             .Where(item => item.Match is not null)
@@ -66,6 +67,19 @@ public sealed class CommandPaletteService : ICommandPaletteService
         }
 
         return result;
+    }
+
+    private CommandPaletteMatch? MatchCommandWithCache(CommandItem command, string query)
+    {
+        var cacheKey = new CommandScoreCacheKey(command.Id, query);
+        if (_matchCache.TryGetValue(cacheKey, out var cachedMatch))
+        {
+            return cachedMatch;
+        }
+
+        var match = MatchCommand(command, query);
+        _matchCache[cacheKey] = match;
+        return match;
     }
 
     private static CommandPaletteMatch? MatchCommand(CommandItem command, string query)
@@ -158,4 +172,6 @@ public sealed class CommandPaletteService : ICommandPaletteService
 
         return score;
     }
+
+    private readonly record struct CommandScoreCacheKey(string CommandId, string Query);
 }

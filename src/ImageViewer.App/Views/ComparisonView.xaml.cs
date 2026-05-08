@@ -83,21 +83,22 @@ public sealed partial class ComparisonView : UserControl
 
         var state = _viewModel.ComparisonState;
         var items = state.DisplayedItems.ToArray();
+        var loadedImages = await Task.WhenAll(items.Select((item, index) => LoadComparisonBitmapAsync(index, item.FilePath)))
+            .ConfigureAwait(true);
+        if (loadVersion != _loadVersion)
+        {
+            return;
+        }
+
         var images = new List<FrameworkElement>(items.Length);
 
-        for (var index = 0; index < items.Length; index++)
+        foreach (var loadedImage in loadedImages.OrderBy(image => image.VisibleIndex))
         {
-            var item = items[index];
-            var bitmap = await TryLoadBitmapAsync(item.FilePath);
-            if (loadVersion != _loadVersion)
-            {
-                return;
-            }
-
+            var bitmap = loadedImage.Bitmap;
             if (bitmap is not null && bitmap.PixelWidth > 0 && bitmap.PixelHeight > 0)
             {
                 _viewModel.SetComparisonImageDimensions(
-                    index,
+                    loadedImage.VisibleIndex,
                     new ImageDimensions(bitmap.PixelWidth, bitmap.PixelHeight));
             }
 
@@ -110,8 +111,8 @@ public sealed partial class ComparisonView : UserControl
                 RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5)
             };
 
-            image.RenderTransform = CreateImageTransform(index);
-            images.Add(CreateSelectableImageFrame(image, index, state.ActiveImageIndex));
+            image.RenderTransform = CreateImageTransform(loadedImage.VisibleIndex);
+            images.Add(CreateSelectableImageFrame(image, loadedImage.VisibleIndex, state.ActiveImageIndex));
         }
 
         if (loadVersion != _loadVersion)
@@ -120,6 +121,11 @@ public sealed partial class ComparisonView : UserControl
         }
 
         RenderImages(state.Layout, images);
+    }
+
+    private static async Task<LoadedComparisonImage> LoadComparisonBitmapAsync(int visibleIndex, string filePath)
+    {
+        return new LoadedComparisonImage(visibleIndex, await TryLoadBitmapAsync(filePath).ConfigureAwait(true));
     }
 
     private void RenderImages(ComparisonLayout layout, IReadOnlyList<FrameworkElement> images)
@@ -337,4 +343,6 @@ public sealed partial class ComparisonView : UserControl
             return null;
         }
     }
+
+    private sealed record LoadedComparisonImage(int VisibleIndex, BitmapImage? Bitmap);
 }

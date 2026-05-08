@@ -35,12 +35,14 @@
                         <DataTemplate>
                             <Grid>
                                 <TextBlock
+                                    DataContextChanged="OnCommandHeaderDataContextChanged"
                                     Loaded="OnCommandHeaderLoaded"
                                     Padding="4,10,4,4"
                                     Foreground="{ThemeResource SecondaryTextBrush}"
                                     Tag="{Binding}"
                                     Visibility="Collapsed" />
                                 <Grid
+                                    DataContextChanged="OnCommandRowDataContextChanged"
                                     Loaded="OnCommandRowLoaded"
                                     Padding="4"
                                     ColumnSpacing="12"
@@ -51,6 +53,7 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock
+                                        DataContextChanged="OnCommandTitleDataContextChanged"
                                         Loaded="OnCommandTitleLoaded"
                                         Foreground="{ThemeResource PrimaryTextBrush}"
                                         Tag="{Binding Match}"
@@ -58,7 +61,7 @@
                                     <TextBlock
                                         Grid.Column="1"
                                         Foreground="{ThemeResource SecondaryTextBrush}"
-                                        Text="{Binding KeyboardShortcut}" />
+                                        Text="{Binding Match.KeyboardShortcut}" />
                                 </Grid>
                             </Grid>
                         </DataTemplate>
