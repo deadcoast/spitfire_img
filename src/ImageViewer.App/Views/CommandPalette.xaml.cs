@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
@@ -69,13 +68,32 @@ public sealed partial class CommandPalette : UserControl
         CommandList.ItemsSource = state.DisplayEntries;
         CommandList.SelectedIndex = state.SelectedIndex;
         CommandList.Visibility = state.DisplayEntries.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        NoMatchesText.Visibility = string.IsNullOrEmpty(state.StatusText) ? Visibility.Collapsed : Visibility.Visible;
+        NoMatchesPanel.Visibility = string.IsNullOrEmpty(state.StatusText) ? Visibility.Collapsed : Visibility.Visible;
+        UpdateResultSummary(state);
         _isUpdating = false;
 
         if (state.IsVisible)
         {
             SearchInput.Focus(FocusState.Programmatic);
         }
+    }
+
+    private void UpdateResultSummary(CommandPaletteState state)
+    {
+        if (!state.IsVisible)
+        {
+            ResultSummaryText.Text = "Ready";
+            return;
+        }
+
+        if (state.FilteredCommands.Count == 0)
+        {
+            ResultSummaryText.Text = "No results";
+            return;
+        }
+
+        var commandLabel = state.FilteredCommands.Count == 1 ? "command" : "commands";
+        ResultSummaryText.Text = $"{state.FilteredCommands.Count} {commandLabel} - Up/Down to select";
     }
 
     private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
@@ -136,18 +154,15 @@ public sealed partial class CommandPalette : UserControl
 
     private void OnCommandHeaderLoaded(object sender, RoutedEventArgs e)
     {
-        if (sender is TextBlock textBlock)
+        if (sender is FrameworkElement element)
         {
-            UpdateCommandHeader(textBlock);
+            UpdateCommandHeader(element);
         }
     }
 
     private void OnCommandHeaderDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
     {
-        if (sender is TextBlock textBlock)
-        {
-            UpdateCommandHeader(textBlock);
-        }
+        UpdateCommandHeader(sender);
     }
 
     private void OnCommandRowLoaded(object sender, RoutedEventArgs e)
@@ -179,15 +194,14 @@ public sealed partial class CommandPalette : UserControl
         }
     }
 
-    private static void UpdateCommandHeader(TextBlock textBlock)
+    private static void UpdateCommandHeader(FrameworkElement element)
     {
-        if (GetEntry(textBlock) is not { } entry)
+        if (GetEntry(element) is not { } entry)
         {
             return;
         }
 
-        textBlock.Text = entry.HeaderText;
-        textBlock.Visibility = entry.IsHeader ? Visibility.Visible : Visibility.Collapsed;
+        element.Visibility = entry.IsHeader ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static void UpdateCommandRow(FrameworkElement element)
@@ -216,7 +230,7 @@ public sealed partial class CommandPalette : UserControl
             if (highlightedIndices.Contains(index))
             {
                 run.FontWeight = new FontWeight { Weight = 600 };
-                run.Foreground = new SolidColorBrush(Colors.Yellow);
+                run.Foreground = GetPaletteBrush("ViewerAccentBrush");
             }
 
             textBlock.Inlines.Add(run);
@@ -232,6 +246,13 @@ public sealed partial class CommandPalette : UserControl
     {
         return element.Tag as CommandPaletteMatch ??
                (element.DataContext as CommandPaletteEntry)?.Match;
+    }
+
+    private static Brush? GetPaletteBrush(string resourceKey)
+    {
+        return Application.Current.Resources.TryGetValue(resourceKey, out var value) && value is Brush brush
+            ? brush
+            : null;
     }
 
     private void OnPaletteRootPointerPressed(object sender, PointerRoutedEventArgs e)

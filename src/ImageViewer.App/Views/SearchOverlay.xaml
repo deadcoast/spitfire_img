@@ -2,40 +2,104 @@
     x:Class="ImageViewer.App.Views.SearchOverlay"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Opacity="0"
+    Opacity="{StaticResource ViewerHiddenOpacity}"
     Visibility="Collapsed">
-    <Grid Background="#66000000">
+    <Grid
+        x:Name="SearchOverlayRoot"
+        Background="{ThemeResource ViewerScrimBrush}">
         <Grid.Transitions>
             <TransitionCollection>
                 <EntranceThemeTransition />
             </TransitionCollection>
         </Grid.Transitions>
         <Border
-            Width="560"
-            MaxHeight="520"
+            x:Name="SearchOverlayPanel"
+            Width="{StaticResource ViewerCommandPaletteWidth}"
+            MaxHeight="{StaticResource ViewerOverlayMaxHeight}"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
-            Margin="24,72,24,0"
-            Padding="16"
-            Style="{StaticResource ChromePanelBorderStyle}">
-            <StackPanel Spacing="10">
+            Margin="{StaticResource ViewerSearchOverlayMargin}"
+            Padding="{StaticResource ViewerOverlayContentPadding}"
+            AutomationProperties.Name="Search images"
+            Style="{StaticResource ViewerCommandPalettePanelBorderStyle}">
+            <StackPanel Spacing="{StaticResource ViewerPanelContentSpacing}">
+                <Grid
+                    x:Name="SearchHeader"
+                    Padding="{StaticResource ViewerSearchHeaderPadding}"
+                    ColumnSpacing="{StaticResource ViewerCommandPaletteHeaderSpacing}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="SearchTitle"
+                        Style="{StaticResource ViewerTextCommandPaletteTitleStyle}"
+                        Text="Search images" />
+                    <TextBlock
+                        x:Name="SearchSummaryText"
+                        Grid.Column="1"
+                        Style="{StaticResource ViewerTextStatusStyle}"
+                        Text="Ready" />
+                </Grid>
                 <TextBox
                     x:Name="SearchInput"
+                    AutomationProperties.Name="Search by filename"
                     PlaceholderText="Search by filename..."
                     TextChanged="OnSearchTextChanged"
                     KeyDown="OnSearchKeyDown" />
-                <TextBlock x:Name="ResultCountText" Foreground="{ThemeResource SecondaryTextBrush}" />
                 <ListView
                     x:Name="ResultsList"
-                    MaxHeight="360"
+                    MaxHeight="{StaticResource ViewerOverlayResultsMaxHeight}"
                     IsItemClickEnabled="True"
+                    ItemContainerStyle="{StaticResource ViewerCommandPaletteListViewItemStyle}"
                     ItemClick="OnResultClicked">
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Filename}" />
+                            <Border
+                                x:Name="SearchResultRow"
+                                Padding="{StaticResource ViewerSearchResultRowPadding}"
+                                Style="{StaticResource ViewerSearchResultRowBorderStyle}">
+                                <Grid ColumnSpacing="{StaticResource ViewerCommandRowColumnSpacing}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="{StaticResource ViewerSearchResultContentSpacing}">
+                                        <TextBlock
+                                            x:Name="SearchResultFilename"
+                                            Style="{StaticResource ViewerTextSearchResultTitleStyle}"
+                                            Text="{Binding Filename}" />
+                                        <TextBlock
+                                            x:Name="SearchResultPath"
+                                            Style="{StaticResource ViewerTextSearchResultPathStyle}"
+                                            Text="{Binding FilePath}" />
+                                    </StackPanel>
+                                    <TextBlock
+                                        x:Name="SearchResultExtension"
+                                        Grid.Column="1"
+                                        Style="{StaticResource ViewerTextCommandShortcutStyle}"
+                                        Text="{Binding Extension}" />
+                                </Grid>
+                            </Border>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
+                <Border
+                    x:Name="NoSearchResultsPanel"
+                    Padding="{StaticResource ViewerCommandEmptyStatePadding}"
+                    Style="{StaticResource ViewerSearchResultRowBorderStyle}"
+                    Visibility="Collapsed">
+                    <StackPanel Spacing="{StaticResource ViewerSearchResultContentSpacing}">
+                        <TextBlock
+                            x:Name="NoSearchResultsTitle"
+                            Style="{StaticResource ViewerTextCommandTitleStyle}"
+                            Text="No matching images" />
+                        <TextBlock
+                            x:Name="NoSearchResultsBody"
+                            Style="{StaticResource ViewerTextCommandDescriptionStyle}"
+                            Text="Try a filename fragment, extension, or nearby folder context." />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
     </Grid>

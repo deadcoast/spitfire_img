@@ -2,18 +2,60 @@
     x:Class="ImageViewer.App.Views.BottomInfoBar"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Border Padding="16,8" Style="{StaticResource ChromePanelBorderStyle}">
-        <Grid ColumnSpacing="18">
+    <Border
+        x:Name="InfoBarSurface"
+        AutomationProperties.Name="Image status"
+        Padding="{StaticResource ViewerBottomInfoBarPadding}"
+        Style="{StaticResource ViewerChromeInfoBarBorderStyle}">
+        <Grid ColumnSpacing="{StaticResource ViewerInfoBarColumnSpacing}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="FilenameText" Foreground="{ThemeResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis" />
-            <TextBlock x:Name="PositionText" Grid.Column="1" Foreground="{ThemeResource SecondaryTextBrush}" />
-            <TextBlock x:Name="DimensionsText" Grid.Column="2" Foreground="{ThemeResource SecondaryTextBrush}" />
-            <TextBlock x:Name="FolderText" Grid.Column="3" Foreground="{ThemeResource MutedTextBrush}" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
+            <StackPanel Spacing="{StaticResource ViewerThumbnailContentSpacing}">
+                <TextBlock Style="{StaticResource ViewerTextChromeLabelStyle}" Text="Image" />
+                <TextBlock x:Name="FilenameText" Style="{StaticResource ViewerTextPathStyle}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <Border
+                x:Name="PositionChip"
+                Grid.Column="1"
+                MinWidth="{StaticResource ViewerStatusChipMinWidth}"
+                Padding="{StaticResource ViewerStatusChipPadding}"
+                Style="{StaticResource ViewerStatusChipBorderStyle}">
+                <StackPanel Spacing="{StaticResource ViewerSpace2}">
+                    <TextBlock Style="{StaticResource ViewerTextChromeLabelStyle}" Text="Position" />
+                    <TextBlock x:Name="PositionText" Style="{StaticResource ViewerTextChromeValueStyle}" />
+                </StackPanel>
+            </Border>
+            <Border
+                x:Name="DimensionsChip"
+                Grid.Column="2"
+                MinWidth="{StaticResource ViewerStatusChipMinWidth}"
+                Padding="{StaticResource ViewerStatusChipPadding}"
+                Style="{StaticResource ViewerStatusChipBorderStyle}">
+                <StackPanel Spacing="{StaticResource ViewerSpace2}">
+                    <TextBlock Style="{StaticResource ViewerTextChromeLabelStyle}" Text="Size" />
+                    <TextBlock x:Name="DimensionsText" Style="{StaticResource ViewerTextChromeValueStyle}" />
+                </StackPanel>
+            </Border>
+            <Border
+                x:Name="ModeChip"
+                Grid.Column="3"
+                Padding="{StaticResource ViewerStatusChipPadding}"
+                Style="{StaticResource ViewerStatusChipBorderStyle}"
+                Visibility="Collapsed">
+                <StackPanel Spacing="{StaticResource ViewerSpace2}">
+                    <TextBlock Style="{StaticResource ViewerTextChromeLabelStyle}" Text="Mode" />
+                    <TextBlock x:Name="ModeText" Style="{StaticResource ViewerTextChromeValueStyle}" />
+                </StackPanel>
+            </Border>
+            <StackPanel Grid.Column="4" Spacing="{StaticResource ViewerThumbnailContentSpacing}">
+                <TextBlock HorizontalAlignment="Right" Style="{StaticResource ViewerTextChromeLabelStyle}" Text="Folder" />
+                <TextBlock x:Name="FolderText" Style="{StaticResource ViewerTextCaptionStyle}" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
         </Grid>
     </Border>
 </UserControl>

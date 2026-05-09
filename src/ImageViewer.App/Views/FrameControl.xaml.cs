@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 
 namespace ImageViewer.App.Views;
@@ -37,7 +38,15 @@ public sealed partial class FrameControl : UserControl
         var state = _viewModel.AnimationState;
         Visibility = state.IsAnimated ? Visibility.Visible : Visibility.Collapsed;
         PlayPauseIcon.Symbol = state.IsPlaying ? Symbol.Pause : Symbol.Play;
+        PlaybackStateText.Text = state.IsPlaying ? "Playing" : "Paused";
         FrameText.Text = state.FrameDisplayText;
+        FrameRangeText.Text = state.TotalFrames > 0
+            ? $"{state.CurrentFrame + 1} of {state.TotalFrames}"
+            : "No frames";
+        PreviousButton.IsEnabled = state.IsAnimated && state.TotalFrames > 1;
+        PlayPauseButton.IsEnabled = state.IsAnimated;
+        NextButton.IsEnabled = state.IsAnimated && state.TotalFrames > 1;
+        UpdateAutomationNames(state);
 
         _isUpdating = true;
         FrameSlider.IsEnabled = state.IsAnimated && state.TotalFrames > 1;
@@ -70,5 +79,12 @@ public sealed partial class FrameControl : UserControl
         }
 
         _viewModel.SeekAnimationFrameFromControl((int)Math.Round(e.NewValue) - 1);
+    }
+
+    private void UpdateAutomationNames(AnimationState state)
+    {
+        var playPauseName = state.IsPlaying ? "Pause GIF" : "Play GIF";
+        AutomationProperties.SetName(PlayPauseButton, playPauseName);
+        AutomationProperties.SetName(FrameSlider, $"GIF frame timeline, frame {state.CurrentFrame + 1} of {Math.Max(1, state.TotalFrames)}");
     }
 }

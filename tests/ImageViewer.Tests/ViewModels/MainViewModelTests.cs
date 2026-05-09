@@ -1449,14 +1449,20 @@ public sealed class MainViewModelTests
     {
         var viewModel = TestServices.WithPlaylist(CreateTwoItemPlaylist()).CreateViewModel();
         viewModel.SearchState.SetPlaylist(CreateTwoItemPlaylist().Items);
+        var searchRequestedCount = 0;
+        var searchHiddenCount = 0;
+        viewModel.SearchRequested += (_, _) => searchRequestedCount++;
+        viewModel.SearchHidden += (_, _) => searchHiddenCount++;
 
         viewModel.ShowSearch();
         viewModel.SetSearchQuery("b");
 
+        Assert.Equal(1, searchRequestedCount);
         Assert.True(viewModel.SearchState.IsSearchActive);
         Assert.Single(viewModel.SearchState.FilteredPlaylist);
 
         viewModel.HideSearch();
+        Assert.Equal(1, searchHiddenCount);
         Assert.False(viewModel.SearchState.IsSearchActive);
     }
 

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -42,14 +43,40 @@ public sealed partial class MetadataPanel : UserControl
         var metadata = _viewModel.ViewerState.Metadata;
         var exif = _viewModel.MetadataState.CurrentExifMetadata;
 
-        FileText.Text = image is null
-            ? "File\nNo image loaded"
-            : $"File\n{Path.GetFileName(image.FilePath)}\n{metadata?.FormattedFileSize}";
-        ImageText.Text = metadata is null
-            ? "Image\nNo image metadata"
-            : $"Image\n{metadata.FormattedDimensions}\nColor space: {exif.ColorSpace ?? "Unknown"}";
-        CameraText.Text =
-            $"Camera\nMake: {exif.CameraMake ?? "Unknown"}\nModel: {exif.CameraModel ?? "Unknown"}\nCaptured: {exif.FormattedCaptureDate ?? "Unknown"}\nISO: {exif.Iso?.ToString() ?? "Unknown"}\nAperture: {exif.FormattedAperture ?? "Unknown"}\nShutter: {exif.FormattedShutterSpeed ?? "Unknown"}\nFocal length: {exif.FormattedFocalLength ?? "Unknown"}\nFlash: {exif.FormattedFlashStatus ?? "Unknown"}\nGPS: {exif.FormattedGpsCoordinates ?? "Unknown"}\nAltitude: {exif.FormattedAltitude ?? "Unknown"}";
+        MetadataSummary.Text = image is null
+            ? "No image loaded"
+            : Path.GetFileName(image.FilePath);
+
+        SetMetadataRow(FileNameValue, image is null ? "No image loaded" : Path.GetFileName(image.FilePath));
+        SetMetadataRow(FileSizeValue, metadata?.FormattedFileSize);
+        SetMetadataRow(DimensionsValue, metadata?.FormattedDimensions);
+        SetMetadataRow(ColorSpaceValue, exif.ColorSpace);
+        SetMetadataRow(CameraMakeValue, exif.CameraMake);
+        SetMetadataRow(CameraModelValue, exif.CameraModel);
+        SetMetadataRow(CaptureDateValue, exif.FormattedCaptureDate);
+        SetMetadataRow(IsoValue, exif.Iso?.ToString());
+        SetMetadataRow(ApertureValue, exif.FormattedAperture);
+        SetMetadataRow(ShutterValue, exif.FormattedShutterSpeed);
+        SetMetadataRow(FocalLengthValue, exif.FormattedFocalLength);
+        SetMetadataRow(FlashValue, exif.FormattedFlashStatus);
+        SetMetadataRow(GpsValue, FormatGpsValue(exif));
+    }
+
+    private static void SetMetadataRow(TextBlock valueBlock, string? value)
+    {
+        valueBlock.Text = string.IsNullOrWhiteSpace(value) ? "Unknown" : value;
+    }
+
+    private static string? FormatGpsValue(ExifMetadata exif)
+    {
+        if (string.IsNullOrWhiteSpace(exif.FormattedGpsCoordinates))
+        {
+            return exif.FormattedAltitude;
+        }
+
+        return string.IsNullOrWhiteSpace(exif.FormattedAltitude)
+            ? exif.FormattedGpsCoordinates
+            : $"{exif.FormattedGpsCoordinates} / {exif.FormattedAltitude}";
     }
 
     private void AnimatePanel(bool show)

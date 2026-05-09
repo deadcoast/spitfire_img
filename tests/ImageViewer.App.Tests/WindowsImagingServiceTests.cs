@@ -378,6 +378,34 @@ public sealed class WindowsImagingServiceTests : IDisposable
         Assert.Equal("49.282700 N, 123.120700 W", result.Value.FormattedGpsCoordinates);
     }
 
+    [Fact]
+    public void EvidenceDelayImageDecodeService_InvalidDelay_LeavesDecoderUnwrapped()
+    {
+        var inner = new RecordingImageDecodeService();
+
+        var service = EvidenceDelayImageDecodeService.CreateIfConfigured(inner, "0");
+
+        Assert.Same(inner, service);
+    }
+
+    [Fact]
+    public async Task EvidenceDelayImageDecodeService_ConfiguredDelay_WaitsBeforeDelegatingDecode()
+    {
+        var inner = new RecordingImageDecodeService();
+        var service = EvidenceDelayImageDecodeService.CreateIfConfigured(inner, "120");
+
+        var decodeTask = service.DecodeImageAsync(@"C:\Images\loading.png");
+        await Task.Delay(25);
+
+        Assert.Equal(0, inner.DecodeCount);
+
+        var result = await decodeTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, inner.DecodeCount);
+        Assert.Equal(@"C:\Images\loading.png", result.Value.FilePath);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -515,4 +543,35 @@ public sealed class WindowsImagingServiceTests : IDisposable
     }
 
     private sealed record ExifSnapshot(string? Make, string? Model, string? Software, ushort? Iso, ushort? Orientation);
+
+    private sealed class RecordingImageDecodeService : IImageDecodeService
+    {
+        public int DecodeCount { get; private set; }
+
+        public Task<Result<DecodedImage>> DecodeImageAsync(
+            string filePath,
+            CancellationToken cancellationToken = default)
+        {
+            DecodeCount++;
+            return Task.FromResult(Result<DecodedImage>.Success(
+                new DecodedImage(filePath, new ImageMetadata(10, 10, 100))));
+        }
+
+        public bool IsSupportedFormat(string extension)
+        {
+            return true;
+        }
+
+        public bool IsDeferredFormat(string extension)
+        {
+            return false;
+        }
+
+        public Task<Result<int>> GetFrameCountAsync(
+            string filePath,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Result<int>.Success(1));
+        }
+    }
 }

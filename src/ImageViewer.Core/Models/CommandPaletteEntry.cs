@@ -12,6 +12,8 @@ public sealed record CommandPaletteEntry(string HeaderText, CommandPaletteMatch?
 
     public string KeyboardShortcut => Match?.KeyboardShortcut ?? string.Empty;
 
+    public string Description => Match?.Description ?? string.Empty;
+
     public static CommandPaletteEntry Header(string headerText)
     {
         return new CommandPaletteEntry(headerText, null);

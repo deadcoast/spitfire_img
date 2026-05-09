@@ -15,11 +15,14 @@ public sealed partial class FilmstripView : UserControl
     private readonly ObservableCollection<FilmstripThumbnailItem> _items = [];
     private MainViewModel? _viewModel;
     private int _loadVersion;
+    private bool _isLoaded;
+    private bool _refreshQueued;
 
     public FilmstripView()
     {
         InitializeComponent();
-        ThumbnailItems.ItemsSource = _items;
+        FilmstripThumbnailList.ItemsSource = _items;
+        Loaded += OnLoaded;
     }
 
     public void Attach(MainViewModel viewModel)
@@ -27,13 +30,23 @@ public sealed partial class FilmstripView : UserControl
         _viewModel = viewModel;
         viewModel.LayoutState.PropertyChanged += OnLayoutStateChanged;
         viewModel.ViewerState.PropertyChanged += OnViewerStateChanged;
-        Refresh();
+        if (_isLoaded)
+        {
+            QueueRefresh();
+            UpdateDisplayMode();
+        }
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _isLoaded = true;
+        QueueRefresh();
         UpdateDisplayMode();
     }
 
     private void OnLayoutStateChanged(object? sender, PropertyChangedEventArgs e)
     {
-        DispatcherQueue.TryEnqueue(Refresh);
+        QueueRefresh();
     }
 
     private void OnViewerStateChanged(object? sender, PropertyChangedEventArgs e)
@@ -53,6 +66,12 @@ public sealed partial class FilmstripView : UserControl
             return;
         }
 
+        if (!_isLoaded)
+        {
+            return;
+        }
+
+        ApplyHostSize();
         Visibility = _viewModel.LayoutState.IsFilmstripActive ? Visibility.Visible : Visibility.Collapsed;
         if (!_viewModel.LayoutState.IsFilmstripActive)
         {
@@ -63,6 +82,42 @@ public sealed partial class FilmstripView : UserControl
 
         _ = LoadFilmstripAsync(++_loadVersion);
         UpdateDisplayMode();
+    }
+
+    private void QueueRefresh()
+    {
+        if (_refreshQueued)
+        {
+            return;
+        }
+
+        _refreshQueued = true;
+        if (!DispatcherQueue.TryEnqueue(() =>
+        {
+            _refreshQueued = false;
+            Refresh();
+        }))
+        {
+            _refreshQueued = false;
+        }
+    }
+
+    private void ApplyHostSize()
+    {
+        if (Parent is not FrameworkElement parent)
+        {
+            return;
+        }
+
+        if (parent.ActualWidth > 0)
+        {
+            Width = parent.ActualWidth;
+        }
+
+        if (parent.ActualHeight > 0)
+        {
+            Height = parent.ActualHeight;
+        }
     }
 
     private async Task LoadFilmstripAsync(int loadVersion)
@@ -85,6 +140,7 @@ public sealed partial class FilmstripView : UserControl
         }
 
         FocusImage.Source = focusBitmap;
+        FilmstripFocusText.Text = $"{focusItem.Filename} - {(_viewModel.LayoutState.FilmstripFocusIndex + 1)} of {_viewModel.PlaylistState.TotalCount}";
         _items.Clear();
 
         var thumbnails = _viewModel.LayoutState.FilmstripThumbnails.ToArray();
@@ -94,18 +150,16 @@ public sealed partial class FilmstripView : UserControl
                 thumbnail,
                 imageSource: null,
                 placeholderText: "Loading",
-                thumbnail.IsFocused ? new Thickness(3) : new Thickness(0)));
+                thumbnail.IsFocused ? new Thickness(3) : new Thickness(0),
+                thumbnail.IsFocused));
         }
 
-        var thumbnailTasks = thumbnails
-            .Select((thumbnail, index) => LoadThumbnailImageAsync(index, thumbnail.Item))
-            .ToList();
-
-        while (thumbnailTasks.Count > 0)
+        for (var thumbnailIndex = 0; thumbnailIndex < thumbnails.Length; thumbnailIndex++)
         {
-            var completedTask = await Task.WhenAny(thumbnailTasks).ConfigureAwait(true);
-            thumbnailTasks.Remove(completedTask);
-            var loadedThumbnail = await completedTask.ConfigureAwait(true);
+            var loadedThumbnail = await LoadThumbnailImageAsync(
+                    thumbnailIndex,
+                    thumbnails[thumbnailIndex].Item)
+                .ConfigureAwait(true);
             if (loadVersion != _loadVersion)
             {
                 return;
@@ -204,16 +258,20 @@ public sealed partial class FilmstripView : UserControl
             FilmstripImage image,
             BitmapImage? imageSource,
             string placeholderText,
-            Thickness borderThickness)
+            Thickness borderThickness,
+            bool isCurrent)
         {
             Item = image.Item;
             PlaylistIndex = image.PlaylistIndex;
             _imageSource = imageSource;
             _placeholderText = placeholderText;
             BorderThickness = borderThickness;
+            CurrentLabel = isCurrent ? "Focus" : string.Empty;
         }
 
         public ImageItem Item { get; }
+
+        public string FileName => Item.Filename;
 
         public int PlaylistIndex { get; }
 
@@ -226,10 +284,20 @@ public sealed partial class FilmstripView : UserControl
         public string PlaceholderText
         {
             get => _placeholderText;
-            set => SetProperty(ref _placeholderText, value);
+            set
+            {
+                if (SetProperty(ref _placeholderText, value))
+                {
+                    OnPropertyChanged(nameof(StatusText));
+                }
+            }
         }
 
         public Thickness BorderThickness { get; }
+
+        public string CurrentLabel { get; }
+
+        public string StatusText => string.IsNullOrWhiteSpace(PlaceholderText) ? string.Empty : PlaceholderText;
     }
 
     private sealed record LoadedFilmstripThumbnail(int VisibleIndex, BitmapImage? ImageSource);

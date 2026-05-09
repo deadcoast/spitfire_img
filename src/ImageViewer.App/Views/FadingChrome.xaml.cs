@@ -36,34 +36,80 @@ public sealed partial class FadingChrome : UserControl
         FrameControl.Attach(viewModel);
         viewModel.RecentFiles.CollectionChanged += OnRecentFilesChanged;
         viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
+        viewModel.PlaylistState.PropertyChanged += OnChromeStateChanged;
+        viewModel.ComparisonState.PropertyChanged += OnChromeStateChanged;
+        viewModel.AnimationState.PropertyChanged += OnChromeStateChanged;
+        viewModel.SlideshowState.PropertyChanged += OnChromeStateChanged;
         RebuildRecentFilesMenu();
-        UpdateUnsavedChangesBadge();
+        UpdateChromeState();
         ShowChrome();
     }
 
     private void OnTransformStateChanged(object? sender, PropertyChangedEventArgs e)
     {
-        DispatcherQueue.TryEnqueue(UpdateUnsavedChangesBadge);
+        DispatcherQueue.TryEnqueue(UpdateChromeState);
     }
 
-    private void UpdateUnsavedChangesBadge()
+    private void OnChromeStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(UpdateChromeState);
+    }
+
+    private void UpdateChromeState()
     {
         UnsavedChangesBadge.Visibility = _viewModel?.TransformState.HasUnsavedChanges == true
             ? Visibility.Visible
             : Visibility.Collapsed;
+        ChromeStatusText.Text = GetChromeStatusText();
+    }
+
+    private string GetChromeStatusText()
+    {
+        if (_viewModel is null)
+        {
+            return string.Empty;
+        }
+
+        if (_viewModel.TransformState.HasUnsavedChanges)
+        {
+            return "Unsaved changes";
+        }
+
+        if (_viewModel.ComparisonState.IsActive)
+        {
+            var layout = _viewModel.ComparisonState.Layout == ImageViewer.Core.Models.ComparisonLayout.Overlay
+                ? "Overlay comparison"
+                : "Side-by-side comparison";
+            return _viewModel.ComparisonState.SyncZoomEnabled ? $"{layout} - sync zoom" : layout;
+        }
+
+        if (_viewModel.SlideshowState.IsActive)
+        {
+            var status = _viewModel.SlideshowState.IsPaused ? "Slideshow paused" : "Slideshow";
+            return $"{status} - {_viewModel.SlideshowState.Interval.TotalSeconds:0}s";
+        }
+
+        if (_viewModel.AnimationState.IsAnimated)
+        {
+            return _viewModel.AnimationState.IsPlaying ? "Animation playing" : "Animation paused";
+        }
+
+        return _viewModel.PlaylistState.TotalCount > 0 ? "Browsing folder" : "Ready";
     }
 
     public void ShowChrome()
     {
         _fadeTimer.Stop();
-        AnimateOpacity(1.0, 100);
+        VisualStateManager.GoToState(this, "Active", true);
+        AnimateOpacity(GetDoubleResource("ViewerChromeActiveOpacity", 1.0), 100);
         _fadeTimer.Start();
     }
 
     public void PauseFade()
     {
         _fadeTimer.Stop();
-        AnimateOpacity(1.0, 100);
+        VisualStateManager.GoToState(this, "Active", true);
+        AnimateOpacity(GetDoubleResource("ViewerChromeActiveOpacity", 1.0), 100);
     }
 
     public void ResumeFade()
@@ -74,7 +120,8 @@ public sealed partial class FadingChrome : UserControl
     private void FadeOutChrome()
     {
         _fadeTimer.Stop();
-        AnimateOpacity(0.1, 300);
+        VisualStateManager.GoToState(this, "Idle", true);
+        AnimateOpacity(GetDoubleResource("ViewerChromeIdleOpacity", 0.72), 300);
     }
 
     private void AnimateOpacity(double opacity, int durationMs)
@@ -92,6 +139,13 @@ public sealed partial class FadingChrome : UserControl
         var storyboard = new Storyboard();
         storyboard.Children.Add(animation);
         storyboard.Begin();
+    }
+
+    private double GetDoubleResource(string key, double fallback)
+    {
+        return Application.Current.Resources.TryGetValue(key, out var value) && value is double doubleValue
+            ? doubleValue
+            : fallback;
     }
 
     private void OnOpenFileClicked(object sender, RoutedEventArgs e)

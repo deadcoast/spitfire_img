@@ -2,26 +2,215 @@
     x:Class="ImageViewer.App.Views.MetadataPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Opacity="0"
+    Opacity="{StaticResource ViewerHiddenOpacity}"
     Visibility="Collapsed">
     <Grid HorizontalAlignment="Stretch">
         <Border
-            x:Name="PanelBorder"
-            Width="340"
+            x:Name="MetadataPanelSurface"
+            Width="{StaticResource ViewerMetadataPanelWidth}"
             HorizontalAlignment="Right"
             VerticalAlignment="Stretch"
-            Margin="0,72,16,72"
-            Padding="16"
-            Style="{StaticResource ChromePanelBorderStyle}">
+            Margin="{StaticResource ViewerMetadataPanelMargin}"
+            Padding="{StaticResource ViewerMetadataPanelPadding}"
+            AutomationProperties.Name="Image metadata panel"
+            Style="{StaticResource ViewerChromePanelBorderStyle}">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="PanelTransform" X="360" />
             </Border.RenderTransform>
             <ScrollViewer>
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Metadata" FontSize="20" FontWeight="SemiBold" />
-                    <TextBlock x:Name="FileText" TextWrapping="Wrap" />
-                    <TextBlock x:Name="ImageText" TextWrapping="Wrap" />
-                    <TextBlock x:Name="CameraText" TextWrapping="Wrap" />
+                <StackPanel Spacing="{StaticResource ViewerMetadataContentSpacing}">
+                    <StackPanel
+                        x:Name="MetadataHeader"
+                        Spacing="{StaticResource ViewerSearchResultContentSpacing}">
+                        <TextBlock
+                            x:Name="MetadataTitle"
+                            Style="{StaticResource ViewerTextPanelTitleStyle}"
+                            Text="Metadata" />
+                        <TextBlock
+                            x:Name="MetadataSummary"
+                            Style="{StaticResource ViewerTextStatusStyle}" />
+                    </StackPanel>
+
+                    <Border
+                        x:Name="FileSection"
+                        Padding="{StaticResource ViewerMetadataSectionPadding}"
+                        Style="{StaticResource ViewerMetadataSectionBorderStyle}">
+                        <StackPanel Spacing="{StaticResource ViewerMetadataRowSpacing}">
+                            <TextBlock
+                                Style="{StaticResource ViewerTextMetadataSectionTitleStyle}"
+                                Text="File" />
+                            <Grid
+                                ColumnSpacing="{StaticResource ViewerInfoBarColumnSpacing}"
+                                RowSpacing="{StaticResource ViewerMetadataRowSpacing}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource ViewerTextMetadataLabelStyle}" Text="Name" />
+                                <TextBlock
+                                    x:Name="FileNameValue"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="1"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="Size" />
+                                <TextBlock
+                                    x:Name="FileSizeValue"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        x:Name="ImageSection"
+                        Padding="{StaticResource ViewerMetadataSectionPadding}"
+                        Style="{StaticResource ViewerMetadataSectionBorderStyle}">
+                        <StackPanel Spacing="{StaticResource ViewerMetadataRowSpacing}">
+                            <TextBlock
+                                Style="{StaticResource ViewerTextMetadataSectionTitleStyle}"
+                                Text="Image" />
+                            <Grid
+                                ColumnSpacing="{StaticResource ViewerInfoBarColumnSpacing}"
+                                RowSpacing="{StaticResource ViewerMetadataRowSpacing}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource ViewerTextMetadataLabelStyle}" Text="Dimensions" />
+                                <TextBlock
+                                    x:Name="DimensionsValue"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="1"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="Color" />
+                                <TextBlock
+                                    x:Name="ColorSpaceValue"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        x:Name="CameraSection"
+                        Padding="{StaticResource ViewerMetadataSectionPadding}"
+                        Style="{StaticResource ViewerMetadataSectionBorderStyle}">
+                        <StackPanel Spacing="{StaticResource ViewerMetadataRowSpacing}">
+                            <TextBlock
+                                Style="{StaticResource ViewerTextMetadataSectionTitleStyle}"
+                                Text="Camera" />
+                            <Grid
+                                ColumnSpacing="{StaticResource ViewerInfoBarColumnSpacing}"
+                                RowSpacing="{StaticResource ViewerMetadataRowSpacing}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource ViewerTextMetadataLabelStyle}" Text="Make" />
+                                <TextBlock
+                                    x:Name="CameraMakeValue"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="1"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="Model" />
+                                <TextBlock
+                                    x:Name="CameraModelValue"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="2"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="Captured" />
+                                <TextBlock
+                                    x:Name="CaptureDateValue"
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="3"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="ISO" />
+                                <TextBlock
+                                    x:Name="IsoValue"
+                                    Grid.Row="3"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="4"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="Aperture" />
+                                <TextBlock
+                                    x:Name="ApertureValue"
+                                    Grid.Row="4"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="5"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="Shutter" />
+                                <TextBlock
+                                    x:Name="ShutterValue"
+                                    Grid.Row="5"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="6"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="Focal" />
+                                <TextBlock
+                                    x:Name="FocalLengthValue"
+                                    Grid.Row="6"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="7"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="Flash" />
+                                <TextBlock
+                                    x:Name="FlashValue"
+                                    Grid.Row="7"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                                <TextBlock
+                                    Grid.Row="8"
+                                    Style="{StaticResource ViewerTextMetadataLabelStyle}"
+                                    Text="GPS" />
+                                <TextBlock
+                                    x:Name="GpsValue"
+                                    Grid.Row="8"
+                                    Grid.Column="1"
+                                    Style="{StaticResource ViewerTextMetadataValueStyle}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
         </Border>

@@ -67,6 +67,11 @@ docs/phase-5-professional-ui-qol/
   tasks.md                     Required implementation checklist
   source-material.md           Source register created during implementation
   visual-audit.md              Current UI audit and final visual review
+  design-token-plan.md         Token dictionary, naming, validation, and migration plan
+  motion-system-plan.md        Motion categories, reduced-motion plan, and evidence targets
+  surface-redesign-briefs.md   Per-surface redesign briefs and state requirements
+  backend-qol-plan.md          Continuity, responsiveness, and error-recovery QOL plan
+  phase5-evidence-template.md  Evidence template for visual, motion, accessibility, QOL, gate
 
 src/ImageViewer.App/
   Resources/
@@ -116,6 +121,12 @@ The exact files should be finalized during implementation tasks. The design goal
 ## Visual design system
 
 Phase 5 should introduce a coherent Professional_UI_System rather than isolated style edits.
+
+The detailed token plan is maintained in:
+
+```text
+docs/phase-5-professional-ui-qol/design-token-plan.md
+```
 
 ### Token groups
 
@@ -180,9 +191,21 @@ Each surface must have:
 
 The design should favor dense, purposeful desktop utility. This is not a landing page, marketing page, or illustrative dashboard.
 
+The detailed per-surface redesign briefs are maintained in:
+
+```text
+docs/phase-5-professional-ui-qol/surface-redesign-briefs.md
+```
+
 ## Motion system
 
 Motion should clarify state changes. It should never make image inspection harder.
+
+The detailed motion plan is maintained in:
+
+```text
+docs/phase-5-professional-ui-qol/motion-system-plan.md
+```
 
 Motion categories:
 
@@ -205,6 +228,12 @@ Implementation guidance:
 ## Backend QOL design
 
 Backend QOL work must be additive and user-centered. It should improve existing workflows without becoming a catalog, account system, cloud system, or telemetry system.
+
+The detailed backend QOL plan is maintained in:
+
+```text
+docs/phase-5-professional-ui-qol/backend-qol-plan.md
+```
 
 Candidate QOL areas:
 
@@ -281,6 +310,12 @@ dotnet test SpitfireImg.sln -p:Platform=x64
 Additional release-artifact verification may be run, but Phase 5 is not a packaging phase.
 
 ## Evidence model
+
+The reusable evidence template is maintained in:
+
+```text
+docs/phase-5-professional-ui-qol/phase5-evidence-template.md
+```
 
 ```text
 TestResults/phase5-evidence/

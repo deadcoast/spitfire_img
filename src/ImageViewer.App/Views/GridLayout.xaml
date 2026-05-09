@@ -1,11 +1,40 @@
 <UserControl
     x:Class="ImageViewer.App.Views.GridLayout"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    AutomationProperties.Name="Grid layout surface">
     <Grid
         x:Name="LayoutRoot"
-        Background="{ThemeResource CanvasBackgroundBrush}"
+        Background="{ThemeResource ViewerCanvasBackgroundBrush}"
         Visibility="Collapsed">
         <Canvas x:Name="ImageHost" />
+        <Border
+            x:Name="GridModeHud"
+            Margin="{StaticResource ViewerGridHudMargin}"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Style="{StaticResource ViewerGridHudBorderStyle}">
+            <StackPanel Spacing="{StaticResource ViewerGridHudSpacing}">
+                <Grid ColumnSpacing="{StaticResource ViewerInfoBarColumnSpacing}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Text="Grid"
+                        Style="{StaticResource ViewerTextCommandHeaderStyle}" />
+                    <TextBlock
+                        x:Name="GridDensityText"
+                        Grid.Column="1"
+                        Style="{StaticResource ViewerTextNumericStyle}" />
+                </Grid>
+                <TextBlock
+                    x:Name="GridPageText"
+                    Style="{StaticResource ViewerTextStatusStyle}" />
+                <TextBlock
+                    x:Name="GridStatusText"
+                    Style="{StaticResource ViewerTextStatusStyle}" />
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

@@ -168,7 +168,9 @@ public partial class App : Application
         services.AddSingleton<IWindowsCodecRegistry, WindowsCodecRegistry>();
         services.AddSingleton<ICodecDetectionService, WindowsCodecDetectionService>();
         services.AddSingleton<IPlatformImageDecodeService, WindowsPlatformImageDecodeService>();
-        services.AddSingleton<IImageDecodeService, ImageDecodeService>();
+        services.AddSingleton<ImageDecodeService>();
+        services.AddSingleton<IImageDecodeService>(provider =>
+            EvidenceDelayImageDecodeService.CreateIfConfigured(provider.GetRequiredService<ImageDecodeService>()));
         services.AddSingleton<IFileOpenService, FileOpenService>();
         services.AddSingleton<IFolderPlaylistService, FolderPlaylistService>();
         services.AddSingleton<INavigationService, NavigationService>();

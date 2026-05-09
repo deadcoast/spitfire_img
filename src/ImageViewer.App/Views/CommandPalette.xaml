@@ -5,74 +5,131 @@
     Visibility="Collapsed">
     <Grid
         x:Name="PaletteRoot"
-        Background="Transparent"
+        Background="{ThemeResource ViewerTransparentBrush}"
         PointerPressed="OnPaletteRootPointerPressed">
         <Border
             x:Name="PalettePanel"
-            Width="560"
-            MaxHeight="520"
-            Padding="16"
+            Width="{StaticResource ViewerCommandPaletteWidth}"
+            MaxHeight="{StaticResource ViewerOverlayMaxHeight}"
+            Padding="{StaticResource ViewerOverlayContentPadding}"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
-            Margin="0,84,0,0"
-            Background="{ThemeResource ChromeBackgroundBrush}"
-            BorderBrush="{ThemeResource SubtleBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="6">
-            <StackPanel Spacing="10">
+            Margin="{StaticResource ViewerCommandPaletteMargin}"
+            AutomationProperties.Name="Command palette"
+            Style="{StaticResource ViewerCommandPalettePanelBorderStyle}">
+            <StackPanel Spacing="{StaticResource ViewerPanelContentSpacing}">
+                <Grid
+                    x:Name="PaletteHeader"
+                    Padding="{StaticResource ViewerCommandPanelHeaderPadding}"
+                    ColumnSpacing="{StaticResource ViewerCommandPaletteHeaderSpacing}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="PaletteTitle"
+                        Style="{StaticResource ViewerTextCommandPaletteTitleStyle}"
+                        Text="Command palette" />
+                    <TextBlock
+                        x:Name="ResultSummaryText"
+                        Grid.Column="1"
+                        Style="{StaticResource ViewerTextStatusStyle}"
+                        Text="Ready" />
+                </Grid>
                 <TextBox
                     x:Name="SearchInput"
+                    AutomationProperties.Name="Search commands"
                     KeyDown="OnPaletteKeyDown"
                     PlaceholderText="Type a command..."
                     TextChanged="OnSearchTextChanged" />
                 <ListView
                     x:Name="CommandList"
                     IsItemClickEnabled="True"
+                    ItemContainerStyle="{StaticResource ViewerCommandPaletteListViewItemStyle}"
                     ItemClick="OnCommandClicked"
                     KeyDown="OnPaletteKeyDown"
+                    MaxHeight="{StaticResource ViewerOverlayResultsMaxHeight}"
                     SelectionMode="Single">
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <Grid>
-                                <TextBlock
+                                <Border
+                                    x:Name="CommandHeaderSurface"
                                     DataContextChanged="OnCommandHeaderDataContextChanged"
                                     Loaded="OnCommandHeaderLoaded"
-                                    Padding="4,10,4,4"
-                                    Foreground="{ThemeResource SecondaryTextBrush}"
-                                    Tag="{Binding}"
-                                    Visibility="Collapsed" />
-                                <Grid
-                                    DataContextChanged="OnCommandRowDataContextChanged"
-                                    Loaded="OnCommandRowLoaded"
-                                    Padding="4"
-                                    ColumnSpacing="12"
+                                    Padding="{StaticResource ViewerCommandHeaderPadding}"
+                                    Style="{StaticResource ViewerCommandHeaderBorderStyle}"
                                     Tag="{Binding}"
                                     Visibility="Collapsed">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
                                     <TextBlock
-                                        DataContextChanged="OnCommandTitleDataContextChanged"
-                                        Loaded="OnCommandTitleLoaded"
-                                        Foreground="{ThemeResource PrimaryTextBrush}"
-                                        Tag="{Binding Match}"
-                                        TextTrimming="CharacterEllipsis" />
-                                    <TextBlock
-                                        Grid.Column="1"
-                                        Foreground="{ThemeResource SecondaryTextBrush}"
-                                        Text="{Binding Match.KeyboardShortcut}" />
-                                </Grid>
+                                        Style="{StaticResource ViewerTextCommandHeaderStyle}"
+                                        Text="{Binding HeaderText}" />
+                                </Border>
+                                <Border
+                                    x:Name="CommandRowSurface"
+                                    DataContextChanged="OnCommandRowDataContextChanged"
+                                    Loaded="OnCommandRowLoaded"
+                                    Padding="{StaticResource ViewerCommandShortcutPadding}"
+                                    Style="{StaticResource ViewerCommandRowBorderStyle}"
+                                    Tag="{Binding}"
+                                    Visibility="Collapsed">
+                                    <Grid ColumnSpacing="{StaticResource ViewerCommandRowColumnSpacing}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="{StaticResource ViewerCommandRowContentSpacing}">
+                                            <TextBlock
+                                                x:Name="CommandTitleText"
+                                                DataContextChanged="OnCommandTitleDataContextChanged"
+                                                Loaded="OnCommandTitleLoaded"
+                                                Style="{StaticResource ViewerTextCommandTitleStyle}"
+                                                Tag="{Binding Match}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                x:Name="CommandDescriptionText"
+                                                Style="{StaticResource ViewerTextCommandDescriptionStyle}"
+                                                Text="{Binding Match.Description}" />
+                                            <TextBlock
+                                                x:Name="CommandCategoryText"
+                                                Style="{StaticResource ViewerTextCaptionStyle}"
+                                                Text="{Binding Match.Category}" />
+                                        </StackPanel>
+                                        <Border
+                                            x:Name="CommandShortcutPill"
+                                            Grid.Column="1"
+                                            MinWidth="{StaticResource ViewerCommandShortcutMinWidth}"
+                                            Padding="{StaticResource ViewerCommandShortcutPillPadding}"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource ViewerCommandShortcutPillBorderStyle}">
+                                            <TextBlock
+                                                x:Name="CommandShortcutText"
+                                                HorizontalAlignment="Center"
+                                                Style="{StaticResource ViewerTextCommandShortcutStyle}"
+                                                Text="{Binding Match.KeyboardShortcut}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
-                <TextBlock
-                    x:Name="NoMatchesText"
-                    Padding="12"
-                    Foreground="{ThemeResource SecondaryTextBrush}"
-                    Text="No matching commands found"
-                    Visibility="Collapsed" />
+                <Border
+                    x:Name="NoMatchesPanel"
+                    Padding="{StaticResource ViewerCommandEmptyStatePadding}"
+                    Style="{StaticResource ViewerCommandRowBorderStyle}"
+                    Visibility="Collapsed">
+                    <StackPanel Spacing="{StaticResource ViewerCommandRowContentSpacing}">
+                        <TextBlock
+                            x:Name="NoMatchesTitle"
+                            Style="{StaticResource ViewerTextCommandTitleStyle}"
+                            Text="No matching commands" />
+                        <TextBlock
+                            x:Name="NoMatchesBody"
+                            Style="{StaticResource ViewerTextCommandDescriptionStyle}"
+                            Text="Try a command name, category, or shortcut." />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
     </Grid>

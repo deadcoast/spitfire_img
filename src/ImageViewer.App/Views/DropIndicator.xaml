@@ -2,21 +2,18 @@
     x:Class="ImageViewer.App.Views.DropIndicator"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Opacity="0"
+    Opacity="{StaticResource ViewerHiddenOpacity}"
     Visibility="Collapsed">
-    <Grid Background="#66000000">
+    <Grid Background="{ThemeResource ViewerScrimBrush}">
         <Border
             x:Name="DropPanel"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            Padding="28"
-            CornerRadius="16"
-            Background="{ThemeResource ChromeBackgroundBrush}">
+            Padding="{StaticResource ViewerOverlayPanelPadding}"
+            Style="{StaticResource ViewerOverlayPanelBorderStyle}">
             <TextBlock
                 x:Name="MessageText"
-                FontSize="24"
-                FontWeight="SemiBold"
-                Foreground="{ThemeResource PrimaryTextBrush}"
+                Style="{StaticResource ViewerTextEmptyStateTitleStyle}"
                 Text="Drop image to open" />
         </Border>
     </Grid>

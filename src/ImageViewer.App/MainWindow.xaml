@@ -9,7 +9,7 @@
         x:Name="RootGrid"
         IsTabStop="True"
         AllowDrop="True"
-        Background="{ThemeResource CanvasBackgroundBrush}"
+        Background="{ThemeResource ViewerCanvasBackgroundBrush}"
         DragLeave="OnRootDragLeave"
         DragOver="OnRootDragOver"
         Drop="OnRootDrop"
@@ -28,30 +28,63 @@
 
         <InfoBar
             x:Name="ErrorInfoBar"
-            Margin="16,56,16,0"
-            HorizontalAlignment="Stretch"
+            Margin="{StaticResource ViewerStatusInfoBarMargin}"
+            MaxWidth="{StaticResource ViewerStatusPanelMaxWidth}"
+            HorizontalAlignment="Right"
             VerticalAlignment="Top"
+            AutomationProperties.Name="Image warning or error status"
             IsOpen="False"
-            Severity="Error" />
+            IsClosable="True"
+            Severity="Error">
+            <InfoBar.ActionButton>
+                <Button
+                    x:Name="ErrorRecoveryButton"
+                    Click="OnErrorRecoveryClicked"
+                    Content="Open image"
+                    Visibility="Collapsed" />
+            </InfoBar.ActionButton>
+        </InfoBar>
 
-        <StackPanel
+        <Border
             x:Name="LoadingOverlay"
+            MaxWidth="{StaticResource ViewerStatusPanelMaxWidth}"
+            Padding="{StaticResource ViewerStatusSurfacePadding}"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            Spacing="12"
+            AutomationProperties.Name="Image loading status"
+            Style="{StaticResource ViewerLoadingStatusBorderStyle}"
             Visibility="Collapsed">
-            <ProgressRing
-                x:Name="LoadingRing"
-                Width="48"
-                Height="48"
-                HorizontalAlignment="Center"
-                IsActive="False" />
-            <Button
-                x:Name="CancelLoadingButton"
-                HorizontalAlignment="Center"
-                Click="OnCancelLoadingClicked"
-                Content="Cancel"
-                Visibility="Collapsed" />
-        </StackPanel>
+            <Grid ColumnSpacing="{StaticResource ViewerStatusSurfaceSpacing}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <ProgressRing
+                    x:Name="LoadingRing"
+                    Width="{StaticResource ViewerLoadingRingSize}"
+                    Height="{StaticResource ViewerLoadingRingSize}"
+                    VerticalAlignment="Top"
+                    IsActive="False" />
+
+                <StackPanel
+                    Grid.Column="1"
+                    Spacing="{StaticResource ViewerEmptyStateContentSpacing}">
+                    <TextBlock
+                        x:Name="LoadingStatusTitle"
+                        Style="{StaticResource ViewerTextStatusTitleStyle}"
+                        Text="Preparing image" />
+                    <TextBlock
+                        x:Name="LoadingStatusBody"
+                        Style="{StaticResource ViewerTextStatusBodyStyle}"
+                        Text="Decoding the file while the viewer remains available." />
+                    <Button
+                        x:Name="CancelLoadingButton"
+                        Click="OnCancelLoadingClicked"
+                        Content="Cancel loading"
+                        Visibility="Collapsed" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

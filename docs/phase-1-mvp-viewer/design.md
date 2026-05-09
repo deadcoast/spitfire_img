@@ -34,7 +34,7 @@ This design document specifies the technical implementation for Phase 1 of spitf
 
 ### High-Level Architecture
 
-```
+```text
 ┌────────────────────────────────────────────────────────────┐
 │                     Presentation Layer                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
@@ -77,28 +77,32 @@ This design document specifies the technical implementation for Phase 1 of spitf
 
 ### Layer Responsibilities
 
-**Presentation Layer**
+#### Presentation Layer
+
 - Renders UI elements (window, canvas, chrome, info bar)
 - Handles user input (keyboard, mouse, touch)
 - Manages window state (size, position, fullscreen)
 - Triggers UI animations (fade in/out)
 - Binds to ViewModel properties and commands
 
-**ViewModel Layer**
+#### ViewModel Layer
+
 - Exposes observable properties for data binding
 - Implements commands for user actions
 - Maintains UI state (current image, zoom level, UI visibility)
 - Coordinates service calls
 - Transforms service results into presentation-ready data
 
-**Service Layer**
+#### Service Layer
+
 - Implements business logic (file validation, image decoding, playlist scanning)
 - Performs I/O operations (file system, settings, logs)
 - Returns structured results (success/error)
 - Operates independently of UI concerns
 - Designed for testability
 
-**Model Layer**
+#### Model Layer
+
 - Defines data structures
 - Implements value equality where appropriate
 - Contains no business logic
@@ -106,7 +110,7 @@ This design document specifies the technical implementation for Phase 1 of spitf
 
 ### Module Structure
 
-```
+```text
 src/ImageViewer.App/
 ├── Views/
 │   ├── MainWindow.xaml              # Main application window
@@ -170,19 +174,24 @@ tests/ImageViewer.Tests/
 
 #### MainWindow
 
-**Responsibility**: Host the primary application UI and manage window-level state.
+##### Responsibility
 
-**Key Properties**:
+Host the primary application UI and manage window-level state.
+
+##### Key Properties
+
 - `ViewModel`: MainViewModel instance
 - `IsFullscreen`: Boolean indicating fullscreen state
 - `WindowState`: Saved window dimensions and position
 
-**Key Methods**:
+##### Key Methods
+
 - `ToggleFullscreen()`: Switch between windowed and fullscreen modes
 - `OnKeyDown(KeyRoutedEventArgs)`: Route keyboard shortcuts to ViewModel
 - `OnActivated()`: Restore UI visibility when window gains focus
 
-**XAML Structure**:
+##### XAML Structure
+
 ```xml
 <Window>
   <Grid>
@@ -194,15 +203,19 @@ tests/ImageViewer.Tests/
 
 #### ImageCanvas
 
-**Responsibility**: Display the current image with zoom, pan, and fit-to-window behavior.
+##### Responsibility
 
-**Key Properties**:
+Display the current image with zoom, pan, and fit-to-window behavior.
+
+##### Key Properties
+
 - `ImageSource`: BitmapImage to display
 - `ZoomLevel`: Current zoom percentage (100 = actual size)
 - `DisplayMode`: Enum (FitToWindow, ActualSize, Custom)
 - `PanOffset`: Point representing current pan position
 
-**Key Methods**:
+##### Key Methods
+
 - `SetImage(BitmapImage)`: Update displayed image
 - `ZoomIn()`: Increase zoom by 25%
 - `ZoomOut()`: Decrease zoom by 25%
@@ -210,7 +223,8 @@ tests/ImageViewer.Tests/
 - `ResetToActualSize()`: Display at 100% scale
 - `OnPointerMoved(PointerRoutedEventArgs)`: Handle pan dragging
 
-**Rendering Algorithm**:
+##### Rendering Algorithm
+
 1. If DisplayMode is FitToWindow: Calculate scale to fit image within canvas bounds while preserving aspect ratio
 2. If DisplayMode is ActualSize: Use 1:1 pixel mapping
 3. If DisplayMode is Custom: Apply ZoomLevel percentage
@@ -219,22 +233,27 @@ tests/ImageViewer.Tests/
 
 #### FadingChrome
 
-**Responsibility**: Manage visibility and fade behavior for top menu bar and bottom info bar.
+##### Responsibility
 
-**Key Properties**:
+Manage visibility and fade behavior for top menu bar and bottom info bar.
+
+##### Key Properties
+
 - `IsVisible`: Boolean controlling opacity (1.0 visible, 0.1 faded)
 - `FadeDelay`: TimeSpan before fade begins (default 2 seconds)
 - `FadeDuration`: TimeSpan for fade animation (default 300ms)
 - `IsPaused`: Boolean preventing fade (true when menu open)
 
-**Key Methods**:
+##### Key Methods
+
 - `Show()`: Set opacity to 1.0 and reset fade timer
 - `StartFadeTimer()`: Begin countdown to fade
 - `StopFadeTimer()`: Cancel pending fade
 - `FadeOut()`: Animate opacity from 1.0 to 0.1
 
-**Fade Logic**:
-```
+##### Fade Logic
+
+```text
 User Activity Detected
   ↓
 Show() called
@@ -248,7 +267,8 @@ Timer expires (if not reset)
 FadeOut() animates opacity to 0.1 over 300ms
 ```
 
-**Activity Detection**:
+##### Activity Detection
+
 - Mouse movement anywhere in window
 - Keyboard input
 - Image navigation
@@ -257,16 +277,20 @@ FadeOut() animates opacity to 0.1 over 300ms
 
 #### BottomInfoBar
 
-**Responsibility**: Display current image metadata.
+##### Responsibility
 
-**Key Properties**:
+Display current image metadata.
+
+##### Key Properties
+
 - `Filename`: String (e.g., "IMG_0042.jpg")
 - `PlaylistPosition`: String (e.g., "42 / 180")
 - `Dimensions`: String (e.g., "3840 × 2160")
 - `FolderName`: String (e.g., "Vacation Photos")
 
-**Layout**:
-```
+##### Layout
+
+```text
 ┌────────────────────────────────────────────────────────────┐
 │ IMG_0042.jpg          42 / 180          3840 × 2160        │
 │                                         Vacation Photos    │
@@ -277,9 +301,12 @@ FadeOut() animates opacity to 0.1 over 300ms
 
 #### MainViewModel
 
-**Responsibility**: Coordinate all application operations and expose UI-bindable state.
+##### Responsibility
 
-**Dependencies**:
+Coordinate all application operations and expose UI-bindable state.
+
+##### Dependencies
+
 - FileOpenService
 - ImageDecodeService
 - FolderPlaylistService
@@ -287,7 +314,8 @@ FadeOut() animates opacity to 0.1 over 300ms
 - SettingsService
 - ErrorLogService
 
-**Key Properties**:
+##### Key Properties
+
 - `ViewerState`: Current image and display state
 - `PlaylistState`: Playlist and navigation state
 - `Settings`: User preferences
@@ -295,7 +323,8 @@ FadeOut() animates opacity to 0.1 over 300ms
 - `IsLoading`: Boolean for loading indicator
 - `ErrorMessage`: String for user-facing error display
 
-**Key Commands**:
+##### Key Commands
+
 - `OpenFileCommand`: Trigger file picker and open image
 - `NavigateNextCommand`: Move to next image
 - `NavigatePreviousCommand`: Move to previous image
@@ -308,8 +337,9 @@ FadeOut() animates opacity to 0.1 over 300ms
 - `ToggleFullscreenCommand`: Switch fullscreen state
 - `ToggleThemeCommand`: Switch between light/dark themes
 
-**Initialization Flow**:
-```
+##### Initialization Flow
+
+```text
 App.OnLaunched()
   ↓
 Create MainViewModel
@@ -326,8 +356,9 @@ Else:
   Show empty state
 ```
 
-**Open Image Flow**:
-```
+##### Open Image Flow
+
+```text
 OpenFileCommand.Execute(filePath)
   ↓
 Set IsLoading = true
@@ -375,9 +406,12 @@ Show chrome briefly
 
 #### ViewerState
 
-**Responsibility**: Maintain current image display state.
+##### Responsibility
 
-**Properties**:
+Maintain current image display state.
+
+##### Properties
+
 - `CurrentImage`: BitmapImage (the decoded image)
 - `Metadata`: ImageMetadata (dimensions, file size)
 - `ZoomLevel`: double (percentage, 100.0 = actual size)
@@ -385,7 +419,8 @@ Show chrome briefly
 - `PanOffset`: Point (x, y offset for panning)
 - `IsFullscreen`: bool
 
-**Methods**:
+##### Methods
+
 - `SetImage(BitmapImage, ImageMetadata)`: Update current image
 - `SetZoom(double)`: Update zoom level
 - `SetDisplayMode(DisplayMode)`: Change display mode
@@ -393,9 +428,12 @@ Show chrome briefly
 
 #### PlaylistState
 
-**Responsibility**: Maintain playlist and navigation state.
+##### Responsibility
 
-**Properties**:
+Maintain playlist and navigation state.
+
+##### Properties
+
 - `Items`: ObservableCollection<ImageItem>
 - `CurrentIndex`: int (0-based index)
 - `TotalCount`: int (Items.Count)
@@ -404,7 +442,8 @@ Show chrome briefly
 - `CanNavigatePrevious`: bool (CurrentIndex > 0)
 - `FolderPath`: string (parent folder)
 
-**Methods**:
+##### Methods
+
 - `SetPlaylist(List<ImageItem>, int initialIndex)`: Replace playlist
 - `MoveNext()`: Increment CurrentIndex if possible
 - `MovePrevious()`: Decrement CurrentIndex if possible
@@ -415,9 +454,12 @@ Show chrome briefly
 
 #### FileOpenService
 
-**Responsibility**: Handle file selection and validation.
+##### Responsibility
 
-**Interface**:
+Handle file selection and validation.
+
+##### Interface
+
 ```csharp
 public interface IFileOpenService
 {
@@ -426,20 +468,23 @@ public interface IFileOpenService
 }
 ```
 
-**Methods**:
+##### Methods
 
 `PickFileAsync()`:
+
 - Open Windows file picker
 - Filter to supported extensions: .png, .jpg, .jpeg, .bmp, .webp
 - Return selected file path or cancellation
 
 `ValidateFilePath(string filePath)`:
+
 - Check file exists
 - Check file is readable
 - Check extension is supported
 - Return success with path or FileAccessError/UnsupportedFormatError
 
-**Error Cases**:
+##### Error Cases
+
 - File does not exist → FileAccessError
 - File is locked/inaccessible → FileAccessError
 - Extension is deferred format (.gif, .tiff, .heic, .avif) → UnsupportedFormatError
@@ -447,9 +492,12 @@ public interface IFileOpenService
 
 #### ImageDecodeService
 
-**Responsibility**: Decode image files and extract metadata.
+##### Responsibility
 
-**Interface**:
+Decode image files and extract metadata.
+
+##### Interface
+
 ```csharp
 public interface IImageDecodeService
 {
@@ -459,23 +507,27 @@ public interface IImageDecodeService
 }
 ```
 
-**Methods**:
+##### Methods
 
 `DecodeImageAsync(string filePath)`:
+
 - Use WinUI BitmapImage or WIC decoder
 - Decode on background thread
 - Extract pixel dimensions and file size
 - Return BitmapImage + ImageMetadata or DecodeError
 
 `IsSupportedFormat(string extension)`:
+
 - Case-insensitive check against: .png, .jpg, .jpeg, .bmp, .webp
 - Return true if supported
 
 `IsDeferredFormat(string extension)`:
+
 - Case-insensitive check against: .gif, .tiff, .tif, .heic, .avif
 - Return true if deferred
 
-**Decoding Algorithm**:
+##### Decoding Algorithm
+
 ```
 1. Open file stream
 2. Create BitmapImage
@@ -487,22 +539,27 @@ public interface IImageDecodeService
 8. Return DecodedImage { Image, Metadata }
 ```
 
-**Error Cases**:
+##### Error Cases
+
 - File is corrupted → DecodeError
 - File format is unsupported variant → DecodeError
 - Insufficient memory → DecodeError with specific message
 - I/O error during read → DecodeError
 
-**Memory Management**:
+##### Memory Management
+
 - Decode on background thread to avoid UI blocking
 - Release previous image when navigating (handled by ViewModel)
 - No preloading in Phase 1
 
 #### FolderPlaylistService
 
-**Responsibility**: Scan folders and build playlists.
+##### Responsibility
 
-**Interface**:
+Scan folders and build playlists.
+
+##### Interface
+
 ```csharp
 public interface IFolderPlaylistService
 {
@@ -510,17 +567,19 @@ public interface IFolderPlaylistService
 }
 ```
 
-**Methods**:
+##### Methods
 
 `BuildPlaylistAsync(string openedFilePath)`:
-- Extract parent folder from openedFilePath
+
+- Extract parent folder from `openedFilePath`
 - Scan folder for files with supported extensions
 - Sort files alphabetically by filename
-- Find index of opened file
-- Return Playlist { Items, InitialIndex, FolderPath } or PlaylistScanError
+- Find index of `opened file`
+- Return `Playlist { Items, InitialIndex, FolderPath }` or `PlaylistScanError`
 
-**Scanning Algorithm**:
-```
+##### Scanning Algorithm
+
+```text
 1. Get parent directory from openedFilePath
 2. Call Directory.GetFiles(folderPath)
 3. Filter to supported extensions using ImageDecodeService.IsSupportedFormat()
@@ -533,26 +592,32 @@ public interface IFolderPlaylistService
 7. Return Playlist
 ```
 
-**Sorting**:
+##### Sorting
+
 - Alphabetical by filename (case-insensitive)
 - Natural sort preferred (e.g., "img2.jpg" before "img10.jpg")
 - Use StringComparer.OrdinalIgnoreCase or natural sort library
 
-**Error Cases**:
+##### Error Cases
+
 - Folder access denied → PlaylistScanError
 - Folder does not exist → PlaylistScanError
 - I/O error during scan → PlaylistScanError
 
-**Edge Cases**:
+##### Edge Cases
+
 - Folder contains only opened image → Return playlist with 1 item
 - Opened file is deleted during scan → Return playlist without it, log warning
 - Folder contains thousands of images → Scan completes but may be slow (acceptable for Phase 1)
 
 #### NavigationService
 
-**Responsibility**: Handle playlist navigation logic.
+##### Responsibility
 
-**Interface**:
+Handle playlist navigation logic.
+
+##### Interface
+
 ```csharp
 public interface INavigationService
 {
@@ -563,16 +628,18 @@ public interface INavigationService
 }
 ```
 
-**Methods**:
+##### Methods
 
 `NavigateToIndexAsync(PlaylistState playlist, int targetIndex, IImageDecodeService decodeService)`:
+
 - Validate targetIndex is within bounds
 - Get ImageItem at targetIndex
 - Call decodeService.DecodeImageAsync()
 - Return decoded image or NavigationError
 
-**Navigation Logic**:
-```
+##### Navigation Logic
+
+```text
 1. Check targetIndex >= 0 && targetIndex < playlist.TotalCount
 2. If out of bounds, return error
 3. Get filePath from playlist.Items[targetIndex]
@@ -581,21 +648,26 @@ public interface INavigationService
 6. Return DecodedImage
 ```
 
-**Error Cases**:
+##### Error Cases
+
 - Target index out of bounds → NavigationError
 - Target file no longer exists → NavigationError
 - Target file decode fails → NavigationError
 
-**Boundary Behavior**:
+##### Boundary Behavior
+
 - Attempting to navigate past last image → Stay on last image, no error
 - Attempting to navigate before first image → Stay on first image, no error
 - Single-image playlist → Disable navigation commands
 
 #### SettingsService
 
-**Responsibility**: Persist and load user preferences.
+##### Responsibility
 
-**Interface**:
+Persist and load user preferences.
+
+##### Interface
+
 ```csharp
 public interface ISettingsService
 {
@@ -604,25 +676,30 @@ public interface ISettingsService
 }
 ```
 
-**Methods**:
+##### Methods
 
 `LoadSettingsAsync()`:
+
 - Read settings.json from ApplicationData.Current.LocalFolder
 - Deserialize to ViewerSettings
 - Return settings or default settings if file doesn't exist
 - Return SettingsPersistenceError if read/parse fails
 
 `SaveSettingsAsync(ViewerSettings settings)`:
+
 - Serialize settings to JSON
 - Write to ApplicationData.Current.LocalFolder/settings.json
 - Return success or SettingsPersistenceError
 
-**Storage Location**:
+##### Storage Location
+
 - Path: `ApplicationData.Current.LocalFolder/settings.json`
 - Example: `C:\Users\{Username}\AppData\Local\Packages\{AppPackage}\LocalState\settings.json`
 
-**Settings Format**:
+##### Settings Format
+
 ```json
+```text
 {
   "theme": "Dark",
   "defaultDisplayMode": "FitToWindow",
@@ -635,23 +712,28 @@ public interface ISettingsService
 }
 ```
 
-**Default Values**:
+##### Default Values
+
 - Theme: System preference
 - DefaultDisplayMode: FitToWindow
 - Window dimensions: 1200 × 800, centered on primary monitor
 - FadeDelay: 2000ms
 - FadeDuration: 300ms
 
-**Error Cases**:
+##### Error Cases
+
 - File read fails → Return default settings, log SettingsPersistenceError
 - JSON parse fails → Return default settings, log SettingsPersistenceError
 - File write fails → Log SettingsPersistenceError, continue with in-memory settings
 
 #### ErrorLogService
 
-**Responsibility**: Write structured error logs to disk.
+##### Responsibility
 
-**Interface**:
+Write structured error logs to disk.
+
+##### Interface
+
 ```csharp
 public interface IErrorLogService
 {
@@ -659,15 +741,17 @@ public interface IErrorLogService
 }
 ```
 
-**Methods**:
+##### Methods
 
 `LogErrorAsync(ViewerError error)`:
+
 - Format error as structured log entry
 - Append to log file in ApplicationData.Current.LocalFolder/logs
 - Create new log file daily (e.g., `viewer-2024-01-15.log`)
 
-**Log Entry Format**:
-```
+##### Log Entry Format
+
+```text
 [2024-01-15 14:32:18.456] [ERROR] [DecodeError]
 Operation: DecodeImage
 File: C:\Photos\IMG_0042.jpg
@@ -679,13 +763,15 @@ Stack Trace:
 ---
 ```
 
-**Log File Management**:
+##### Log File Management
+
 - Location: `ApplicationData.Current.LocalFolder/logs/`
 - Naming: `viewer-{yyyy-MM-dd}.log`
 - Rotation: New file each day
 - Retention: Keep last 30 days (cleanup on app start)
 
-**Error Categories**:
+##### Error Categories
+
 - FileAccessError
 - UnsupportedFormatError
 - DecodeError
@@ -698,9 +784,12 @@ Stack Trace:
 
 ### ImageItem
 
-**Purpose**: Represent a single image file in the playlist.
+##### Purpose
 
-**Properties**:
+Represent a single image file in the playlist.
+
+##### Properties
+
 ```csharp
 public class ImageItem
 {
@@ -710,15 +799,22 @@ public class ImageItem
 }
 ```
 
-**Equality**: Value equality based on FilePath (case-insensitive)
+##### Equality
 
-**Usage**: Stored in PlaylistState.Items collection
+Value equality based on FilePath (case-insensitive)
+
+##### Usage
+
+Stored in PlaylistState.Items collection
 
 ### ImageMetadata
 
-**Purpose**: Store image dimensions and file information.
+##### Purpose
 
-**Properties**:
+Store image dimensions and file information.
+
+##### Properties
+
 ```csharp
 public class ImageMetadata
 {
@@ -730,17 +826,23 @@ public class ImageMetadata
 }
 ```
 
-**Computed Properties**:
+##### Computed Properties
+
 - `FormattedDimensions`: Returns "{PixelWidth} × {PixelHeight}"
 - `FormattedFileSize`: Returns human-readable size (KB, MB, GB)
 
-**Usage**: Stored in ViewerState, displayed in BottomInfoBar
+##### Usage
+
+Stored in ViewerState, displayed in BottomInfoBar
 
 ### ViewerSettings
 
-**Purpose**: Store user preferences for persistence.
+##### Purpose
 
-**Properties**:
+Store user preferences for persistence.
+
+##### Properties
+
 ```csharp
 public class ViewerSettings
 {
@@ -755,22 +857,30 @@ public class ViewerSettings
 }
 ```
 
-**Serialization**: JSON via System.Text.Json
+##### Serialization
 
-**Validation**:
+JSON via System.Text.Json
+
+##### Validation
+
 - Theme must be "Light", "Dark", or "System"
 - DefaultDisplayMode must be "FitToWindow" or "ActualSize"
 - Window dimensions must be >= 400 × 300
 - FadeDelayMs must be >= 0
 - FadeDurationMs must be >= 0
 
-**Usage**: Loaded on app start, saved on settings change and app exit
+##### Usage
+
+Loaded on app start, saved on settings change and app exit
 
 ### ViewerError
 
-**Purpose**: Represent structured error information for logging and display.
+##### Purpose
 
-**Properties**:
+Represent structured error information for logging and display.
+
+##### Properties
+
 ```csharp
 public class ViewerError
 {
@@ -785,7 +895,8 @@ public class ViewerError
 }
 ```
 
-**Factory Methods**:
+##### Factory Methods
+
 ```csharp
 public static ViewerError FileAccessError(string filePath, Exception ex);
 public static ViewerError UnsupportedFormatError(string filePath);
@@ -796,7 +907,8 @@ public static ViewerError SettingsPersistenceError(string operation, Exception e
 public static ViewerError UnexpectedError(string operation, Exception ex);
 ```
 
-**User Messages** (defined in factory methods):
+##### User Messages (defined in factory methods)
+
 - FileAccessError: "Unable to access this file. It may have been moved, deleted, or you may not have permission to open it."
 - UnsupportedFormatError: "This file format is not supported in this version."
 - DecodeError: "Unable to decode this image. The file may be corrupted or in an unsupported variant."
@@ -805,13 +917,18 @@ public static ViewerError UnexpectedError(string operation, Exception ex);
 - NavigationError: "Unable to load the requested image."
 - SettingsPersistenceError: "Unable to save settings. Your preferences may not persist."
 
-**Usage**: Created by services, logged by ErrorLogService, displayed by MainViewModel
+##### Usage
+
+Created by services, logged by ErrorLogService, displayed by MainViewModel
 
 ### Result Types
 
-**Purpose**: Represent operation outcomes without throwing exceptions for expected failures.
+##### Purpose
 
-**Generic Result**:
+Represent operation outcomes without throwing exceptions for expected failures.
+
+##### Generic Result
+
 ```csharp
 public class Result<T>
 {
@@ -833,11 +950,14 @@ public class Result
 }
 ```
 
-**Usage**: All service methods return Result or Result<T> instead of throwing exceptions for expected failures
+##### Usage
+
+All service methods return Result or Result<T> instead of throwing exceptions for expected failures
 
 ### Enums
 
-**DisplayMode**:
+##### DisplayMode
+
 ```csharp
 public enum DisplayMode
 {
@@ -847,7 +967,8 @@ public enum DisplayMode
 }
 ```
 
-**ErrorCategory**:
+##### ErrorCategory
+
 ```csharp
 public enum ErrorCategory
 {
@@ -861,7 +982,6 @@ public enum ErrorCategory
 }
 ```
 
-
 ## Correctness Properties
 
 *A property is a characteristic or behavior that should hold true across all valid executions of a system—essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
@@ -870,43 +990,43 @@ public enum ErrorCategory
 
 *For any* file path with a supported extension (.png, .jpg, .jpeg, .bmp, .webp), the File_Open_Service SHALL classify it as supported regardless of case, and *for any* file path with a deferred extension (.gif, .tiff, .tif, .heic, .avif), the service SHALL classify it as deferred, and *for any* file path with an unrecognized extension, the service SHALL classify it as unsupported.
 
-**Validates: Requirements 1.1, 1.4, 1.5, 12.3, 12.4, 12.5**
+##### Validates: Requirements 1.1, 1.4, 1.5, 12.3, 12.4, 12.5
 
 ### Property 2: Playlist Building Preserves Order and Selection
 
 *For any* folder containing supported image files, when the Folder_Playlist_Service builds a playlist from an opened file, the resulting playlist SHALL contain only files with supported extensions, SHALL be sorted alphabetically by filename (case-insensitive), SHALL set the current index to the opened file's position, and SHALL report the correct total count.
 
-**Validates: Requirements 3.1, 3.2, 3.3, 3.6**
+##### Validates: Requirements 3.1, 3.2, 3.3, 3.6
 
 ### Property 3: Navigation Maintains Playlist Boundaries
 
 *For any* playlist with N items and current index I, navigating next SHALL move to index I+1 when I < N-1 and remain at I when I = N-1, navigating previous SHALL move to index I-1 when I > 0 and remain at I when I = 0, navigating first SHALL move to index 0, and navigating last SHALL move to index N-1.
 
-**Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 16.1, 16.2**
+##### Validates: Requirements 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 16.1, 16.2
 
 ### Property 4: Settings Serialization Round-Trip
 
 *For any* valid ViewerSettings object, serializing to JSON and then deserializing SHALL produce an equivalent ViewerSettings object with all properties preserved.
 
-**Validates: Requirements 9.1, 9.2, 9.3**
+##### Validates: Requirements 9.1, 9.2, 9.3
 
 ### Property 5: Error Categorization Consistency
 
 *For any* error that occurs during file access, format detection, image decoding, playlist scanning, navigation, or settings persistence, the Error_Log_Service SHALL assign the correct error category (FileAccessError, UnsupportedFormatError, DecodeError, PlaylistScanError, NavigationError, or SettingsPersistenceError) and SHALL include all required fields (timestamp, severity, category, user message, operation, optional file path, exception type, stack trace).
 
-**Validates: Requirements 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8**
+##### Validates: Requirements 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8
 
 ### Property 6: Error Messages Are User-Friendly
 
 *For any* ViewerError of a specific category, the user-facing message SHALL match the specified calm, actionable message for that category and SHALL NOT contain raw exception text or stack traces.
 
-**Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5, 11.6**
+##### Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5, 11.6
 
 ### Property 7: Metadata Formatting Consistency
 
 *For any* ImageMetadata with valid pixel dimensions and file size, the FormattedDimensions property SHALL return "{width} × {height}" format and the FormattedFileSize property SHALL return a human-readable size string with appropriate units (B, KB, MB, GB).
 
-**Validates: Requirements 8.1, 8.2, 8.3**
+##### Validates: Requirements 8.1, 8.2, 8.3
 
 ## Error Handling
 
@@ -923,30 +1043,34 @@ Phase 1 implements a structured error handling system that separates user-facing
 
 #### FileAccessError
 
-**Triggers**:
+##### Triggers
+
 - File does not exist
 - File is locked by another process
 - Insufficient permissions to read file
 - Network path is unavailable
 
-**User Message**: "Unable to access this file. It may have been moved, deleted, or you may not have permission to open it."
+##### User Message: "Unable to access this file. It may have been moved, deleted, or you may not have permission to open it."
 
-**Handling**:
+##### Handling
+
 - Log error with full exception details
 - Display user message in UI
 - Return to previous state or empty state
 
-**Recovery**: User can try another file or check file permissions
+##### Recovery: User can try another file or check file permissions
 
 #### UnsupportedFormatError
 
-**Triggers**:
+##### Triggers
+
 - File extension is in deferred format list (.gif, .tiff, .heic, .avif)
 - File extension is not recognized
 
-**User Message**: "This file format is not supported in this version."
+##### User Message: "This file format is not supported in this version."
 
-**Handling**:
+##### Handling
+
 - Log error with file path and extension
 - Display user message in UI
 - Return to previous state or empty state
@@ -956,16 +1080,19 @@ Phase 1 implements a structured error handling system that separates user-facing
 #### DecodeError
 
 **Triggers**:
+
 - File is corrupted or invalid
 - File format is unsupported variant
 - Insufficient memory to decode image
 - WIC decoder fails
 
-**User Message**: 
+**User Message**:
+
 - Standard: "Unable to decode this image. The file may be corrupted or in an unsupported variant."
 - Memory: "This image is too large to display."
 
 **Handling**:
+
 - Log error with full exception details
 - Display appropriate user message
 - Return to previous state or empty state
@@ -975,6 +1102,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 #### PlaylistScanError
 
 **Triggers**:
+
 - Folder access denied
 - Folder does not exist (deleted during operation)
 - I/O error during folder scan
@@ -982,6 +1110,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 **User Message**: "Unable to scan the folder for additional images. You can still view this image."
 
 **Handling**:
+
 - Log error with folder path and exception
 - Display user message as warning (not blocking)
 - Create single-item playlist with opened image
@@ -992,6 +1121,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 #### NavigationError
 
 **Triggers**:
+
 - Target file deleted during session
 - Target file becomes inaccessible
 - Decode fails for target image
@@ -999,6 +1129,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 **User Message**: "Unable to load the requested image."
 
 **Handling**:
+
 - Log error with target file path and exception
 - Display user message
 - Remain on current image
@@ -1009,6 +1140,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 #### SettingsPersistenceError
 
 **Triggers**:
+
 - Settings file is corrupted
 - Settings file location is not writable
 - JSON deserialization fails
@@ -1017,6 +1149,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 **User Message**: "Unable to save settings. Your preferences may not persist."
 
 **Handling**:
+
 - Log error with operation and exception
 - Display user message as warning (not blocking)
 - Use default settings if load fails
@@ -1027,6 +1160,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 #### UnexpectedViewerError
 
 **Triggers**:
+
 - Any unhandled exception
 - Unexpected null reference
 - Programming errors
@@ -1034,6 +1168,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 **User Message**: "An unexpected error occurred. The application will attempt to continue."
 
 **Handling**:
+
 - Log error with full context and stack trace
 - Display generic user message
 - Attempt to recover to stable state
@@ -1044,6 +1179,7 @@ Phase 1 implements a structured error handling system that separates user-facing
 ### Error Logging Implementation
 
 **Log File Format**:
+
 ```
 [2024-01-15 14:32:18.456] [ERROR] [DecodeError]
 Operation: DecodeImage
@@ -1057,6 +1193,7 @@ Stack Trace:
 ```
 
 **Log File Management**:
+
 - Location: `ApplicationData.Current.LocalFolder/logs/`
 - Naming: `viewer-{yyyy-MM-dd}.log`
 - Rotation: New file created each day
@@ -1064,6 +1201,7 @@ Stack Trace:
 - Size: No size limit per file (daily rotation prevents excessive growth)
 
 **Logging Levels**:
+
 - ERROR: All error categories
 - WARNING: Non-blocking errors (PlaylistScanError, SettingsPersistenceError)
 - INFO: Not used in Phase 1 (reserved for future diagnostic logging)
@@ -1073,6 +1211,7 @@ Stack Trace:
 **Error Display Component**: Lightweight info bar at top of window
 
 **Display Behavior**:
+
 - Appears when error occurs
 - Shows user-friendly message
 - Includes dismiss button
@@ -1081,6 +1220,7 @@ Stack Trace:
 - Does not block interaction with rest of UI
 
 **Visual Design**:
+
 - Error: Red accent, warning icon
 - Warning: Yellow accent, info icon
 - Rounded corners (8px)
@@ -1103,6 +1243,7 @@ Phase 1 uses a dual testing approach:
 **Framework**: Use **FsCheck** (F# property testing library with C# support) or **CsCheck** (C#-native property testing)
 
 **Configuration**:
+
 - Minimum 100 iterations per property test
 - Each test tagged with comment referencing design property
 - Tag format: `// Feature: phase-1-mvp-viewer, Property {number}: {property_text}`
@@ -1145,6 +1286,7 @@ Phase 1 uses a dual testing approach:
    - Edge cases: Zero dimensions, very large dimensions, byte-level file sizes
 
 **Example Property Test** (C# with CsCheck):
+
 ```csharp
 // Feature: phase-1-mvp-viewer, Property 1: Extension Classification Correctness
 [Fact]
@@ -1198,6 +1340,7 @@ public void ExtensionClassification_CorrectlyIdentifiesAllCategories()
    - PlaylistState: Test collection management
 
 **Example Unit Test**:
+
 ```csharp
 [Fact]
 public void FolderPlaylistService_SingleImageFolder_ReturnsOneItemPlaylist()
@@ -1239,6 +1382,7 @@ public void FolderPlaylistService_SingleImageFolder_ReturnsOneItemPlaylist()
    - Verify log rotation works
 
 **Example Integration Test**:
+
 ```csharp
 [Fact]
 public async Task ImageDecodeService_RealPngFile_DecodesSuccessfully()
@@ -1313,6 +1457,7 @@ public async Task ImageDecodeService_RealPngFile_DecodesSuccessfully()
 ### Development Phases
 
 **Phase 1A: Foundation (Week 1-2)**
+
 1. Set up WinUI 3 project structure
 2. Implement Models (ImageItem, ImageMetadata, ViewerSettings, ViewerError)
 3. Implement Result types
@@ -1320,6 +1465,7 @@ public async Task ImageDecodeService_RealPngFile_DecodesSuccessfully()
 5. Set up dependency injection container
 
 **Phase 1B: Services (Week 3-4)**
+
 1. Implement FileOpenService with validation
 2. Implement ImageDecodeService with WIC integration
 3. Implement FolderPlaylistService with scanning and sorting
@@ -1330,6 +1476,7 @@ public async Task ImageDecodeService_RealPngFile_DecodesSuccessfully()
 8. Write property-based tests
 
 **Phase 1C: ViewModels (Week 5)**
+
 1. Implement ViewerState
 2. Implement PlaylistState
 3. Implement MainViewModel with commands
@@ -1337,6 +1484,7 @@ public async Task ImageDecodeService_RealPngFile_DecodesSuccessfully()
 5. Write unit tests for ViewModels
 
 **Phase 1D: Views (Week 6-7)**
+
 1. Implement MainWindow with basic layout
 2. Implement ImageCanvas with zoom/pan
 3. Implement FadingChrome with animation
@@ -1345,6 +1493,7 @@ public async Task ImageDecodeService_RealPngFile_DecodesSuccessfully()
 6. Implement keyboard shortcuts
 
 **Phase 1E: Polish (Week 8)**
+
 1. Implement theme support
 2. Create rounded corner styles
 3. Implement fullscreen mode
@@ -1361,6 +1510,7 @@ public async Task ImageDecodeService_RealPngFile_DecodesSuccessfully()
 **Target Framework**: .NET 8.0
 
 **NuGet Packages**:
+
 - Microsoft.WindowsAppSDK (latest stable)
 - Microsoft.Extensions.DependencyInjection (for DI)
 - System.Text.Json (for settings serialization)
@@ -1369,6 +1519,7 @@ public async Task ImageDecodeService_RealPngFile_DecodesSuccessfully()
 - FluentAssertions (for test assertions)
 
 **App.xaml.cs Setup**:
+
 ```csharp
 public partial class App : Application
 {
@@ -1408,6 +1559,7 @@ public partial class App : Application
 #### Image Decoding with WIC
 
 **Using BitmapImage**:
+
 ```csharp
 public async Task<Result<DecodedImage>> DecodeImageAsync(string filePath)
 {
@@ -1445,6 +1597,7 @@ public async Task<Result<DecodedImage>> DecodeImageAsync(string filePath)
 #### Fading Chrome Implementation
 
 **XAML**:
+
 ```xml
 <Grid x:Name="ChromeContainer" Opacity="1.0">
     <Grid.Transitions>
@@ -1466,6 +1619,7 @@ public async Task<Result<DecodedImage>> DecodeImageAsync(string filePath)
 ```
 
 **Code-behind**:
+
 ```csharp
 private DispatcherTimer _fadeTimer;
 private const int FadeDelayMs = 2000;
@@ -1516,6 +1670,7 @@ private void FadeOutChrome()
 #### Natural Sorting for Filenames
 
 **Use NaturalSort library or implement**:
+
 ```csharp
 public class NaturalStringComparer : IComparer<string>
 {
@@ -1569,4 +1724,3 @@ Phase 1 is complete when:
 18. ✅ Manual testing confirms UI polish, smooth animations, and responsive feel
 19. ✅ Phase 2 and Phase 3 features remain documented in roadmap.md
 20. ✅ Service interfaces support future extensibility without breaking changes
-

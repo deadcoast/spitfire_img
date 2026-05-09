@@ -5,4 +5,5 @@ public sealed record CommandItem(
     string Title,
     string Category,
     string KeyboardShortcut,
-    bool IsAvailable = true);
+    bool IsAvailable = true,
+    string Description = "");

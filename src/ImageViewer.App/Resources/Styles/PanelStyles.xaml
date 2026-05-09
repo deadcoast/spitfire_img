@@ -1,8 +1,208 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style x:Key="ViewerChromePanelBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerChromeShellBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceActiveBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerChromeInfoBarBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerChromeUnsavedBadgeBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerBadgeCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerWarningSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerWarningBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerStatusChipBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerSubtleSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerOverlayPanelBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerOverlayCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerOverlaySurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerCommandPalettePanelBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerOverlayCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerOverlaySurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerCommandHeaderBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerTransparentBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerDividerBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style x:Key="ViewerCommandRowBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerTransparentBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerTransparentBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerCommandShortcutPillBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerSubtleSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerCommandPaletteListViewItemStyle" TargetType="ListViewItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="{StaticResource ViewerSpace0}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+    </Style>
+    <Style x:Key="ViewerSearchResultRowBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerTransparentBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerTransparentBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerMetadataSectionBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerSubtleSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerMediaThumbnailListViewItemStyle" TargetType="ListViewItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="{StaticResource ViewerSpace0}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+    </Style>
+    <Style x:Key="ViewerMediaThumbnailCardBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerThumbnailCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerMediaThumbnailPreviewBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerSubtleSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerImageSafeStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerMediaThumbnailStateBadgeBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerBadgeCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerWarningSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerWarningBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="MinWidth" Value="{StaticResource ViewerThumbnailBadgeMinWidth}" />
+    </Style>
+    <Style x:Key="ViewerMediaThumbnailCurrentBadgeBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerBadgeCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerSelectionBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerSelectionStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="MinWidth" Value="{StaticResource ViewerThumbnailBadgeMinWidth}" />
+    </Style>
+    <Style x:Key="ViewerGridHudBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="{StaticResource ViewerGridHudPadding}" />
+        <Setter Property="MinWidth" Value="{StaticResource ViewerGridHudMinWidth}" />
+    </Style>
+    <Style x:Key="ViewerGridImageFrameBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerThumbnailCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerImageMatBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerGridImageActiveFrameBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerThumbnailCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerImageMatBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerSelectionStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="3" />
+    </Style>
+    <Style x:Key="ViewerGridImageFooterBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="{StaticResource ViewerGridImageFooterPadding}" />
+    </Style>
+    <Style x:Key="ViewerFilmstripFocusBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerImageMatBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerImageSafeStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerStatusHudBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerElevatedSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerEmptyStatePanelBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerElevatedSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerLoadingStatusBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerOverlaySurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerComparisonHudBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="{StaticResource ViewerComparisonHudPadding}" />
+    </Style>
+    <Style x:Key="ViewerComparisonImageFrameBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerImageMatBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerImageSafeStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerComparisonImageActiveFrameBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerImageMatBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerSelectionStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="3" />
+    </Style>
+    <Style x:Key="ViewerComparisonStateBadgeBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerBadgeCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerSelectionBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerSelectionStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="{StaticResource ViewerComparisonStateBadgePadding}" />
+    </Style>
+    <Style x:Key="ViewerFrameControlPanelBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="{StaticResource ViewerMediaPanelPadding}" />
+    </Style>
+    <Style x:Key="ViewerFrameTimelineBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerSubtleSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="{StaticResource ViewerFrameTimelinePadding}" />
+    </Style>
+
     <Style x:Key="ChromePanelBorderStyle" TargetType="Border">
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Background" Value="{ThemeResource ChromeBackgroundBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
     </Style>
 </ResourceDictionary>

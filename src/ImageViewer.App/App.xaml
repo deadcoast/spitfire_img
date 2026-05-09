@@ -18,6 +18,9 @@
             </ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <ResourceDictionary Source="Resources/Styles/LayoutTokens.xaml" />
+                <ResourceDictionary Source="Resources/Styles/MotionTokens.xaml" />
+                <ResourceDictionary Source="Resources/Styles/TextStyles.xaml" />
                 <ResourceDictionary Source="Resources/Styles/PanelStyles.xaml" />
                 <ResourceDictionary Source="Resources/Styles/ButtonStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>

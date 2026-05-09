@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ImageViewer.App.Services;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Input;
@@ -6,6 +7,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
 using Windows.Storage.Pickers;
 using Windows.System;
 using WinRT.Interop;
@@ -14,6 +16,7 @@ namespace ImageViewer.App;
 
 public sealed partial class MainWindow : Window
 {
+    private const string EvidenceDropIndicatorEnvironmentVariable = "SPITFIRE_EVIDENCE_SHOW_DROP_INDICATOR";
     private const int OemCommaVirtualKey = 188;
     private const int OemPeriodVirtualKey = 190;
     private const int OemPlusVirtualKey = 187;
@@ -47,6 +50,8 @@ public sealed partial class MainWindow : Window
         Chrome.Attach(viewModel);
         Chrome.OpenFileRequested += async (_, _) => await OpenFileFromPickerAsync();
         viewModel.OpenFileRequested += OnViewModelOpenFileRequested;
+        viewModel.SearchRequested += OnViewModelSearchRequested;
+        viewModel.SearchHidden += OnViewModelSearchHidden;
         Chrome.RecentFileRequested += async (_, path) => await _viewModel.OpenRecentFileAsync(path);
         Chrome.ExitRequested += (_, _) => Close();
         Chrome.AboutRequested += (_, _) => ShowInfo("spitfire.img Phase 1 MVP Viewer");
@@ -54,9 +59,46 @@ public sealed partial class MainWindow : Window
         viewModel.ViewerState.PropertyChanged += OnViewerStatePropertyChanged;
         viewModel.CommandPaletteState.PropertyChanged += OnCommandPaletteStatePropertyChanged;
         viewModel.CodecInstallPromptRequested += OnCodecInstallPromptRequested;
+        RegisterKeyboardAccelerators();
         Activated += OnActivated;
+        RootGrid.Loaded += OnRootGridLoaded;
         Closed += OnClosed;
         _initializationTask = InitializeWindowAsync();
+    }
+
+    private void RegisterKeyboardAccelerators()
+    {
+        AddKeyboardAccelerator(VirtualKey.F, VirtualKeyModifiers.Control, (_, args) =>
+        {
+            _viewModel.ShowSearch();
+            args.Handled = true;
+        });
+
+        AddKeyboardAccelerator(VirtualKey.I, VirtualKeyModifiers.Control, async (_, args) =>
+        {
+            await _viewModel.ToggleMetadataPanelAsync();
+            args.Handled = true;
+        });
+
+        AddKeyboardAccelerator(VirtualKey.T, VirtualKeyModifiers.Control, async (_, args) =>
+        {
+            await _viewModel.ToggleThumbnailStrip();
+            args.Handled = true;
+        });
+    }
+
+    private void AddKeyboardAccelerator(
+        VirtualKey key,
+        VirtualKeyModifiers modifiers,
+        TypedEventHandler<KeyboardAccelerator, KeyboardAcceleratorInvokedEventArgs> handler)
+    {
+        var accelerator = new KeyboardAccelerator
+        {
+            Key = key,
+            Modifiers = modifiers
+        };
+        accelerator.Invoked += handler;
+        RootGrid.KeyboardAccelerators.Add(accelerator);
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
@@ -64,13 +106,50 @@ public sealed partial class MainWindow : Window
         RootGrid.Focus(FocusState.Programmatic);
     }
 
+    private void OnRootGridLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplySavedWindowPlacement();
+
+        var evidenceDropState = Environment.GetEnvironmentVariable(EvidenceDropIndicatorEnvironmentVariable);
+        if (string.Equals(evidenceDropState, "accepted", StringComparison.OrdinalIgnoreCase))
+        {
+            DropIndicator.Show(isValid: true);
+        }
+        else if (string.Equals(evidenceDropState, "rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            DropIndicator.Show(isValid: false);
+        }
+    }
+
+    private void ApplySavedWindowPlacement()
+    {
+        if (_viewModel.Settings.WindowWidth > 0 && _viewModel.Settings.WindowHeight > 0)
+        {
+            _appWindow.Resize(new Windows.Graphics.SizeInt32(
+                _viewModel.Settings.WindowWidth,
+                _viewModel.Settings.WindowHeight));
+        }
+
+        if (_viewModel.Settings.WindowX >= 0 &&
+            _viewModel.Settings.WindowY >= 0 &&
+            WindowPlacementService.IsSavedWindowPositionVisible(_viewModel.Settings.WindowX, _viewModel.Settings.WindowY))
+        {
+            _appWindow.Move(new Windows.Graphics.PointInt32(
+                _viewModel.Settings.WindowX,
+                _viewModel.Settings.WindowY));
+        }
+    }
+
     private async void OnClosed(object sender, WindowEventArgs args)
     {
+        RootGrid.Loaded -= OnRootGridLoaded;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.ViewerState.PropertyChanged -= OnViewerStatePropertyChanged;
         _viewModel.CommandPaletteState.PropertyChanged -= OnCommandPaletteStatePropertyChanged;
         _viewModel.CodecInstallPromptRequested -= OnCodecInstallPromptRequested;
         _viewModel.OpenFileRequested -= OnViewModelOpenFileRequested;
+        _viewModel.SearchRequested -= OnViewModelSearchRequested;
+        _viewModel.SearchHidden -= OnViewModelSearchHidden;
         await _viewModel.SaveWindowStateAsync(
             _appWindow.Size.Width,
             _appWindow.Size.Height,
@@ -90,22 +169,7 @@ public sealed partial class MainWindow : Window
         await RunOnDispatcherAsync(() =>
         {
             ApplyTheme();
-
-            if (_viewModel.Settings.WindowWidth > 0 && _viewModel.Settings.WindowHeight > 0)
-            {
-                _appWindow.Resize(new Windows.Graphics.SizeInt32(
-                    _viewModel.Settings.WindowWidth,
-                    _viewModel.Settings.WindowHeight));
-            }
-
-            if (_viewModel.Settings.WindowX >= 0 &&
-                _viewModel.Settings.WindowY >= 0 &&
-                IsSavedWindowPositionVisible(_viewModel.Settings.WindowX, _viewModel.Settings.WindowY))
-            {
-                _appWindow.Move(new Windows.Graphics.PointInt32(
-                    _viewModel.Settings.WindowX,
-                    _viewModel.Settings.WindowY));
-            }
+            ApplySavedWindowPlacement();
         });
     }
 
@@ -486,6 +550,16 @@ public sealed partial class MainWindow : Window
         await OpenFileFromPickerAsync();
     }
 
+    private void OnViewModelSearchRequested(object? sender, EventArgs e)
+    {
+        SearchOverlay.Show();
+    }
+
+    private void OnViewModelSearchHidden(object? sender, EventArgs e)
+    {
+        SearchOverlay.Hide();
+    }
+
     private void OnCodecInstallPromptRequested(object? sender, CodecInstallPromptRequest request)
     {
         DispatcherQueue.TryEnqueue(async () => await ShowCodecInstallPromptAsync(request));
@@ -540,26 +614,23 @@ public sealed partial class MainWindow : Window
         return AppWindow.GetFromWindowId(windowId);
     }
 
-    private bool IsSavedWindowPositionVisible(int x, int y)
-    {
-        var displayArea = DisplayArea.GetFromWindowId(_appWindow.Id, DisplayAreaFallback.Nearest);
-        var workArea = displayArea.WorkArea;
-        return x >= workArea.X &&
-               y >= workArea.Y &&
-               x < workArea.X + workArea.Width &&
-               y < workArea.Y + workArea.Height;
-    }
-
     private void ShowInfo(string message)
     {
         ErrorInfoBar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Informational;
+        ErrorInfoBar.Title = "Status";
         ErrorInfoBar.Message = message;
+        ErrorRecoveryButton.Visibility = Visibility.Collapsed;
         ErrorInfoBar.IsOpen = true;
     }
 
     private void OnCancelLoadingClicked(object sender, RoutedEventArgs e)
     {
         _viewModel.CancelLoading();
+    }
+
+    private async void OnErrorRecoveryClicked(object sender, RoutedEventArgs e)
+    {
+        await OpenFileFromPickerAsync();
     }
 
     private void UpdateLoadingState()
@@ -573,6 +644,7 @@ public sealed partial class MainWindow : Window
 
         _loadingDelayTimer.Stop();
         LoadingRing.IsActive = false;
+        LoadingStatusBody.Text = "Decoding the file while the viewer remains available.";
         LoadingOverlay.Visibility = Visibility.Collapsed;
         CancelLoadingButton.Visibility = Visibility.Collapsed;
     }
@@ -582,18 +654,26 @@ public sealed partial class MainWindow : Window
         CancelLoadingButton.Visibility = _viewModel.IsCancelAvailable
             ? Visibility.Visible
             : Visibility.Collapsed;
+        LoadingStatusBody.Text = _viewModel.IsCancelAvailable
+            ? "Decoding the file. You can cancel this load without closing the viewer."
+            : "Decoding the file while the viewer remains available.";
     }
 
     private void UpdateErrorState()
     {
         _warningDismissTimer.Stop();
-        ErrorInfoBar.Severity = _viewModel.CurrentErrorSeverity == ErrorSeverity.Warning
+        var isWarning = _viewModel.CurrentErrorSeverity == ErrorSeverity.Warning;
+        ErrorInfoBar.Severity = isWarning
             ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning
             : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error;
+        ErrorInfoBar.Title = isWarning ? "Review needed" : "Unable to open image";
         ErrorInfoBar.Message = _viewModel.ErrorMessage ?? string.Empty;
         ErrorInfoBar.IsOpen = !string.IsNullOrWhiteSpace(_viewModel.ErrorMessage);
+        ErrorRecoveryButton.Visibility = ErrorInfoBar.IsOpen && !isWarning
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
-        if (ErrorInfoBar.IsOpen && _viewModel.CurrentErrorSeverity == ErrorSeverity.Warning)
+        if (ErrorInfoBar.IsOpen && isWarning)
         {
             _warningDismissTimer.Start();
         }

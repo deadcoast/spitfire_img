@@ -1,6 +1,49 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="ViewerCanvasBackgroundBrush" Color="#FF151515" />
+    <SolidColorBrush x:Key="ViewerTransparentBrush" Color="#00000000" />
+    <SolidColorBrush x:Key="ViewerImageMatBrush" Color="#FF0B0B0C" />
+    <SolidColorBrush x:Key="ViewerChromeSurfaceBrush" Color="#CC202020" />
+    <SolidColorBrush x:Key="ViewerChromeSurfaceActiveBrush" Color="#EE272727" />
+    <SolidColorBrush x:Key="ViewerOverlaySurfaceBrush" Color="#F11F1F1F" />
+    <SolidColorBrush x:Key="ViewerElevatedSurfaceBrush" Color="#FF2A2A2A" />
+    <SolidColorBrush x:Key="ViewerSubtleSurfaceBrush" Color="#332A2A2A" />
+    <SolidColorBrush x:Key="ViewerScrimBrush" Color="#B3000000" />
+
+    <SolidColorBrush x:Key="ViewerBorderSubtleBrush" Color="#33FFFFFF" />
+    <SolidColorBrush x:Key="ViewerBorderStrongBrush" Color="#66FFFFFF" />
+    <SolidColorBrush x:Key="ViewerDividerBrush" Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="ViewerFocusStrokeBrush" Color="#FF8AB4F8" />
+    <SolidColorBrush x:Key="ViewerKeyboardFocusStrokeBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="ViewerImageSafeStrokeBrush" Color="#CC000000" />
+
+    <SolidColorBrush x:Key="ViewerTextPrimaryBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="ViewerTextSecondaryBrush" Color="#DDEFEFEF" />
+    <SolidColorBrush x:Key="ViewerTextMutedBrush" Color="#99FFFFFF" />
+    <SolidColorBrush x:Key="ViewerTextDisabledBrush" Color="#66FFFFFF" />
+    <SolidColorBrush x:Key="ViewerTextOnAccentBrush" Color="#FF071421" />
+    <SolidColorBrush x:Key="ViewerTextOnSemanticBrush" Color="#FF101010" />
+    <SolidColorBrush x:Key="ViewerPathTextBrush" Color="#FFC9D8F6" />
+
+    <SolidColorBrush x:Key="ViewerAccentBrush" Color="#FF8AB4F8" />
+    <SolidColorBrush x:Key="ViewerAccentHoverBrush" Color="#FFA8C7FF" />
+    <SolidColorBrush x:Key="ViewerAccentPressedBrush" Color="#FF6B9DE8" />
+    <SolidColorBrush x:Key="ViewerSelectionBrush" Color="#553B82F6" />
+    <SolidColorBrush x:Key="ViewerSelectionStrokeBrush" Color="#FF8AB4F8" />
+    <SolidColorBrush x:Key="ViewerHoverSurfaceBrush" Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="ViewerPressedSurfaceBrush" Color="#33FFFFFF" />
+    <SolidColorBrush x:Key="ViewerDisabledSurfaceBrush" Color="#14141414" />
+
+    <SolidColorBrush x:Key="ViewerInfoBrush" Color="#FF8AB4F8" />
+    <SolidColorBrush x:Key="ViewerInfoSurfaceBrush" Color="#332D6CDF" />
+    <SolidColorBrush x:Key="ViewerWarningBrush" Color="#FFF5C542" />
+    <SolidColorBrush x:Key="ViewerWarningSurfaceBrush" Color="#33F5C542" />
+    <SolidColorBrush x:Key="ViewerErrorBrush" Color="#FFFF8A80" />
+    <SolidColorBrush x:Key="ViewerErrorSurfaceBrush" Color="#33FF6B6B" />
+    <SolidColorBrush x:Key="ViewerSuccessBrush" Color="#FF7EE787" />
+    <SolidColorBrush x:Key="ViewerSuccessSurfaceBrush" Color="#337EE787" />
+
     <SolidColorBrush x:Key="CanvasBackgroundBrush" Color="#151515" />
     <SolidColorBrush x:Key="ChromeBackgroundBrush" Color="#AA202020" />
     <SolidColorBrush x:Key="SubtlePanelBackgroundBrush" Color="#332A2A2A" />

@@ -1,12 +1,9 @@
 # Phase 5 Professional UI And User QOL Development Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
-**Goal:** Build a professional, source-backed WinUI visual system and additive backend user-QOL improvements for `spitfire.img` without removing or narrowing existing behavior.
-
-**Architecture:** UI work stays in `ImageViewer.App` XAML resources, views, and WinUI-specific services. Backend QOL work stays in `ImageViewer.Core` services and models, with app wiring in `ImageViewer.App` only where platform behavior is required. Evidence is written to `TestResults/phase5-evidence/`.
-
-**Tech Stack:** C#/.NET 8, WinUI 3, Windows App SDK, XAML resource dictionaries, xUnit, PowerShell evidence scripts, UI Automation/manual screenshot evidence.
+> For agentic workers: REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Goal: Build a professional, source-backed WinUI visual system and additive backend user-QOL improvements for `spitfire.img` without removing or narrowing existing behavior.
+> Architecture: UI work stays in `ImageViewer.App` XAML resources, views, and WinUI-specific services. Backend QOL work stays in `ImageViewer.Core` services and models, with app wiring in `ImageViewer.App` only where platform behavior is required. Evidence is written to `TestResults/phase5-evidence/`.
+> Tech Stack: C#/.NET 8, WinUI 3, Windows App SDK, XAML resource dictionaries, xUnit, PowerShell evidence scripts, UI Automation/manual screenshot evidence.
 
 ---
 
@@ -20,6 +17,14 @@
   - Current UI audit, surface gaps, screenshot requirements, and baseline notes.
 - `docs/phase-5-professional-ui-qol/phase5-evidence-template.md`
   - Template for visual, motion, accessibility, QOL, build, test, and known-issue evidence.
+- `docs/phase-5-professional-ui-qol/design-token-plan.md`
+  - Token dictionary, naming, validation, and migration plan.
+- `docs/phase-5-professional-ui-qol/motion-system-plan.md`
+  - Motion categories, reduced-motion behavior, implementation ownership, and evidence targets.
+- `docs/phase-5-professional-ui-qol/surface-redesign-briefs.md`
+  - Surface-by-surface redesign requirements, preservation rules, and evidence needs.
+- `docs/phase-5-professional-ui-qol/backend-qol-plan.md`
+  - Continuity, responsiveness, and error-recovery QOL selection plan.
 - `docs/phase-5-professional-ui-qol/development-plan.md`
   - This implementation plan.
 - `docs/phase-5-professional-ui-qol/tasks.md`
@@ -130,6 +135,7 @@ Expected: no runtime hotlinked visual assets.
 
 ### Task B: Token system
 
+- [ ] Use `design-token-plan.md` as the source of truth for required token groups.
 - [ ] Add `TextStyles.xaml`, `LayoutTokens.xaml`, and `MotionTokens.xaml`.
 - [ ] Merge them in `App.xaml`.
 - [ ] Expand light and dark theme dictionaries.
@@ -153,6 +159,7 @@ Expected: all Phase 5 resource tests pass.
 
 ### Task D: Chrome shell
 
+- [ ] Use `surface-redesign-briefs.md` for chrome, bottom info, and unsaved badge states.
 - [ ] Refactor `FadingChrome.xaml` only as far as required for clarity.
 - [ ] Tokenize top chrome, bottom info, unsaved badge, frame-control host, and overlay margins.
 - [ ] Preserve all existing events and bindings.
@@ -161,6 +168,7 @@ Expected: all Phase 5 resource tests pass.
 
 ### Task E: Overlay and panel surfaces
 
+- [ ] Use `surface-redesign-briefs.md` for command palette, search, metadata, drop indicator, loading, warning, and error requirements.
 - [ ] Redesign command palette.
 - [ ] Redesign search overlay.
 - [ ] Redesign metadata panel.
@@ -179,6 +187,7 @@ Expected: all Phase 5 resource tests pass.
 
 ### Task G: Motion system
 
+- [ ] Use `motion-system-plan.md` as the source of truth for motion categories and reduced-motion behavior.
 - [ ] Implement named motion resources.
 - [ ] Implement `IViewerMotionService` only if XAML-only transitions are insufficient.
 - [ ] Add reduced-motion behavior.
@@ -190,6 +199,7 @@ Expected: all Phase 5 resource tests pass.
 
 ### Task H: Backend QOL continuity
 
+- [ ] Use `backend-qol-plan.md` to select and validate the concrete continuity slice.
 - [ ] Select exactly one continuity feature for the first implementation slice.
 - [ ] Recommended first slice: local last-session restore with safe missing-file fallback.
 - [ ] Write failing tests for missing/partial/invalid settings and missing last file.
@@ -198,6 +208,7 @@ Expected: all Phase 5 resource tests pass.
 
 ### Task I: Backend QOL responsiveness
 
+- [ ] Use `backend-qol-plan.md` to select and validate the concrete responsiveness slice.
 - [ ] Select exactly one responsiveness feature for the first implementation slice.
 - [ ] Recommended first slice: bounded neighbor preload or smarter thumbnail prioritization.
 - [ ] Write tests for bounds, cancellation, and ordering.
@@ -205,6 +216,7 @@ Expected: all Phase 5 resource tests pass.
 
 ### Task J: Backend QOL error recovery
 
+- [ ] Use `backend-qol-plan.md` to select and validate the concrete error-recovery slice.
 - [ ] Select exactly one recoverable error path.
 - [ ] Recommended first slice: failed navigation target keeps playlist active and offers next valid image path.
 - [ ] Preserve structured logging.

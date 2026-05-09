@@ -12,4 +12,6 @@ public sealed record CommandPaletteMatch(
     public string Category => Command.Category;
 
     public string KeyboardShortcut => Command.KeyboardShortcut;
+
+    public string Description => Command.Description;
 }

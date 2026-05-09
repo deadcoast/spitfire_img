@@ -2,15 +2,7 @@
     x:Class="ImageViewer.App.Views.ImageCanvas"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid x:Name="CanvasRoot" Background="{ThemeResource CanvasBackgroundBrush}">
-        <TextBlock
-            x:Name="EmptyStateText"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Foreground="{ThemeResource MutedTextBrush}"
-            FontSize="18"
-            Text="Open an image to begin" />
-
+    <Grid x:Name="CanvasRoot" Background="{ThemeResource ViewerCanvasBackgroundBrush}">
         <Image
             x:Name="DisplayedImage"
             HorizontalAlignment="Center"
@@ -22,5 +14,33 @@
                 <CompositeTransform x:Name="ImageTransform" />
             </Image.RenderTransform>
         </Image>
+
+        <Border
+            x:Name="EmptyStateSurface"
+            MaxWidth="{StaticResource ViewerEmptyStateMaxWidth}"
+            Padding="{StaticResource ViewerEmptyStatePanelPadding}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            AutomationProperties.Name="Empty image viewer state"
+            Style="{StaticResource ViewerEmptyStatePanelBorderStyle}">
+            <StackPanel Spacing="{StaticResource ViewerEmptyStateContentSpacing}">
+                <TextBlock
+                    x:Name="EmptyStateKicker"
+                    Style="{StaticResource ViewerTextEmptyStateKickerStyle}"
+                    Text="spitfire.img" />
+                <TextBlock
+                    x:Name="EmptyStateTitle"
+                    Style="{StaticResource ViewerTextEmptyStateTitleStyle}"
+                    Text="Open an image to inspect" />
+                <TextBlock
+                    x:Name="EmptyStateBody"
+                    Style="{StaticResource ViewerTextEmptyStateBodyStyle}"
+                    Text="Drop an image onto the viewer or press Ctrl+O to choose a file. The parent folder becomes the playlist automatically." />
+                <TextBlock
+                    x:Name="EmptyStateFormatHint"
+                    Style="{StaticResource ViewerTextStatusBodyStyle}"
+                    Text="Supports PNG, JPEG, BMP, WEBP, and installed HEIC or AVIF codecs." />
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

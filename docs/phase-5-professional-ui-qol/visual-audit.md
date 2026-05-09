@@ -4,7 +4,7 @@
 
 This audit records the current Phase 5 UI baseline before professional UI implementation. It identifies what exists, what is unfinished, and what must be improved. It does not claim visual completion.
 
-Screenshot evidence is still required before task 2 can be marked complete. This document is the source audit portion of task 2.
+Screenshot evidence is still incomplete. This document is the source audit portion of task 2 and records the current evidence gaps without treating them as complete.
 
 ## Baseline summary
 
@@ -441,13 +441,77 @@ Restrictions:
 - No telemetry.
 - No disabling features to make performance appear better.
 
-## Visual evidence still required
+## Baseline screenshot evidence
 
-Task 2 cannot be checked complete until screenshots exist under:
+Screenshot evidence folder:
 
 ```text
 TestResults/phase5-evidence/visual/before/
 ```
+
+Manifest:
+
+```text
+TestResults/phase5-evidence/visual/before/before-screenshot-manifest.json
+```
+
+Existing baseline screenshot files:
+
+- `01-empty-state.png`
+- `02-main-image-chrome.png`
+- `03-command-palette.png`
+- `04-search-overlay.png`
+- `05-metadata-panel.png`
+- `06-thumbnail-strip.png`
+- `07-grid-layout.png`
+- `08-filmstrip-layout.png`
+- `09-comparison-side-by-side.png`
+- `10-comparison-overlay.png`
+- `11-gif-frame-controls.png`
+- `12-error-state-corrupt-file.png`
+- `13-warning-state-settings-load.png`
+- `14-loading-state-large-bmp.png`
+- `15-drop-indicator-accepted-file.png`
+- `stable-contact-sheet.png`
+
+Validated current baseline screenshots:
+
+- `01-empty-state.png`
+- `02-main-image-chrome.png`
+- `03-command-palette.png`
+- `04-search-overlay.png`
+- `05-metadata-panel.png`
+- `06-thumbnail-strip.png`
+- `07-grid-layout.png`
+- `08-filmstrip-layout.png`
+- `09-comparison-side-by-side.png`
+- `10-comparison-overlay.png`
+- `11-gif-frame-controls.png`
+- `12-error-state-corrupt-file.png`
+- `13-warning-state-settings-load.png`
+- `14-loading-state-large-bmp.png`
+- `15-drop-indicator-accepted-file.png`
+
+Validation notes:
+
+- The accepted screenshots above were captured from the current source Release executable at `src/ImageViewer.App/bin/x64/Release/net8.0-windows10.0.19041.0/ImageViewer.App.exe`.
+- Latest full manifest: `before-screenshot-manifest.json`, `createdAtUtc` `2026-05-09T01:46:24.6453468Z`, 15 captured, 0 failed.
+- Capture window: 1600 x 1200 at `(120, 20)`.
+- Theme: current system dark rendering from clean local settings.
+- `01-empty-state.png` shows the current empty viewer.
+- `02-main-image-chrome.png` shows the loaded baseline image, top chrome, and bottom information bar.
+- `03-command-palette.png` shows the command palette opened from the running app.
+- `04-search-overlay.png` shows the search overlay with query, result count, and filename results. Capturing this required fixing the existing search-visibility integration path so `MainViewModel.ShowSearch()` requests `SearchOverlay.Show()` through `MainWindow`.
+- `05-metadata-panel.png` shows the metadata panel with file, image, and camera sections.
+- `06-thumbnail-strip.png` shows the thumbnail strip with loaded thumbnails, filenames, current-item treatment, and bottom information bar.
+- `07-grid-layout.png`, `08-filmstrip-layout.png`, `09-comparison-side-by-side.png`, `10-comparison-overlay.png`, and `11-gif-frame-controls.png` show running-app layout, comparison, and animated GIF control surfaces.
+- `12-error-state-corrupt-file.png` shows the decode error InfoBar from a corrupt PNG fixture.
+- `13-warning-state-settings-load.png` was captured from the running source Release executable through window-content capture. Scenario: invalid `%LOCALAPPDATA%/spitfire.img/settings.json` with settings backup and restore. It shows the warning InfoBar message `Unable to load settings. Default preferences were restored.`
+- `14-loading-state-large-bmp.png` shows the loading overlay with progress ring and cancel button. Scenario: large BMP startup file with `SPITFIRE_EVIDENCE_IMAGE_DECODE_DELAY_MS=5000` set only for the capture process.
+- `15-drop-indicator-accepted-file.png` shows the actual `DropIndicator` control in accepted-file mode. Scenario: running app with `SPITFIRE_EVIDENCE_SHOW_DROP_INDICATOR=accepted` set only for the capture process. This is visual-state evidence for the audit, not drag/drop behavior proof.
+- The capture script now backs up and restores local app settings, recent files, and clipboard state.
+- Command-palette-dependent captures use UI Automation `ValuePattern.SetValue` against the palette `SearchInput`.
+- `stable-contact-sheet.png` is an inspection aid and is not itself a required surface.
 
 Required screenshot set:
 
@@ -467,13 +531,7 @@ Required screenshot set:
 - Loading state.
 - Warning/error state.
 
-Each screenshot note must include:
-
-- Theme.
-- Window size.
-- Input file or scenario.
-- Surface name.
-- Date/time.
+Each accepted screenshot is backed by `before-evidence-validation.md`, which records source executable, capture method, input file or scenario, visible state, latest manifest timestamp, theme, and window size.
 - Whether the screenshot represents a current limitation or a passing baseline.
 
 ## Audit conclusion

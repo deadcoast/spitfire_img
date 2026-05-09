@@ -71,7 +71,7 @@ public sealed partial class ImageCanvas : UserControl
     {
         var image = _viewerState?.CurrentImage;
         var loadVersion = ++_imageLoadVersion;
-        EmptyStateText.Visibility = image is null ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        EmptyStateSurface.Visibility = image is null ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
         if (image is null)
         {

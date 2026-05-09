@@ -150,6 +150,28 @@ public sealed class CommandPaletteStateTests
     }
 
     [Fact]
+    public void Show_CommandRowsExposeDescriptionForPaletteHierarchy()
+    {
+        var state = new CommandPaletteState(new CommandPaletteService(
+            [
+                new CommandRegistration(
+                    new CommandItem(
+                        "file.open",
+                        "Open File",
+                        "File",
+                        "Ctrl+O",
+                        Description: "Choose an image file and load its folder playlist."),
+                    () => Task.FromResult(Result.Success()))
+            ]));
+
+        state.Show();
+
+        var commandRow = Assert.Single(state.DisplayEntries.Where(entry => !entry.IsHeader));
+        Assert.Equal("Choose an image file and load its folder playlist.", commandRow.Description);
+        Assert.Equal(commandRow.Description, commandRow.Match?.Description);
+    }
+
+    [Fact]
     public void SelectNext_SkipsCategoryHeaders()
     {
         var state = new CommandPaletteState(new CommandPaletteService(

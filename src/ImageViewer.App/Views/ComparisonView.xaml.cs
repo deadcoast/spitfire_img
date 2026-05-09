@@ -1,8 +1,8 @@
 using System.ComponentModel;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -38,6 +38,7 @@ public sealed partial class ComparisonView : UserControl
         {
             DispatcherQueue.TryEnqueue(() =>
             {
+                UpdateComparisonHud();
                 UpdateOverlayControls();
                 ApplyOverlayOpacity();
             });
@@ -63,6 +64,7 @@ public sealed partial class ComparisonView : UserControl
         ComparisonRoot.Visibility = _viewModel.ComparisonState.IsActive
             ? Visibility.Visible
             : Visibility.Collapsed;
+        UpdateComparisonHud();
         UpdateOverlayControls();
 
         if (!_viewModel.ComparisonState.IsActive)
@@ -112,7 +114,11 @@ public sealed partial class ComparisonView : UserControl
             };
 
             image.RenderTransform = CreateImageTransform(loadedImage.VisibleIndex);
-            images.Add(CreateSelectableImageFrame(image, loadedImage.VisibleIndex, state.ActiveImageIndex));
+            images.Add(CreateSelectableImageFrame(
+                image,
+                loadedImage.VisibleIndex,
+                state.ActiveImageIndex,
+                bitmap is not null));
         }
 
         if (loadVersion != _loadVersion)
@@ -177,16 +183,39 @@ public sealed partial class ComparisonView : UserControl
         }
     }
 
-    private Border CreateSelectableImageFrame(Image image, int visibleIndex, int activeImageIndex)
+    private Border CreateSelectableImageFrame(Image image, int visibleIndex, int activeImageIndex, bool isLoaded)
     {
+        var isActive = visibleIndex == activeImageIndex;
+        var frameHost = new Grid();
+        frameHost.Children.Add(image);
+
+        if (!isLoaded)
+        {
+            frameHost.Children.Add(new TextBlock
+            {
+                Text = "Image unavailable",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Style = GetStyleResource("ViewerTextStatusStyle")
+            });
+        }
+
+        frameHost.Children.Add(CreateImageStateBadge(visibleIndex, isActive));
+
         var border = new Border
         {
             Tag = visibleIndex,
-            Padding = new Thickness(6),
-            BorderThickness = visibleIndex == activeImageIndex ? new Thickness(3) : new Thickness(1),
-            BorderBrush = new SolidColorBrush(visibleIndex == activeImageIndex ? Colors.White : Colors.Transparent),
-            Child = image
+            Padding = GetThicknessResource("ViewerComparisonImageFramePadding"),
+            Style = GetStyleResource(isActive
+                ? "ViewerComparisonImageActiveFrameBorderStyle"
+                : "ViewerComparisonImageFrameBorderStyle"),
+            Child = frameHost
         };
+        AutomationProperties.SetName(
+            border,
+            isActive
+                ? $"Active comparison image {visibleIndex + 1}"
+                : $"Comparison image {visibleIndex + 1}");
 
         border.Tapped += (_, _) => _viewModel?.SetActiveComparisonImage(visibleIndex);
         border.PointerPressed += OnImagePointerPressed;
@@ -223,7 +252,7 @@ public sealed partial class ComparisonView : UserControl
     {
         foreach (var child in ImageHost.Children.OfType<Border>())
         {
-            if (child.Tag is not int visibleIndex || child.Child is not Image image)
+            if (child.Tag is not int visibleIndex || FindComparisonImage(child) is not Image image)
             {
                 continue;
             }
@@ -267,6 +296,67 @@ public sealed partial class ComparisonView : UserControl
     private double GetOverlayTopOpacity()
     {
         return (_viewModel?.ComparisonState.OverlayOpacity ?? 50) / 100d;
+    }
+
+    private void UpdateComparisonHud()
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        var state = _viewModel.ComparisonState;
+        ComparisonModeText.Text = state.Layout == ComparisonLayout.Overlay
+            ? "Overlay comparison"
+            : "Side-by-side comparison";
+        ComparisonCountText.Text = state.ImageCount == 0
+            ? "No comparison images"
+            : state.Layout == ComparisonLayout.Overlay
+                ? $"{state.ImageCount} images - playlist {state.FormattedDisplayedIndices} - opacity {Math.Round(state.OverlayOpacity)}%"
+                : $"{state.ImageCount} images - playlist {state.FormattedDisplayedIndices}";
+        ComparisonActiveText.Text = state.ActivePlaylistIndex >= 0
+            ? $"Active image {state.ActiveImageIndex + 1} - playlist {state.ActivePlaylistIndex + 1}"
+            : "Active image pending";
+        ComparisonSyncText.Text = state.SyncZoomEnabled ? "Sync on" : "Sync off";
+        OverlayOpacityText.Text = $"{Math.Round(state.OverlayOpacity)}%";
+    }
+
+    private static Border CreateImageStateBadge(int visibleIndex, bool isActive)
+    {
+        return new Border
+        {
+            Margin = GetThicknessResource("ViewerComparisonStateBadgeMargin"),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Style = GetStyleResource("ViewerComparisonStateBadgeBorderStyle"),
+            Child = new TextBlock
+            {
+                Text = isActive ? $"Active {ImageLabel(visibleIndex)}" : $"Image {ImageLabel(visibleIndex)}",
+                Style = GetStyleResource("ViewerTextBadgeStyle")
+            }
+        };
+    }
+
+    private static Image? FindComparisonImage(Border frame)
+    {
+        return frame.Child is Grid grid
+            ? grid.Children.OfType<Image>().FirstOrDefault()
+            : frame.Child as Image;
+    }
+
+    private static string ImageLabel(int visibleIndex)
+    {
+        return ((char)('A' + visibleIndex)).ToString();
+    }
+
+    private static Thickness GetThicknessResource(string key)
+    {
+        return (Thickness)Application.Current.Resources[key];
+    }
+
+    private static Style GetStyleResource(string key)
+    {
+        return (Style)Application.Current.Resources[key];
     }
 
     private void OnOverlayOpacitySliderChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)

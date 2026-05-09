@@ -17,63 +17,63 @@ Generated visual evidence belongs under `TestResults/phase5-evidence/` and must 
   - Verify no runtime hotlinking of remote visual assets is introduced
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 2. Create current UI visual audit
+- [x] 2. Create current UI visual audit
   - Create `docs/phase-5-professional-ui-qol/visual-audit.md`
   - Audit main viewer, empty state, top chrome, bottom info bar, command palette, search overlay, metadata panel, thumbnail strip, grid, filmstrip, comparison, GIF controls, loading, warning, and error states
   - Identify boilerplate styling, hard-coded styling, text-overflow risk, contrast risk, weak state styling, and animation gaps
   - Capture before screenshots under `TestResults/phase5-evidence/visual/before/`
   - _Requirements: 1.2, 1.6, 4.1, 4.6, 7.1_
 
-- [ ] 3. Define Phase 5 design token dictionaries
+- [x] 3. Define Phase 5 design token dictionaries
   - Create or update token dictionaries for color, typography, spacing, radius, border, opacity, density, icon sizing, motion duration, and easing
   - Add `TextStyles.xaml`, `MotionTokens.xaml`, and `LayoutTokens.xaml` if the design requires separate dictionaries
   - Keep light and dark values complete and intentional
   - Add token validation tests that required resource keys exist in both themes
   - _Requirements: 3.1, 3.2, 3.4, 3.5_
 
-- [ ] 4. Replace Phase 5-touched hard-coded styling with named resources
+- [x] 4. Replace Phase 5-touched hard-coded styling with named resources
   - Review all Phase 5-touched XAML for repeated colors, spacing, radius, opacity, and sizing values
   - Move reusable values into named resources instead of local literals
   - Preserve local values only when they are unique to a single layout and documented by context
   - Verify light and dark themes compile and render
   - _Requirements: 3.2, 3.4, 4.4_
 
-- [ ] 5. Redesign app chrome shell
+- [x] 5. Redesign app chrome shell
   - Redesign top chrome/menu surface, bottom information bar, transient badges, and idle/active chrome states
   - Extract `AppChrome.xaml` or focused subcomponents if `FadingChrome.xaml` becomes too broad
   - Add visual states for idle, active, hover, pressed, focused, disabled, selected, loading, warning, and error where applicable
   - Capture after screenshots for chrome states
   - _Requirements: 1.1, 1.3, 4.1, 4.2, 4.6_
 
-- [ ] 6. Redesign empty, loading, warning, and error states
+- [x] 6. Redesign empty, loading, warning, and error states
   - Replace default or sparse empty-state presentation with a finished image-viewer surface
   - Add polished loading and cancellation states without blocking image inspection
   - Improve warning and error presentation with actionable copy and visible recovery affordances where applicable
   - Do not use blank gradients, decorative orbs, bokeh, or glow as the design solution
   - _Requirements: 1.5, 4.3, 7.5, 10.1, 10.3_
 
-- [ ] 7. Redesign command palette
+- [x] 7. Redesign command palette
   - Improve command palette layout, typography, command grouping, shortcut display, focus states, selected state, empty search state, and keyboard readability
   - Preserve existing command registry and Phase 1 through Phase 4 shortcuts
   - Add or update tests for command palette behavior affected by Phase 5
   - Capture before/after visual evidence
   - _Requirements: 4.1, 4.4, 6.1, 6.2, 6.3, 7.4_
 
-- [ ] 8. Redesign search overlay and metadata panel
+- [x] 8. Redesign search overlay and metadata panel
   - Improve search input, results, selected state, empty state, keyboard traversal, and dismissal
   - Improve metadata panel layout, text hierarchy, overflow handling, and readability
   - Add automation names or identifiers for Phase 5-touched interactive controls
   - Capture after screenshots in light and dark themes
   - _Requirements: 4.1, 4.4, 6.2, 6.3, 7.2, 7.3_
 
-- [ ] 9. Redesign thumbnail strip, grid, and filmstrip surfaces
+- [x] 9. Redesign thumbnail strip, grid, and filmstrip surfaces
   - Improve item spacing, selected/current item state, focus state, loading state, thumbnail failure state, and density
   - Preserve folder-as-playlist behavior and existing layout shortcuts
   - Verify large playlist behavior remains intact
   - Capture visual evidence for normal and large-folder scenarios
   - _Requirements: 4.1, 4.2, 6.1, 6.5, 9.1_
 
-- [ ] 10. Redesign comparison and animated GIF controls
+- [x] 10. Redesign comparison and animated GIF controls
   - Improve side-by-side comparison, overlay comparison, active image state, sync zoom indicators, overlay opacity state, and GIF frame controls
   - Preserve comparison and animation keyboard shortcuts
   - Ensure the controls remain dense and image-first
@@ -136,7 +136,7 @@ Generated visual evidence belongs under `TestResults/phase5-evidence/` and must 
   - Add tests for the modified error path
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
-- [ ] 19. Add Phase 5 visual and QOL evidence template
+- [x] 19. Add Phase 5 visual and QOL evidence template
   - Create `docs/phase-5-professional-ui-qol/phase5-evidence-template.md`
   - Include sections for visual before/after, source-material register, token validation, motion, reduced motion, accessibility, keyboard, backend QOL before/after, build, test, and known issues
   - Use `TestResults/phase5-evidence/` as the evidence output folder

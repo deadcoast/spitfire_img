@@ -2,20 +2,22 @@
     x:Class="ImageViewer.App.Views.FrameControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    AutomationProperties.Name="Animated GIF frame controls"
     Visibility="Collapsed">
-    <Border Padding="10,6" Style="{StaticResource ChromePanelBorderStyle}">
-        <Grid ColumnSpacing="10">
+    <Border Style="{StaticResource ViewerFrameControlPanelBorderStyle}">
+        <Grid ColumnSpacing="{StaticResource ViewerMediaControlColumnSpacing}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Button
                 x:Name="PreviousButton"
-                Width="36"
-                Height="32"
+                Width="{StaticResource ViewerFrameButtonWidth}"
+                Height="{StaticResource ViewerFrameButtonHeight}"
+                AutomationProperties.Name="Previous GIF frame"
                 Click="OnPreviousClicked"
                 ToolTipService.ToolTip="Previous frame">
                 <SymbolIcon Symbol="Previous" />
@@ -23,8 +25,9 @@
             <Button
                 x:Name="PlayPauseButton"
                 Grid.Column="1"
-                Width="36"
-                Height="32"
+                Width="{StaticResource ViewerFrameButtonWidth}"
+                Height="{StaticResource ViewerFrameButtonHeight}"
+                AutomationProperties.Name="Play or pause GIF"
                 Click="OnPlayPauseClicked"
                 ToolTipService.ToolTip="Play or pause">
                 <SymbolIcon x:Name="PlayPauseIcon" Symbol="Pause" />
@@ -32,25 +35,51 @@
             <Button
                 x:Name="NextButton"
                 Grid.Column="2"
-                Width="36"
-                Height="32"
+                Width="{StaticResource ViewerFrameButtonWidth}"
+                Height="{StaticResource ViewerFrameButtonHeight}"
+                AutomationProperties.Name="Next GIF frame"
                 Click="OnNextClicked"
                 ToolTipService.ToolTip="Next frame">
                 <SymbolIcon Symbol="Next" />
             </Button>
-            <TextBlock
-                x:Name="FrameText"
+            <Border
                 Grid.Column="3"
-                MinWidth="92"
-                VerticalAlignment="Center"
-                Foreground="{ThemeResource SecondaryTextBrush}" />
-            <Slider
-                x:Name="FrameSlider"
-                Grid.Column="4"
-                VerticalAlignment="Center"
-                IsEnabled="False"
-                StepFrequency="1"
-                ValueChanged="OnFrameSliderValueChanged" />
+                Style="{StaticResource ViewerFrameTimelineBorderStyle}">
+                <Grid ColumnSpacing="{StaticResource ViewerGridHudSpacing}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="PlaybackStateText"
+                        MinWidth="{StaticResource ViewerFrameStateMinWidth}"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ViewerTextStatusStyle}" />
+                    <TextBlock
+                        x:Name="FrameText"
+                        Grid.Column="1"
+                        MinWidth="{StaticResource ViewerFrameCounterMinWidth}"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ViewerTextNumericStyle}" />
+                    <TextBlock
+                        x:Name="FrameRangeText"
+                        Grid.Column="2"
+                        MinWidth="{StaticResource ViewerFrameRangeMinWidth}"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ViewerTextCaptionStyle}" />
+                    <Slider
+                        x:Name="FrameSlider"
+                        Grid.Column="3"
+                        Width="{StaticResource ViewerFrameSliderWidth}"
+                        AutomationProperties.Name="GIF frame timeline"
+                        VerticalAlignment="Center"
+                        IsEnabled="False"
+                        StepFrequency="1"
+                        ValueChanged="OnFrameSliderValueChanged" />
+                </Grid>
+            </Border>
         </Grid>
     </Border>
 </UserControl>

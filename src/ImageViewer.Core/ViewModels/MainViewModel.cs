@@ -129,6 +129,10 @@ public sealed class MainViewModel : ObservableObject
 
     public event EventHandler? OpenFileRequested;
 
+    public event EventHandler? SearchRequested;
+
+    public event EventHandler? SearchHidden;
+
     public event EventHandler<CodecInstallPromptRequest>? CodecInstallPromptRequested;
 
     public ViewerSettings Settings
@@ -868,12 +872,14 @@ public sealed class MainViewModel : ObservableObject
     public void ShowSearch()
     {
         SearchState.SetSearchQuery(SearchState.SearchQuery);
+        SearchRequested?.Invoke(this, EventArgs.Empty);
         ShowChrome();
     }
 
     public void HideSearch()
     {
         SearchState.ClearSearch();
+        SearchHidden?.Invoke(this, EventArgs.Empty);
         ShowChrome();
     }
 
@@ -1625,7 +1631,7 @@ public sealed class MainViewModel : ObservableObject
         Action action)
     {
         return new CommandRegistration(
-            new CommandItem(id, title, category, keyboardShortcut),
+            new CommandItem(id, title, category, keyboardShortcut, Description: DescribeCommand(id)),
             () =>
             {
                 action();
@@ -1641,12 +1647,60 @@ public sealed class MainViewModel : ObservableObject
         Func<Task> action)
     {
         return new CommandRegistration(
-            new CommandItem(id, title, category, keyboardShortcut),
+            new CommandItem(id, title, category, keyboardShortcut, Description: DescribeCommand(id)),
             async () =>
             {
                 await action().ConfigureAwait(false);
                 return Result.Success();
             });
+    }
+
+    private static string DescribeCommand(string id)
+    {
+        return id switch
+        {
+            "file.open" => "Choose an image file and load its folder as the playlist.",
+            "view.fullscreen" => "Enter or leave fullscreen without changing the current image.",
+            "view.fit" => "Scale the current image to fit inside the viewer.",
+            "view.actual-size" => "Inspect the image at its native pixel size.",
+            "view.zoom-in" => "Increase zoom for closer image inspection.",
+            "view.zoom-out" => "Reduce zoom while keeping the current image open.",
+            "view.command-palette" => "Open this command surface for keyboard-driven actions.",
+            "view.theme" => "Switch between the available viewer themes.",
+            "view.thumbnails" => "Show or hide the thumbnail strip for the current folder.",
+            "image.metadata" => "Open or close the metadata panel for the current image.",
+            "image.rotate-left" => "Preview a left rotation on the current image.",
+            "image.rotate-right" => "Preview a right rotation on the current image.",
+            "image.flip-horizontal" => "Preview a horizontal flip on the current image.",
+            "image.flip-vertical" => "Preview a vertical flip on the current image.",
+            "image.undo" => "Undo the most recent pending image transform.",
+            "image.redo" => "Redo the most recently undone image transform.",
+            "navigation.next" => "Move to the next image in the folder playlist.",
+            "navigation.previous" => "Move to the previous image in the folder playlist.",
+            "navigation.first" => "Jump to the first image in the folder playlist.",
+            "navigation.last" => "Jump to the last image in the folder playlist.",
+            "navigation.search" => "Search images in the active folder playlist.",
+            "slideshow.toggle" => "Start or stop slideshow playback.",
+            "slideshow.pause" => "Pause or resume the active slideshow.",
+            "slideshow.interval-up" => "Increase the slideshow interval.",
+            "slideshow.interval-down" => "Decrease the slideshow interval.",
+            "comparison.side-by-side" => "Compare images side by side.",
+            "comparison.overlay" => "Compare images with overlay opacity controls.",
+            "comparison.sync-zoom" => "Toggle shared zoom and pan during comparison.",
+            "comparison.swap-overlay" => "Swap the active overlay comparison layers.",
+            "comparison.count-two" => "Show two images in comparison mode.",
+            "comparison.count-three" => "Show three images in comparison mode.",
+            "comparison.count-four" => "Show four images in comparison mode.",
+            "layout.single" => "Return to the single image inspection layout.",
+            "layout.grid" => "Open the folder playlist in grid layout.",
+            "layout.filmstrip" => "Open the folder playlist in filmstrip layout.",
+            "layout.grid-density-up" => "Show more images per grid page.",
+            "layout.grid-density-down" => "Show fewer images per grid page.",
+            "animation.toggle-playback" => "Play or pause the current animated image.",
+            "animation.next-frame" => "Advance the animated image by one frame.",
+            "animation.previous-frame" => "Move the animated image back one frame.",
+            _ => "Run this viewer command."
+        };
     }
 
     private void SetRecentFiles(IEnumerable<RecentFile> recentFiles)

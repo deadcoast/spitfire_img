@@ -30,6 +30,10 @@ Phase 5 implementation must not rely on improvised styling, blank gradients, glo
 | S9 | Windows typography guidance | https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography | Microsoft Learn documentation; use as Windows-specific typography reference | Windows type ramp, hierarchy, legibility, font roles | `TextStyles.xaml`, metadata panel, command palette, status HUD, bottom info bar | Visual review and token validation |
 | S10 | Windows App SDK documentation | https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/ | Microsoft Learn documentation; use APIs compatible with app platform | WinUI 3, system backdrop, XAML resources, app-window/platform behavior | `MainWindow.xaml`, app resources, backdrop/material implementation if selected | Build/test and manual screenshot evidence |
 | S11 | WinUI Gallery source | https://github.com/microsoft/WinUI-Gallery | MIT-licensed Microsoft sample repository; use as reference, not vendored code unless explicitly reviewed | Concrete WinUI control examples and Fluent implementation patterns | Control styling decisions, InfoBar, command/list patterns, sample comparison during audit | Record exact files/patterns if code is adapted |
+| S12 | Fluent 2 layout guidance | https://fluent2.microsoft.design/layout | Microsoft design guidance; use as reference | Four-pixel spacing ramp, proximity, alignment, responsive layout, and component/pattern spacing discipline | `LayoutTokens.xaml`, chrome margins, overlay padding, metadata rows, thumbnail spacing, command palette rows | Token validation and visual review |
+| S13 | Fluent 2 elevation guidance | https://fluent2.microsoft.design/elevation | Microsoft design guidance; use as reference | Restrained surface hierarchy, shadow/stroke roles, and Windows-appropriate elevation treatment | `PanelStyles.xaml`, overlay panels, HUD/status surfaces, thumbnail selection, command palette panel | Visual review confirming elevation is not glow/decorative filler |
+| S14 | Windows app InfoBar guidance | https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/infobar | Microsoft Learn documentation; use as WinUI control guidance | Warning/error/info semantics, inline status behavior, close/update accessibility, severity colors and icons | `MainWindow.xaml`, warning/error surface redesign, status HUD decision | Warning/error screenshots and accessibility evidence |
+| S15 | Windows app commanding guidance | https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/commanding | Microsoft Learn documentation; use as WinUI command pattern guidance | Shared command surfaces, keyboard accelerators, context menus, input-agnostic command access | `CommandPalette.xaml`, menu commands, keyboard accelerators, future command style tests | Keyboard evidence and command regression tests |
 
 ## Current source-derived design constraints
 
@@ -111,6 +115,58 @@ Implementation targets:
 - All Phase 5-touched views.
 - `tests/ImageViewer.App.Tests` static resource/automation checks where practical.
 - `TestResults/phase5-evidence/accessibility/accessibility-review.md`.
+
+### Layout and elevation
+
+Fluent 2 layout guidance makes spacing, proximity, and alignment load-bearing design elements instead of decorative afterthoughts. Phase 5 maps that to:
+
+- Use a four-pixel spacing ramp with explicit exceptions for icon alignment.
+- Group related controls through spacing before adding divider lines.
+- Keep tool surfaces dense enough for repeated desktop use.
+- Use stable dimensions for tool buttons, thumbnails, HUDs, and command rows.
+- Avoid nested cards and decorative background treatments as layout substitutes.
+
+Fluent 2 elevation guidance maps to:
+
+- Surface hierarchy through layered materials, strokes, and restrained shadow where WinUI supports it.
+- No broad glow effects as separation.
+- No shadow-only state communication.
+- Current/selected/focused states must have structural cues.
+
+Implementation targets:
+
+- `src/ImageViewer.App/Resources/Styles/LayoutTokens.xaml`
+- `src/ImageViewer.App/Resources/Styles/PanelStyles.xaml`
+- `src/ImageViewer.App/Resources/Styles/ButtonStyles.xaml`
+- `src/ImageViewer.App/Views/FadingChrome.xaml`
+- `src/ImageViewer.App/Views/CommandPalette.xaml`
+- `src/ImageViewer.App/Views/SearchOverlay.xaml`
+- `src/ImageViewer.App/Views/MetadataPanel.xaml`
+- `src/ImageViewer.App/Views/ThumbnailStrip.xaml`
+
+### Commanding and status
+
+Windows commanding guidance expects command access to work across mouse, keyboard, touch, context menu, command surfaces, and accessibility invocation. Phase 5 maps that to:
+
+- Preserve keyboard accelerators from Phase 1 through Phase 4.
+- Keep command palette rows and menu commands backed by the existing command registry.
+- Avoid hover-only command discovery.
+- Give critical commands stable keyboard access.
+- Record command regression evidence when visual surfaces change.
+
+Windows InfoBar guidance maps to:
+
+- Warning and error states use semantic severity accurately.
+- Status surfaces are readable and not rapidly flashing.
+- Updates that need assistive technology notification must close/reopen or otherwise trigger accessible announcement.
+- Message text remains robust for localization-length variation and long filenames.
+
+Implementation targets:
+
+- `src/ImageViewer.App/Views/CommandPalette.xaml`
+- `src/ImageViewer.App/Views/FadingChrome.xaml`
+- `src/ImageViewer.App/MainWindow.xaml`
+- `src/ImageViewer.App/MainWindow.xaml.cs`
 
 ## Library and dependency policy
 

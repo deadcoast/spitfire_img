@@ -64,20 +64,22 @@ public sealed partial class ThumbnailStrip : UserControl
         var playlistItems = _viewModel.PlaylistState.Items.ToArray();
         var currentIndex = _viewModel.PlaylistState.CurrentIndex;
         _items.Clear();
-        Items.ItemsSource = _items;
+        ThumbnailStripList.ItemsSource = _items;
 
         foreach (var item in playlistItems)
         {
             var borderThickness = item.FilePath == _viewModel.PlaylistState.CurrentItem?.FilePath
                 ? new Thickness(2)
                 : new Thickness(0);
+            var isCurrent = item.FilePath == _viewModel.PlaylistState.CurrentItem?.FilePath;
 
             _items.Add(new ThumbnailStripItem(
                 item.FilePath,
                 item.Filename,
                 imageSource: null,
                 placeholderText: "Loading",
-                borderThickness));
+                borderThickness,
+                isCurrent));
         }
 
         foreach (var index in ThumbnailLoadPlanner.PrioritizeVisibleFirst(playlistItems.Length, currentIndex))
@@ -151,13 +153,15 @@ public sealed partial class ThumbnailStrip : UserControl
             string fileName,
             BitmapImage? imageSource,
             string placeholderText,
-            Thickness borderThickness)
+            Thickness borderThickness,
+            bool isCurrent)
         {
             FilePath = filePath;
             FileName = fileName;
             _imageSource = imageSource;
             _placeholderText = placeholderText;
             BorderThickness = borderThickness;
+            CurrentLabel = isCurrent ? "Current" : string.Empty;
         }
 
         public string FilePath { get; }
@@ -173,9 +177,19 @@ public sealed partial class ThumbnailStrip : UserControl
         public string PlaceholderText
         {
             get => _placeholderText;
-            set => SetProperty(ref _placeholderText, value);
+            set
+            {
+                if (SetProperty(ref _placeholderText, value))
+                {
+                    OnPropertyChanged(nameof(StatusText));
+                }
+            }
         }
 
         public Thickness BorderThickness { get; }
+
+        public string CurrentLabel { get; }
+
+        public string StatusText => string.IsNullOrWhiteSpace(PlaceholderText) ? string.Empty : PlaceholderText;
     }
 }

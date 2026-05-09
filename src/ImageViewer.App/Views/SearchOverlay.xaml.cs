@@ -77,12 +77,29 @@ public sealed partial class SearchOverlay : UserControl
             SearchInput.Text = _viewModel.SearchState.SearchQuery;
         }
 
-        ResultCountText.Text = _viewModel.SearchState.ResultCount == 0
-            ? "No matching images found"
-            : _viewModel.SearchState.ResultCountText;
+        UpdateSearchSummary(_viewModel.SearchState);
         ResultsList.ItemsSource = _viewModel.SearchState.FilteredPlaylist;
         ResultsList.SelectedIndex = _viewModel.SearchState.SelectedResultIndex;
+        ResultsList.Visibility = _viewModel.SearchState.ResultCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+        NoSearchResultsPanel.Visibility = _viewModel.SearchState.ResultCount == 0 && _viewModel.SearchState.IsSearchActive
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         _isUpdating = false;
+    }
+
+    private void UpdateSearchSummary(SearchState state)
+    {
+        if (!state.IsSearchActive)
+        {
+            SearchSummaryText.Text = state.ResultCount == 0
+                ? "Ready"
+                : $"{state.ResultCountText} in folder";
+            return;
+        }
+
+        SearchSummaryText.Text = state.ResultCount == 0
+            ? "No results"
+            : $"{state.ResultCountText} - Up/Down to select";
     }
 
     private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
