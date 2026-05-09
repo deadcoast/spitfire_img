@@ -26,7 +26,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a maintainer, I want a reproducible release build command, so that release artifacts can be recreated and verified from the repository.
 
-#### Acceptance Criteria
+#### 1: Acceptance Criteria
 
 1. THE Repository SHALL document the exact PowerShell command used to create a Release_Build.
 2. THE Release_Build command SHALL specify `Platform=x64`.
@@ -39,7 +39,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a user, I want a clear install or run option, so that I can launch the Viewer without building it myself.
 
-#### Acceptance Criteria
+#### 2: Acceptance Criteria
 
 1. THE Repository SHALL document the selected distribution strategy before implementation.
 2. IF the selected strategy is portable distribution, THEN THE Distribution_Package SHALL include the executable and all required runtime files.
@@ -52,7 +52,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a user, I want the app to appear as `spitfire.img` in Windows, so that the installed app is recognizable and professional.
 
-#### Acceptance Criteria
+#### 3: Acceptance Criteria
 
 1. THE Application_Identity SHALL use the product name `spitfire.img`.
 2. THE Viewer SHALL have application icon assets for executable, window, and package contexts.
@@ -65,7 +65,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a Windows user, I want supported image files to open with the Viewer from Explorer, so that the app works like a native image viewer.
 
-#### Acceptance Criteria
+#### 4: Acceptance Criteria
 
 1. THE Viewer SHALL support startup file path activation for all supported Phase 1, Phase 2, and Phase 3 image formats.
 2. THE File_Association plan SHALL list supported extensions and codec-dependent extensions separately.
@@ -78,7 +78,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a returning user, I want upgrades to preserve my settings and logs safely, so that installing a newer build does not damage local state.
 
-#### Acceptance Criteria
+#### 5: Acceptance Criteria
 
 1. THE Viewer SHALL continue using `%LOCALAPPDATA%\spitfire.img` for settings, logs, and local app data.
 2. THE Viewer SHALL handle missing settings files by loading defaults.
@@ -91,7 +91,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a user reporting a problem, I want a local diagnostic export, so that I can share useful troubleshooting information without exposing images.
 
-#### Acceptance Criteria
+#### 6: Acceptance Criteria
 
 1. THE Viewer SHALL provide a command or documented script to collect a Support_Bundle.
 2. THE Support_Bundle SHALL include structured error logs.
@@ -104,7 +104,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a user or maintainer, I want release documentation, so that installation, verification, known limits, and troubleshooting are clear.
 
-#### Acceptance Criteria
+#### 7: Acceptance Criteria
 
 1. THE Repository SHALL include a release README or equivalent release document.
 2. THE release document SHALL list supported image formats.
@@ -117,7 +117,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a maintainer, I want a release gate, so that release artifacts are not shipped from unverified source.
 
-#### Acceptance Criteria
+#### 8: Acceptance Criteria
 
 1. THE Release_Gate SHALL run `dotnet build SpitfireImg.sln -p:Platform=x64`.
 2. THE Release_Gate SHALL run `dotnet test SpitfireImg.sln -p:Platform=x64`.
@@ -131,7 +131,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a maintainer, I want release artifacts kept out of source control, so that the repository stays clean and reproducible.
 
-#### Acceptance Criteria
+#### 9: Acceptance Criteria
 
 1. THE Repository SHALL ignore generated release artifacts under `artifacts/`.
 2. THE Repository SHALL keep source assets, manifests, scripts, and docs under source control.
@@ -143,7 +143,7 @@ Phase 4 covers release packaging, application identity, icons and assets, file a
 
 **User Story:** As a maintainer, I want Phase 4 to stay focused on release readiness, so that product scope does not drift.
 
-#### Acceptance Criteria
+#### 10: Acceptance Criteria
 
 1. THE Phase 4 implementation SHALL NOT add editing workflows beyond existing Phase 2 transform behavior.
 2. THE Phase 4 implementation SHALL NOT add cataloging, albums, tagging, cloud sync, accounts, or telemetry.

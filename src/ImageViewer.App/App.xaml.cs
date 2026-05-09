@@ -27,7 +27,7 @@ public partial class App : Application
         var window = _services.GetRequiredService<MainWindow>();
         window.Activate();
 
-        var filePath = ParseInitialFilePath(args.Arguments, Environment.GetCommandLineArgs());
+        var filePath = ParseInitialFilePath(args.Arguments, Environment.GetCommandLineArgs(), Environment.CommandLine);
         if (!string.IsNullOrWhiteSpace(filePath))
         {
             _ = window.OpenInitialFileAsync(filePath);
@@ -39,16 +39,124 @@ public partial class App : Application
         return services.GetRequiredService<ICodecDetectionService>().DetectCodecsAsync();
     }
 
-    public static string? ParseInitialFilePath(string? activationArguments, IReadOnlyList<string> commandLineArguments)
+    public static string? ParseInitialFilePath(
+        string? activationArguments,
+        IReadOnlyList<string> commandLineArguments,
+        string? rawCommandLine = null)
     {
         if (!string.IsNullOrWhiteSpace(activationArguments))
         {
-            return activationArguments.Trim().Trim('"');
+            return ParseActivationFilePath(activationArguments, commandLineArguments, rawCommandLine);
         }
 
+        return GetCommandLineFilePath(commandLineArguments) ?? GetRawCommandLineFilePath(rawCommandLine);
+    }
+
+    private static string? ParseActivationFilePath(
+        string activationArguments,
+        IReadOnlyList<string> commandLineArguments,
+        string? rawCommandLine)
+    {
+        var trimmed = activationArguments.Trim();
+        if (trimmed.Length < 2 || trimmed[0] != '"')
+        {
+            if (IsExecutableToken(trimmed.Trim('"'), commandLineArguments))
+            {
+                return GetCommandLineFilePath(commandLineArguments) ?? GetRawCommandLineFilePath(rawCommandLine);
+            }
+
+            return trimmed.Trim('"');
+        }
+
+        var tokens = ParseQuotedActivationTokens(trimmed);
+        if (tokens.Count == 0)
+        {
+            return trimmed.Trim('"');
+        }
+
+        if (IsExecutableToken(tokens[0], commandLineArguments))
+        {
+            return tokens.Count > 1
+                ? tokens[1]
+                : GetCommandLineFilePath(commandLineArguments) ?? GetRawCommandLineFilePath(rawCommandLine);
+        }
+
+        return tokens[0];
+    }
+
+    private static string? GetCommandLineFilePath(IReadOnlyList<string> commandLineArguments)
+    {
         return commandLineArguments.Count > 1
             ? commandLineArguments[1].Trim().Trim('"')
             : null;
+    }
+
+    private static string? GetRawCommandLineFilePath(string? rawCommandLine)
+    {
+        if (string.IsNullOrWhiteSpace(rawCommandLine))
+        {
+            return null;
+        }
+
+        var tokens = ParseQuotedActivationTokens(rawCommandLine.Trim());
+        return tokens.Count > 1 ? tokens[1] : null;
+    }
+
+    private static IReadOnlyList<string> ParseQuotedActivationTokens(string activationArguments)
+    {
+        var tokens = new List<string>();
+        var index = 0;
+
+        while (index < activationArguments.Length)
+        {
+            while (index < activationArguments.Length && char.IsWhiteSpace(activationArguments[index]))
+            {
+                index++;
+            }
+
+            if (index >= activationArguments.Length)
+            {
+                break;
+            }
+
+            if (activationArguments[index] == '"')
+            {
+                var start = ++index;
+                while (index < activationArguments.Length && activationArguments[index] != '"')
+                {
+                    index++;
+                }
+
+                tokens.Add(activationArguments[start..index]);
+                if (index < activationArguments.Length && activationArguments[index] == '"')
+                {
+                    index++;
+                }
+            }
+            else
+            {
+                var start = index;
+                while (index < activationArguments.Length && !char.IsWhiteSpace(activationArguments[index]))
+                {
+                    index++;
+                }
+
+                tokens.Add(activationArguments[start..index]);
+            }
+        }
+
+        return tokens;
+    }
+
+    private static bool IsExecutableToken(string token, IReadOnlyList<string> commandLineArguments)
+    {
+        if (commandLineArguments.Count > 0 &&
+            string.Equals(token, commandLineArguments[0].Trim().Trim('"'), StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(Path.GetExtension(token), ".exe", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void ConfigureServices(IServiceCollection services)

@@ -1,4 +1,5 @@
 using ImageViewer.Core.Services;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 
 namespace ImageViewer.App.Services;
@@ -6,6 +7,7 @@ namespace ImageViewer.App.Services;
 public sealed class DispatcherAnimationPlaybackTimer : IAnimationPlaybackTimer
 {
     private readonly DispatcherTimer _timer = new();
+    private readonly DispatcherQueue _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
     public DispatcherAnimationPlaybackTimer()
     {
@@ -20,13 +22,27 @@ public sealed class DispatcherAnimationPlaybackTimer : IAnimationPlaybackTimer
 
     public void Start(TimeSpan interval)
     {
-        _timer.Stop();
-        _timer.Interval = interval;
-        _timer.Start();
+        RunOnDispatcher(() =>
+        {
+            _timer.Stop();
+            _timer.Interval = interval;
+            _timer.Start();
+        });
     }
 
     public void Stop()
     {
-        _timer.Stop();
+        RunOnDispatcher(_timer.Stop);
+    }
+
+    private void RunOnDispatcher(Action action)
+    {
+        if (_dispatcherQueue.HasThreadAccess)
+        {
+            action();
+            return;
+        }
+
+        _dispatcherQueue.TryEnqueue(() => action());
     }
 }

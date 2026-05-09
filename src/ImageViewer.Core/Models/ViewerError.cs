@@ -103,6 +103,19 @@ public sealed record ViewerError(
 
     public static ViewerError SettingsPersistenceError(string operation, string? filePath, Exception? exception = null)
     {
+        if (operation.StartsWith("Load", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ViewerError(
+                DateTimeOffset.UtcNow,
+                ErrorSeverity.Warning,
+                ErrorCategory.SettingsPersistenceError,
+                "Unable to load settings. Default preferences were restored.",
+                operation,
+                filePath,
+                exception?.GetType().Name,
+                exception?.StackTrace);
+        }
+
         return Create(ErrorCategory.SettingsPersistenceError, operation, filePath, exception);
     }
 

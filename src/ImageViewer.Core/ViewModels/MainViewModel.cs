@@ -169,14 +169,14 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        var settingsResult = await _settingsService.LoadSettingsAsync(cancellationToken).ConfigureAwait(false);
+        var settingsResult = await _settingsService.LoadSettingsAsync(cancellationToken);
         if (settingsResult.IsSuccess)
         {
             Settings = settingsResult.Value;
             Settings = Settings.Normalize();
             ThumbnailState.SetVisibility(Settings.ThumbnailStripVisible);
             ThumbnailState.SetStripPosition(Settings.ThumbnailStripPosition);
-            var recentFilesResult = await _recentFilesService.LoadRecentFilesAsync(cancellationToken).ConfigureAwait(false);
+            var recentFilesResult = await _recentFilesService.LoadRecentFilesAsync(cancellationToken);
             if (recentFilesResult.IsSuccess)
             {
                 SetRecentFiles(recentFilesResult.Value);
@@ -186,7 +186,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         Settings = ViewerSettings.Default;
-        await HandleErrorAsync(settingsResult.Error, cancellationToken).ConfigureAwait(false);
+        await HandleErrorAsync(settingsResult.Error, cancellationToken);
     }
 
     public async Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default)
@@ -200,23 +200,21 @@ public sealed class MainViewModel : ObservableObject
             var validationResult = _fileOpenService.ValidateFilePath(filePath);
             if (validationResult.IsFailure)
             {
-                await HandleErrorAsync(validationResult.Error, operationToken).ConfigureAwait(false);
+                await HandleErrorAsync(validationResult.Error, operationToken);
                 return;
             }
 
-            var decodeResult = await _imageDecodeService.DecodeImageAsync(validationResult.Value, operationToken)
-                .ConfigureAwait(false);
+            var decodeResult = await _imageDecodeService.DecodeImageAsync(validationResult.Value, operationToken);
             if (decodeResult.IsFailure)
             {
-                await HandleErrorAsync(decodeResult.Error, CancellationToken.None).ConfigureAwait(false);
+                await HandleErrorAsync(decodeResult.Error, CancellationToken.None);
                 return;
             }
 
-            var playlistResult = await _folderPlaylistService.BuildPlaylistAsync(validationResult.Value, operationToken)
-                .ConfigureAwait(false);
+            var playlistResult = await _folderPlaylistService.BuildPlaylistAsync(validationResult.Value, operationToken);
             if (playlistResult.IsFailure)
             {
-                await HandleErrorAsync(playlistResult.Error, operationToken).ConfigureAwait(false);
+                await HandleErrorAsync(playlistResult.Error, operationToken);
                 var fallback = new Playlist([new ImageItem(validationResult.Value)], 0, Path.GetDirectoryName(validationResult.Value) ?? string.Empty);
                 PlaylistState.SetPlaylist(fallback);
             }
@@ -226,10 +224,10 @@ public sealed class MainViewModel : ObservableObject
             }
 
             ViewerState.SetImage(decodeResult.Value);
-            await LoadAnimationForImageAsync(decodeResult.Value.FilePath, operationToken).ConfigureAwait(false);
+            await LoadAnimationForImageAsync(decodeResult.Value.FilePath, operationToken);
             SearchState.SetPlaylist(PlaylistState.Items);
-            await RestorePreferredLayoutAsync(operationToken).ConfigureAwait(false);
-            var recentResult = await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken).ConfigureAwait(false);
+            await RestorePreferredLayoutAsync(operationToken);
+            var recentResult = await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken);
             if (recentResult.IsSuccess)
             {
                 SetRecentFiles(recentResult.Value);

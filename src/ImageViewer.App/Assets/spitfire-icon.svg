@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">spitfire.img icon source</title>
+  <desc id="desc">A dark image tile crossed by a bright flame mark for the spitfire.img Windows image viewer.</desc>
+  <rect width="256" height="256" rx="48" fill="#101218"/>
+  <path d="M76 184h120l18 26H56z" fill="#000000" opacity=".4"/>
+  <path d="M56 66 186 50l24 128L72 194z" fill="#1f232d"/>
+  <path d="M74 172 198 70" stroke="#ffcf5c" stroke-width="12" stroke-linecap="round"/>
+  <path d="M70 180 122 72l22 54 46-72-18 106 42-14-54 58z" fill="#e74a32"/>
+  <path d="M112 182 138 116l16 40 30-40-18 78z" fill="#ffb23b"/>
+  <circle cx="125" cy="121" r="29" fill="#fff6d1"/>
+</svg>

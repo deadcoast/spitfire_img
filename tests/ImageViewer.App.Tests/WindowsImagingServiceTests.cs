@@ -44,6 +44,62 @@ public sealed class WindowsImagingServiceTests : IDisposable
     }
 
     [Fact]
+    public void ParseInitialFilePath_UsesFirstQuotedActivationPathWhenAdditionalLaunchArgumentsArePresent()
+    {
+        var activationPath = Path.Combine(_tempDirectory, "folder with spaces", "launch image.png");
+        var activationArguments = $"\"{activationPath}\" --ignored-release-argument";
+
+        var result = App.ParseInitialFilePath(activationArguments, ["ImageViewer.App.exe"]);
+
+        Assert.Equal(activationPath, result);
+    }
+
+    [Fact]
+    public void ParseInitialFilePath_SkipsExecutableTokenWhenActivationArgumentsContainFullCommandLine()
+    {
+        var executablePath = Path.Combine(_tempDirectory, "ImageViewer.App.exe");
+        var activationPath = Path.Combine(_tempDirectory, "folder with spaces", "launch image.png");
+        var activationArguments = $"\"{executablePath}\" \"{activationPath}\"";
+
+        var result = App.ParseInitialFilePath(activationArguments, [executablePath, activationPath]);
+
+        Assert.Equal(activationPath, result);
+    }
+
+    [Fact]
+    public void ParseInitialFilePath_UsesCommandLinePathWhenActivationArgumentsOnlyContainExecutableToken()
+    {
+        var executablePath = Path.Combine(_tempDirectory, "ImageViewer.App.exe");
+        var commandLinePath = Path.Combine(_tempDirectory, "folder with spaces", "launch image.png");
+
+        var result = App.ParseInitialFilePath($"\"{executablePath}\"", [executablePath, commandLinePath]);
+
+        Assert.Equal(commandLinePath, result);
+    }
+
+    [Fact]
+    public void ParseInitialFilePath_UsesRawCommandLineWhenCommandLineArgumentsDoNotContainFilePath()
+    {
+        var executablePath = Path.Combine(_tempDirectory, "ImageViewer.App.exe");
+        var rawCommandLinePath = Path.Combine(_tempDirectory, "folder with spaces", "launch image.png");
+        var rawCommandLine = $"\"{executablePath}\" \"{rawCommandLinePath}\"";
+
+        var result = App.ParseInitialFilePath($"\"{executablePath}\"", [executablePath], rawCommandLine);
+
+        Assert.Equal(rawCommandLinePath, result);
+    }
+
+    [Fact]
+    public void ParseInitialFilePath_PreservesCommandLinePathWithNonAsciiCharacters()
+    {
+        var path = Path.Combine(_tempDirectory, "Fotos", "cafe\u0301 launch image.png");
+
+        var result = App.ParseInitialFilePath(null, ["ImageViewer.App.exe", path]);
+
+        Assert.Equal(path, result);
+    }
+
+    [Fact]
     public void ThumbnailLoadPlanner_PrioritizesCurrentItemThenNearestNeighbors()
     {
         var indexes = ThumbnailLoadPlanner.PrioritizeVisibleFirst(itemCount: 7, currentIndex: 3);

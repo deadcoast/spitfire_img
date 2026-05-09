@@ -7,6 +7,16 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
+    <ApplicationIcon>Assets\spitfire.ico</ApplicationIcon>
+    <Title>spitfire.img</Title>
+    <AssemblyTitle>spitfire.img</AssemblyTitle>
+    <Product>spitfire.img</Product>
+    <Description>Windows-native presentation-first image viewer</Description>
+    <Version>0.4.0</Version>
+    <AssemblyVersion>0.4.0.0</AssemblyVersion>
+    <FileVersion>0.4.0.0</FileVersion>
+    <InformationalVersion>0.4.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>x64</Platforms>
@@ -16,6 +26,32 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Assets\spitfire.ico" />
+    <None Remove="Assets\spitfire-icon.svg" />
+    <None Remove="Assets\Square44x44Logo.png" />
+    <None Remove="Assets\Square150x150Logo.png" />
+    <None Remove="Assets\Wide310x150Logo.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\spitfire.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\spitfire-icon.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Square44x44Logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Square150x150Logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Wide310x150Logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

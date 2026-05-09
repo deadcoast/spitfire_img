@@ -23,6 +23,7 @@ public sealed partial class MainWindow : Window
     private readonly AppWindow _appWindow;
     private readonly DispatcherTimer _loadingDelayTimer;
     private readonly DispatcherTimer _warningDismissTimer;
+    private readonly Task _initializationTask;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -55,7 +56,7 @@ public sealed partial class MainWindow : Window
         viewModel.CodecInstallPromptRequested += OnCodecInstallPromptRequested;
         Activated += OnActivated;
         Closed += OnClosed;
-        _ = InitializeWindowAsync();
+        _initializationTask = InitializeWindowAsync();
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
@@ -77,31 +78,63 @@ public sealed partial class MainWindow : Window
             _appWindow.Position.Y);
     }
 
-    public Task OpenInitialFileAsync(string filePath)
+    public async Task OpenInitialFileAsync(string filePath)
     {
-        return _viewModel.OpenFileAsync(filePath);
+        await _initializationTask;
+        await _viewModel.OpenFileAsync(filePath);
     }
 
     private async Task InitializeWindowAsync()
     {
         await _viewModel.InitializeAsync();
-        ApplyTheme();
-
-        if (_viewModel.Settings.WindowWidth > 0 && _viewModel.Settings.WindowHeight > 0)
+        await RunOnDispatcherAsync(() =>
         {
-            _appWindow.Resize(new Windows.Graphics.SizeInt32(
-                _viewModel.Settings.WindowWidth,
-                _viewModel.Settings.WindowHeight));
+            ApplyTheme();
+
+            if (_viewModel.Settings.WindowWidth > 0 && _viewModel.Settings.WindowHeight > 0)
+            {
+                _appWindow.Resize(new Windows.Graphics.SizeInt32(
+                    _viewModel.Settings.WindowWidth,
+                    _viewModel.Settings.WindowHeight));
+            }
+
+            if (_viewModel.Settings.WindowX >= 0 &&
+                _viewModel.Settings.WindowY >= 0 &&
+                IsSavedWindowPositionVisible(_viewModel.Settings.WindowX, _viewModel.Settings.WindowY))
+            {
+                _appWindow.Move(new Windows.Graphics.PointInt32(
+                    _viewModel.Settings.WindowX,
+                    _viewModel.Settings.WindowY));
+            }
+        });
+    }
+
+    private Task RunOnDispatcherAsync(Action action)
+    {
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            action();
+            return Task.CompletedTask;
         }
 
-        if (_viewModel.Settings.WindowX >= 0 &&
-            _viewModel.Settings.WindowY >= 0 &&
-            IsSavedWindowPositionVisible(_viewModel.Settings.WindowX, _viewModel.Settings.WindowY))
+        var completion = new TaskCompletionSource();
+        if (!DispatcherQueue.TryEnqueue(() =>
         {
-            _appWindow.Move(new Windows.Graphics.PointInt32(
-                _viewModel.Settings.WindowX,
-                _viewModel.Settings.WindowY));
+            try
+            {
+                action();
+                completion.SetResult();
+            }
+            catch (Exception ex)
+            {
+                completion.SetException(ex);
+            }
+        }))
+        {
+            completion.SetException(new InvalidOperationException("Unable to enqueue window initialization work."));
         }
+
+        return completion.Task;
     }
 
     private async Task OpenFileFromPickerAsync()

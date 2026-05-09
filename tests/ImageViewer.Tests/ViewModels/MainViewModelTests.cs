@@ -27,6 +27,30 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task OpenFileAsync_ValidStartupPathWithSpacesAndNonAsciiCharacters_UpdatesViewerAndPlaylistState()
+    {
+        var path = @"C:\Photos\release launch folder\café image.png";
+        var image = new DecodedImage(path, new ImageMetadata(320, 240, 100));
+        var playlist = new Playlist(
+            [
+                new ImageItem(@"C:\Photos\release launch folder\a.png"),
+                new ImageItem(path)
+            ],
+            1,
+            @"C:\Photos\release launch folder");
+        var services = TestServices.Success(image, playlist);
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.OpenFileAsync(path);
+
+        Assert.Equal(path, viewModel.ViewerState.CurrentImage?.FilePath);
+        Assert.Equal(playlist.TotalCount, viewModel.PlaylistState.TotalCount);
+        Assert.Equal(1, viewModel.PlaylistState.CurrentIndex);
+        Assert.False(viewModel.IsLoading);
+        Assert.Null(viewModel.ErrorMessage);
+    }
+
+    [Fact]
     public async Task OpenFileAsync_AnimatedGifLoadsAnimationStateAndStartsPlayback()
     {
         var image = new DecodedImage(@"C:\Photos\animated.gif", new ImageMetadata(2, 2, 100));
@@ -335,6 +359,38 @@ public sealed class MainViewModelTests
         Assert.Equal("AVIF", prompt.FormatName);
         Assert.Equal(error.UserMessage, prompt.Message);
         Assert.Equal("ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V", prompt.StoreUrl);
+    }
+
+    [Theory]
+    [InlineData(@"C:\Photos\release launch folder\café phone.heic", "HEIC", "HEIF Image Extensions", "ms-windows-store://pdp/?ProductId=9PMMSR1CGPWG")]
+    [InlineData(@"C:\Photos\release launch folder\café modern.avif", "AVIF", "AV1 Video Extension", "ms-windows-store://pdp/?ProductId=9MVZQVXJBQ9V")]
+    public async Task OpenFileAsync_CodecDependentStartupPathWithSpacesAndNonAsciiCharacters_RequestsStorePrompt(
+        string path,
+        string formatName,
+        string codecName,
+        string expectedStoreUrl)
+    {
+        var error = ViewerError.CodecUnavailableError(
+            "DecodeImage",
+            formatName,
+            codecName,
+            path);
+        var codecDetection = new RecordingCodecDetectionService(heicSupported: false, avifSupported: false);
+        var services = TestServices.WithDecoder(
+            path,
+            new StubImageDecodeService(Result<DecodedImage>.Failure(error)),
+            codecDetection);
+        var viewModel = services.CreateViewModel();
+        var prompts = new List<CodecInstallPromptRequest>();
+        viewModel.CodecInstallPromptRequested += (_, request) => prompts.Add(request);
+
+        await viewModel.OpenFileAsync(path);
+
+        Assert.Equal(ErrorCategory.CodecUnavailableError, services.ErrorLogService.LoggedErrors.Single().Category);
+        var prompt = Assert.Single(prompts);
+        Assert.Equal(formatName, prompt.FormatName);
+        Assert.Equal(error.UserMessage, prompt.Message);
+        Assert.Equal(expectedStoreUrl, prompt.StoreUrl);
     }
 
     [Fact]
@@ -1271,6 +1327,28 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task InitializeAsync_SettingsLoadFailure_FallsBackToDefaultsAndLogsStructuredWarning()
+    {
+        var settingsPath = @"C:\Users\User\AppData\Local\spitfire.img\settings.json";
+        var settingsError = ViewerError.SettingsPersistenceError(
+            "LoadSettings",
+            settingsPath,
+            new InvalidDataException("bad settings"));
+        var services = TestServices.WithSettingsLoadResult(Result<ViewerSettings>.Failure(settingsError));
+        var viewModel = services.CreateViewModel();
+
+        await viewModel.InitializeAsync();
+
+        Assert.Equal(ViewerSettings.Default, viewModel.Settings);
+        var loggedError = Assert.Single(services.ErrorLogService.LoggedErrors);
+        Assert.Equal(ErrorSeverity.Warning, loggedError.Severity);
+        Assert.Equal(ErrorCategory.SettingsPersistenceError, loggedError.Category);
+        Assert.Equal("LoadSettings", loggedError.Operation);
+        Assert.Equal(settingsPath, loggedError.FilePath);
+        Assert.Equal("Unable to load settings. Default preferences were restored.", loggedError.UserMessage);
+    }
+
+    [Fact]
     public async Task SaveWindowStateAsync_PersistsWindowBounds()
     {
         var services = TestServices.WithSettings(ViewerSettings.Default);
@@ -1757,6 +1835,18 @@ public sealed class MainViewModelTests
                 new RecordingErrorLogService());
         }
 
+        public static TestServices WithSettingsLoadResult(Result<ViewerSettings> settingsResult)
+        {
+            var decoder = new PathImageDecodeService();
+            return new TestServices(
+                new StubFileOpenService(Result<string>.Success(@"C:\Photos\a.png")),
+                decoder,
+                new StubFolderPlaylistService(Result<Playlist>.Success(CreateTwoItemPlaylist())),
+                new NavigationService(decoder),
+                new StubSettingsService(settingsResult),
+                new RecordingErrorLogService());
+        }
+
         public static TestServices WithFileValidationFailure(ViewerError error)
         {
             var decoder = new StubImageDecodeService(Result<DecodedImage>.Failure(ViewerError.DecodeError("DecodeImage", null)));
@@ -1862,7 +1952,7 @@ public sealed class MainViewModelTests
 
     private sealed class StubSettingsService : ISettingsService
     {
-        private readonly ViewerSettings _settings;
+        private readonly Result<ViewerSettings> _loadResult;
 
         public StubSettingsService()
             : this(ViewerSettings.Default)
@@ -1870,15 +1960,20 @@ public sealed class MainViewModelTests
         }
 
         public StubSettingsService(ViewerSettings settings)
+            : this(Result<ViewerSettings>.Success(settings))
         {
-            _settings = settings;
+        }
+
+        public StubSettingsService(Result<ViewerSettings> loadResult)
+        {
+            _loadResult = loadResult;
         }
 
         public List<ViewerSettings> SavedSettings { get; } = [];
 
         public Task<Result<ViewerSettings>> LoadSettingsAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(Result<ViewerSettings>.Success(_settings));
+            return Task.FromResult(_loadResult);
         }
 
         public Task<Result> SaveSettingsAsync(ViewerSettings settings, CancellationToken cancellationToken = default)

@@ -101,7 +101,7 @@ public sealed partial class FadingChrome : UserControl
 
     private void OnRecentFilesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        RebuildRecentFilesMenu();
+        DispatcherQueue.TryEnqueue(RebuildRecentFilesMenu);
     }
 
     private void RebuildRecentFilesMenu()

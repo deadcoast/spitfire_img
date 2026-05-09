@@ -45,6 +45,20 @@ public sealed class ViewerErrorTests
     }
 
     [Fact]
+    public void SettingsPersistenceError_LoadSettings_UsesLoadFailureWarningMessage()
+    {
+        var error = ViewerError.SettingsPersistenceError(
+            "LoadSettings",
+            @"C:\Users\User\AppData\Local\spitfire.img\settings.json",
+            new InvalidDataException("bad settings"));
+
+        Assert.Equal(ErrorSeverity.Warning, error.Severity);
+        Assert.Equal(ErrorCategory.SettingsPersistenceError, error.Category);
+        Assert.Equal("Unable to load settings. Default preferences were restored.", error.UserMessage);
+        Assert.Equal("LoadSettings", error.Operation);
+    }
+
+    [Fact]
     public void Phase3Factories_CreateExpectedErrorCategories()
     {
         var exception = new InvalidOperationException("raw exception detail");
