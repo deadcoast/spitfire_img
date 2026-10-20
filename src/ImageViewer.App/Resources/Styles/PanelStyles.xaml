@@ -8,16 +8,16 @@
         <Setter Property="BorderThickness" Value="1" />
     </Style>
     <Style x:Key="ViewerChromeShellBorderStyle" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="CornerRadius" Value="0" />
         <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceActiveBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderStrongBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
     </Style>
     <Style x:Key="ViewerChromeInfoBarBorderStyle" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{StaticResource ViewerPanelCornerRadius}" />
+        <Setter Property="CornerRadius" Value="0" />
         <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />
         <Setter Property="BorderBrush" Value="{ThemeResource ViewerBorderSubtleBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
     </Style>
     <Style x:Key="ViewerChromeUnsavedBadgeBorderStyle" TargetType="Border">
         <Setter Property="CornerRadius" Value="{StaticResource ViewerBadgeCornerRadius}" />

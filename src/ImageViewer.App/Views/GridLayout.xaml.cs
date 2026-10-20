@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
+using ImageViewer.Core.Services;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -18,17 +19,20 @@ public sealed partial class GridLayout : UserControl
     private IViewerMotionService? _motionService;
     private int _loadVersion;
     private bool _isGridVisible;
+    private bool _refreshQueued;
 
     public GridLayout()
     {
         InitializeComponent();
         PointerWheelChanged += OnPointerWheelChanged;
+        ImageHost.SizeChanged += (_, _) => QueueRefresh();
     }
 
     public void Attach(MainViewModel viewModel)
     {
         _viewModel = viewModel;
         viewModel.LayoutState.PropertyChanged += OnLayoutStateChanged;
+        viewModel.ImageContentChanged += (_, _) => QueueRefresh();
         Refresh();
     }
 
@@ -39,7 +43,14 @@ public sealed partial class GridLayout : UserControl
 
     private void OnLayoutStateChanged(object? sender, PropertyChangedEventArgs e)
     {
-        DispatcherQueue.TryEnqueue(Refresh);
+        QueueRefresh();
+    }
+
+    private void QueueRefresh()
+    {
+        if (_refreshQueued) return;
+        _refreshQueued = true;
+        DispatcherQueue.TryEnqueue(() => { _refreshQueued = false; Refresh(); });
     }
 
     private void Refresh()
@@ -103,7 +114,12 @@ public sealed partial class GridLayout : UserControl
             return;
         }
 
-        var gridImages = _viewModel.LayoutState.GridImages.ToArray();
+        var layout = new LayoutService().CalculateGridLayout(
+            _viewModel.LayoutState.GridRows, _viewModel.LayoutState.GridColumns, GetCanvasSize());
+        if (layout.IsFailure) return;
+        var gridImages = _viewModel.LayoutState.GridImages
+            .Select((image, index) => image with { Cell = layout.Value.Cells[index] }).ToArray();
+        ImageHost.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, ImageHost.ActualWidth, ImageHost.ActualHeight) };
         ImageHost.Children.Clear();
         UpdateGridHud(gridImages.Length);
 
@@ -202,6 +218,13 @@ public sealed partial class GridLayout : UserControl
         frame.PointerEntered += (_, _) => ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
         frame.PointerExited += (_, _) => ProtectedCursor = null;
         frame.Tapped += OnGridImageTapped;
+        frame.DoubleTapped += async (_, e) =>
+        {
+            if (_viewModel is null) return;
+            _viewModel.SetActiveGridImage(visibleIndex);
+            await _viewModel.OpenActiveGridImageAsync();
+            e.Handled = true;
+        };
 
         Canvas.SetLeft(frame, gridImage.Cell.X);
         Canvas.SetTop(frame, gridImage.Cell.Y);
@@ -266,8 +289,8 @@ public sealed partial class GridLayout : UserControl
 
     private ImageDimensions GetCanvasSize()
     {
-        var width = LayoutRoot.ActualWidth > 0 ? LayoutRoot.ActualWidth : ActualWidth;
-        var height = LayoutRoot.ActualHeight > 0 ? LayoutRoot.ActualHeight : ActualHeight;
+        var width = Math.Max(1, ImageHost.ActualWidth);
+        var height = Math.Max(1, ImageHost.ActualHeight);
         return new ImageDimensions(width, height);
     }
 

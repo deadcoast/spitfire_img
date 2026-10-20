@@ -47,7 +47,6 @@ public sealed partial class FrameControl : UserControl
         UpdateFrameControlVisibility(state.IsAnimated);
         PlayPauseIcon.Symbol = state.IsPlaying ? Symbol.Pause : Symbol.Play;
         PlaybackStateText.Text = state.IsPlaying ? "Playing" : "Paused";
-        PulseGifState();
         FrameText.Text = state.FrameDisplayText;
         FrameRangeText.Text = state.TotalFrames > 0
             ? $"{state.CurrentFrame + 1} of {state.TotalFrames}"
@@ -91,18 +90,6 @@ public sealed partial class FrameControl : UserControl
             Visibility = Visibility.Collapsed;
             Opacity = 0;
         }
-    }
-
-    private void PulseGifState()
-    {
-        if (!_isFrameControlVisible)
-        {
-            return;
-        }
-
-        var motionPlan = GetMotionPlan();
-        FrameControlPanel.Opacity = motionPlan.Duration <= TimeSpan.Zero ? 1 : 0.86;
-        ViewerMotionStoryboard.AnimateOpacity(FrameControlPanel, motionPlan, 1);
     }
 
     private void OnPlayPauseClicked(object sender, RoutedEventArgs e)

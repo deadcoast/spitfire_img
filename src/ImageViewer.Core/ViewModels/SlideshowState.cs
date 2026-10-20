@@ -78,6 +78,8 @@ public sealed class SlideshowState : ObservableObject
         Interval = interval;
     }
 
+    public void SetTransition(TransitionEffect transition) => Transition = transition;
+
     public void SetCurrentImageIndex(int currentImageIndex)
     {
         CurrentImageIndex = Math.Max(0, currentImageIndex);

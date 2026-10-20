@@ -34,8 +34,8 @@ public sealed class Phase5MotionTransitionTests
         AssertNamedElement(searchDocument, "SearchOverlayPanelTransform");
         AssertNamedElement(mainWindowDocument, "ErrorInfoBarTransform");
         AssertNamedElement(mainWindowDocument, "LoadingOverlayTransform");
-        AssertNamedElement(fadingChromeDocument, "TopChromeTransform");
-        AssertNamedElement(fadingChromeDocument, "BottomInfoBarTransform");
+        // Chrome must remain stationary; timed visibility is exercised by ViewerUiSmoke.
+        Assert.DoesNotContain(fadingChromeDocument.Descendants(), element => element.Name.LocalName.EndsWith("Transform"));
     }
 
     [Fact]

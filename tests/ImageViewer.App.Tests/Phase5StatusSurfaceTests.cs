@@ -8,7 +8,7 @@ public sealed class Phase5StatusSurfaceTests
     private static readonly XName KeyAttribute = XName.Get("Key", "http://schemas.microsoft.com/winfx/2006/xaml");
 
     [Fact]
-    public void ImageCanvas_DefinesFinishedEmptyStateSurface()
+    public void ImageCanvas_DefinesActionableEmptyStateSurface()
     {
         var repositoryRoot = FindRepositoryRoot();
         var document = XDocument.Load(Path.Combine(repositoryRoot, "src", "ImageViewer.App", "Views", "ImageCanvas.xaml"));
@@ -20,7 +20,7 @@ public sealed class Phase5StatusSurfaceTests
         AssertNamedElement(document, "EmptyStateBody");
         AssertNamedElement(document, "EmptyStateFormatHint");
 
-        Assert.Contains("ViewerEmptyStatePanelBorderStyle", xaml);
+        AssertNamedElement(document, "OpenImageButton");
         Assert.Contains("ViewerTextEmptyStateKickerStyle", xaml);
         Assert.Contains("ViewerTextEmptyStateTitleStyle", xaml);
         Assert.Contains("ViewerTextEmptyStateBodyStyle", xaml);

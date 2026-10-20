@@ -12,14 +12,18 @@
         <Grid.RenderTransform>
             <CompositeTransform x:Name="GridLayoutTransform" />
         </Grid.RenderTransform>
-        <Canvas x:Name="ImageHost" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Canvas x:Name="ImageHost" Grid.Row="1" Margin="{StaticResource ViewerGridCanvasMargin}" />
         <Border
             x:Name="GridModeHud"
-            Margin="{StaticResource ViewerGridHudMargin}"
+            Margin="{StaticResource ViewerGridHeaderMargin}"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Style="{StaticResource ViewerGridHudBorderStyle}">
-            <StackPanel Spacing="{StaticResource ViewerGridHudSpacing}">
+            <StackPanel Orientation="Horizontal" Spacing="{StaticResource ViewerSpace16}">
                 <Grid ColumnSpacing="{StaticResource ViewerInfoBarColumnSpacing}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -38,6 +42,7 @@
                     Style="{StaticResource ViewerTextStatusStyle}" />
                 <TextBlock
                     x:Name="GridStatusText"
+                    Visibility="Collapsed"
                     Style="{StaticResource ViewerTextStatusStyle}" />
             </StackPanel>
         </Border>

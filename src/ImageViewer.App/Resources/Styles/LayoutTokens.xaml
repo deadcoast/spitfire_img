@@ -21,7 +21,7 @@
     <Thickness x:Key="ViewerChromePanelPadding">12,8</Thickness>
     <Thickness x:Key="ViewerMenuBarPadding">8,4</Thickness>
     <Thickness x:Key="ViewerCompactPanelPadding">8</Thickness>
-    <Thickness x:Key="ViewerBottomInfoBarPadding">16,8</Thickness>
+    <Thickness x:Key="ViewerBottomInfoBarPadding">12,7</Thickness>
     <Thickness x:Key="ViewerOverlayPanelPadding">24</Thickness>
     <Thickness x:Key="ViewerOverlayContentPadding">16</Thickness>
     <Thickness x:Key="ViewerCommandRowPadding">12,10</Thickness>
@@ -60,12 +60,16 @@
     <Thickness x:Key="ViewerMetadataPanelMargin">0,72,16,72</Thickness>
     <Thickness x:Key="ViewerComparisonHudMargin">0,0,0,24</Thickness>
     <Thickness x:Key="ViewerComparisonModeHudMargin">16,72,0,0</Thickness>
-    <Thickness x:Key="ViewerFilmstripTopMargin">16,16,16,0</Thickness>
-    <Thickness x:Key="ViewerFilmstripBottomMargin">16,0,16,16</Thickness>
+    <Thickness x:Key="ViewerFilmstripTopMargin">8,48,8,0</Thickness>
+    <Thickness x:Key="ViewerFilmstripBottomMargin">16,0,16,38</Thickness>
     <Thickness x:Key="ViewerFilmstripThumbnailOverlayMargin">16,168,16,0</Thickness>
     <Thickness x:Key="ViewerGridHudMargin">16,72,0,0</Thickness>
+    <Thickness x:Key="ViewerGridHeaderMargin">8,48,8,8</Thickness>
+    <Thickness x:Key="ViewerGridCanvasMargin">8,0,8,38</Thickness>
     <Thickness x:Key="ViewerTrailingItemMargin">0,0,8,0</Thickness>
-    <Thickness x:Key="ViewerChromeFrameControlMargin">12,12,12,58</Thickness>
+    <Thickness x:Key="ViewerChromeFrameControlMargin">8,8,8,40</Thickness>
+    <Thickness x:Key="ViewerEmptyActionMargin">0,10,0,6</Thickness>
+    <x:Double x:Key="ViewerZoomStatusMinWidth">54</x:Double>
 
     <x:Double x:Key="ViewerLoadingOverlaySpacing">12</x:Double>
     <x:Double x:Key="ViewerEmptyStateContentSpacing">10</x:Double>
@@ -109,10 +113,10 @@
     <x:Double x:Key="ViewerLoadingRingSize">48</x:Double>
     <x:Double x:Key="ViewerThumbnailSize">120</x:Double>
     <x:Double x:Key="ViewerThumbnailSizeCompact">88</x:Double>
-    <x:Double x:Key="ViewerThumbnailItemWidth">132</x:Double>
+    <x:Double x:Key="ViewerThumbnailItemWidth">144</x:Double>
     <x:Double x:Key="ViewerThumbnailPreviewSize">120</x:Double>
     <x:Double x:Key="ViewerThumbnailBadgeMinWidth">58</x:Double>
-    <x:Double x:Key="ViewerFilmstripThumbnailWidth">116</x:Double>
+    <x:Double x:Key="ViewerFilmstripThumbnailWidth">128</x:Double>
     <x:Double x:Key="ViewerFilmstripThumbnailHeight">104</x:Double>
     <x:Double x:Key="ViewerFilmstripPreviewSize">104</x:Double>
     <x:Double x:Key="ViewerCommandPaletteWidth">560</x:Double>

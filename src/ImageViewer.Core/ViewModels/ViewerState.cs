@@ -12,11 +12,18 @@ public sealed class ViewerState : ObservableObject
     private DisplayMode _displayMode = DisplayMode.FitToWindow;
     private PanOffset _panOffset = new(0, 0);
     private bool _isFullscreen;
+    public double FitZoomPercent { get; set; } = 100;
+    public double EffectiveZoomPercent => DisplayMode == DisplayMode.FitToWindow ? FitZoomPercent : ZoomLevel;
 
     public DecodedImage? CurrentImage
     {
         get => _currentImage;
-        private set => SetProperty(ref _currentImage, value);
+        private set
+        {
+            // A reload can have equal metadata while the pixels have changed.
+            _currentImage = value;
+            OnPropertyChanged();
+        }
     }
 
     public ImageMetadata? Metadata
@@ -64,7 +71,7 @@ public sealed class ViewerState : ObservableObject
 
     public void SetZoom(double zoomLevel)
     {
-        ZoomLevel = Math.Max(10, zoomLevel);
+        ZoomLevel = double.IsFinite(zoomLevel) ? Math.Clamp(zoomLevel, 10, 3200) : 100;
         DisplayMode = DisplayMode.Custom;
     }
 

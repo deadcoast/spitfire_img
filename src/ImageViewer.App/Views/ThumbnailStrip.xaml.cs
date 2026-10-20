@@ -27,6 +27,12 @@ public sealed partial class ThumbnailStrip : UserControl
         _viewModel = viewModel;
         viewModel.ThumbnailState.PropertyChanged += OnStateChanged;
         viewModel.PlaylistState.PropertyChanged += OnStateChanged;
+        viewModel.ImageContentChanged += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            _generationVersion++;
+            _items.Clear();
+            Refresh();
+        });
         Refresh();
     }
 
@@ -46,12 +52,28 @@ public sealed partial class ThumbnailStrip : UserControl
         StripBorder.VerticalAlignment = _viewModel.ThumbnailState.StripPosition == Core.Models.ThumbnailPosition.Top
             ? VerticalAlignment.Top
             : VerticalAlignment.Bottom;
+        StripBorder.Margin = _viewModel.ThumbnailState.StripPosition == Core.Models.ThumbnailPosition.Top
+            ? new Thickness(8, 48, 8, 0)
+            : new Thickness(8, 0, 8, 38);
         if (!_viewModel.ThumbnailState.IsStripVisible)
         {
             return;
         }
 
+        if (_items.Select(item => item.FilePath).SequenceEqual(_viewModel.PlaylistState.Items.Select(item => item.FilePath)))
+        {
+            UpdateSelection();
+            return;
+        }
         _ = LoadThumbnailsAsync(++_generationVersion);
+    }
+
+    private void UpdateSelection()
+    {
+        foreach (var item in _items)
+            item.SetCurrent(string.Equals(item.FilePath, _viewModel?.PlaylistState.CurrentItem?.FilePath, StringComparison.OrdinalIgnoreCase));
+        if (_viewModel?.PlaylistState.CurrentIndex is >= 0 and var index && index < _items.Count)
+            ThumbnailStripList.ScrollIntoView(_items[index]);
     }
 
     private async Task LoadThumbnailsAsync(int generationVersion)
@@ -68,9 +90,6 @@ public sealed partial class ThumbnailStrip : UserControl
 
         foreach (var item in playlistItems)
         {
-            var borderThickness = item.FilePath == _viewModel.PlaylistState.CurrentItem?.FilePath
-                ? new Thickness(2)
-                : new Thickness(0);
             var isCurrent = item.FilePath == _viewModel.PlaylistState.CurrentItem?.FilePath;
 
             _items.Add(new ThumbnailStripItem(
@@ -78,7 +97,7 @@ public sealed partial class ThumbnailStrip : UserControl
                 item.Filename,
                 imageSource: null,
                 placeholderText: "Loading",
-                borderThickness,
+                new Thickness(2),
                 isCurrent));
         }
 
@@ -95,9 +114,11 @@ public sealed partial class ThumbnailStrip : UserControl
                 ? await CreateBitmapImageAsync(thumbnailResult.Value.EncodedBytes)
                 : null;
 
+            if (generationVersion != _generationVersion) return;
             _items[index].ImageSource = imageSource;
             _items[index].PlaceholderText = imageSource is null ? "No preview" : string.Empty;
         }
+        UpdateSelection();
     }
 
     private static async Task<BitmapImage?> CreateBitmapImageAsync(byte[] encodedBytes)
@@ -140,13 +161,17 @@ public sealed partial class ThumbnailStrip : UserControl
             return;
         }
 
-        await _viewModel.OpenFileAsync(item.FilePath);
+        var index = _viewModel.PlaylistState.Items.ToList().FindIndex(candidate =>
+            string.Equals(candidate.FilePath, item.FilePath, StringComparison.OrdinalIgnoreCase));
+        if (index >= 0) await _viewModel.NavigateToPlaylistIndexAsync(index);
     }
 
     public sealed class ThumbnailStripItem : ObservableObject
     {
         private BitmapImage? _imageSource;
         private string _placeholderText;
+        private Thickness _borderThickness;
+        private string _currentLabel;
 
         public ThumbnailStripItem(
             string filePath,
@@ -160,8 +185,8 @@ public sealed partial class ThumbnailStrip : UserControl
             FileName = fileName;
             _imageSource = imageSource;
             _placeholderText = placeholderText;
-            BorderThickness = borderThickness;
-            CurrentLabel = isCurrent ? "Current" : string.Empty;
+            _borderThickness = borderThickness;
+            _currentLabel = isCurrent ? "Current" : string.Empty;
         }
 
         public string FilePath { get; }
@@ -186,9 +211,15 @@ public sealed partial class ThumbnailStrip : UserControl
             }
         }
 
-        public Thickness BorderThickness { get; }
+        public Thickness BorderThickness { get => _borderThickness; private set => SetProperty(ref _borderThickness, value); }
 
-        public string CurrentLabel { get; }
+        public string CurrentLabel { get => _currentLabel; private set => SetProperty(ref _currentLabel, value); }
+
+        public void SetCurrent(bool isCurrent)
+        {
+            BorderThickness = new Thickness(2);
+            CurrentLabel = isCurrent ? "Current" : string.Empty;
+        }
 
         public string StatusText => string.IsNullOrWhiteSpace(PlaceholderText) ? string.Empty : PlaceholderText;
     }

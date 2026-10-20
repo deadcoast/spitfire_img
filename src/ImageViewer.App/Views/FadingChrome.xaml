@@ -3,95 +3,59 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:ImageViewer.App.Views">
-    <Grid
-        x:Name="ChromeRoot"
-        AutomationProperties.Name="Application chrome"
-        IsHitTestVisible="True">
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="ChromeActivityStates">
-                <VisualState x:Name="Active">
-                    <VisualState.Setters>
-                        <Setter Target="TopChromeSurface.Opacity" Value="{StaticResource ViewerChromeActiveOpacity}" />
-                        <Setter Target="InfoBar.Opacity" Value="{StaticResource ViewerChromeActiveOpacity}" />
-                    </VisualState.Setters>
-                </VisualState>
-                <VisualState x:Name="Idle">
-                    <VisualState.Setters>
-                        <Setter Target="TopChromeSurface.Opacity" Value="{StaticResource ViewerChromeIdleOpacity}" />
-                        <Setter Target="InfoBar.Opacity" Value="{StaticResource ViewerChromeIdleOpacity}" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
-
-        <Border
-            x:Name="TopChromeSurface"
-            VerticalAlignment="Top"
-            Margin="{StaticResource ViewerChromeOuterMargin}"
-            Padding="{StaticResource ViewerMenuBarPadding}"
-            Style="{StaticResource ViewerChromeShellBorderStyle}">
-            <Border.RenderTransform>
-                <TranslateTransform x:Name="TopChromeTransform" />
-            </Border.RenderTransform>
-            <Grid
-                x:Name="TopChromeContent"
-                ColumnSpacing="{StaticResource ViewerChromeShellColumnSpacing}">
+    <Grid x:Name="ChromeRoot" AutomationProperties.Name="Viewer controls">
+        <Border x:Name="TopChromeSurface" VerticalAlignment="Top"
+                Padding="{StaticResource ViewerMenuBarPadding}" Style="{StaticResource ViewerChromeShellBorderStyle}">
+            <Grid x:Name="TopChromeContent" ColumnSpacing="{StaticResource ViewerSpace8}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-
-                <MenuBar>
-                    <MenuBarItem x:Name="FileMenu" Title="File">
-                        <MenuFlyoutItem Text="Open File" Click="OnOpenFileClicked" />
-                        <MenuFlyoutSeparator />
-                        <MenuFlyoutItem Text="Exit" Click="OnExitClicked" />
-                    </MenuBarItem>
-                    <MenuBarItem Title="View">
-                        <MenuFlyoutItem Text="Zoom In" Click="OnZoomInClicked" />
-                        <MenuFlyoutItem Text="Zoom Out" Click="OnZoomOutClicked" />
-                        <MenuFlyoutItem Text="Actual Size" Click="OnActualSizeClicked" />
-                        <MenuFlyoutItem Text="Fit to Window" Click="OnFitToWindowClicked" />
-                        <MenuFlyoutItem Text="Toggle Fullscreen" Click="OnToggleFullscreenClicked" />
-                        <MenuFlyoutItem Text="Toggle Theme" Click="OnToggleThemeClicked" />
-                    </MenuBarItem>
-                    <MenuBarItem Title="Help">
-                        <MenuFlyoutItem Text="About spitfire.img" Click="OnAboutClicked" />
-                    </MenuBarItem>
-                </MenuBar>
-
-                <TextBlock
-                    x:Name="ChromeStatusText"
-                    Grid.Column="1"
-                    MinWidth="{StaticResource ViewerChromeStatusMinWidth}"
-                    Padding="{StaticResource ViewerChromeStatusPadding}"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource ViewerTextChromeStatusStyle}" />
-
-                <Border
-                    x:Name="UnsavedChangesBadge"
-                    Grid.Column="2"
-                    Padding="{StaticResource ViewerChromeBadgePadding}"
-                    Style="{StaticResource ViewerChromeUnsavedBadgeBorderStyle}"
-                    Visibility="Collapsed">
-                    <TextBlock
-                        Style="{StaticResource ViewerTextBadgeStyle}"
-                        Text="Unsaved changes" />
-                </Border>
+                <StackPanel Orientation="Horizontal" Spacing="{StaticResource ViewerSpace2}">
+                    <DropDownButton x:Name="FileMenuButton" Content="File" />
+                    <DropDownButton x:Name="ViewMenuButton" Content="View" />
+                    <DropDownButton x:Name="BrowseMenuButton" Content="Browse" />
+                    <DropDownButton x:Name="ImageMenuButton" Content="Image" />
+                    <DropDownButton x:Name="PlayMenuButton" Content="Play" />
+                </StackPanel>
+                <TextBlock x:Name="ChromeStatusText" Grid.Column="1" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" Style="{StaticResource ViewerTextChromeStatusStyle}" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="{StaticResource ViewerSpace2}">
+                    <Button x:Name="PreviousButton" Tag="navigation.previous" Click="OnCommandClicked"
+                            Style="{StaticResource ViewerToolbarButtonStyle}"
+                            AutomationProperties.Name="Previous image" ToolTipService.ToolTip="Previous image (Left)">
+                        <SymbolIcon Symbol="Back" />
+                    </Button>
+                    <Button x:Name="NextButton" Tag="navigation.next" Click="OnCommandClicked"
+                            Style="{StaticResource ViewerToolbarButtonStyle}"
+                            AutomationProperties.Name="Next image" ToolTipService.ToolTip="Next image (Right)">
+                        <SymbolIcon Symbol="Forward" />
+                    </Button>
+                    <Button x:Name="FitButton" Tag="view.fit" Click="OnCommandClicked" Content="Fit"
+                            ToolTipService.ToolTip="Fit to window (Ctrl+0)" />
+                    <Button x:Name="ActualSizeButton" Tag="view.actual-size" Click="OnCommandClicked" Content="1:1"
+                            ToolTipService.ToolTip="Actual pixels (Ctrl+Shift+1)" AutomationProperties.Name="Actual size" />
+                    <Button x:Name="SearchButton" Tag="navigation.search" Click="OnCommandClicked"
+                            Style="{StaticResource ViewerToolbarButtonStyle}"
+                            AutomationProperties.Name="Search folder" ToolTipService.ToolTip="Search folder (Ctrl+F)">
+                        <SymbolIcon Symbol="Find" />
+                    </Button>
+                    <Button Tag="view.command-palette" Click="OnCommandClicked"
+                            Style="{StaticResource ViewerToolbarButtonStyle}"
+                            AutomationProperties.Name="All commands" ToolTipService.ToolTip="All commands (Ctrl+Shift+P)">
+                        <SymbolIcon Symbol="More" />
+                    </Button>
+                    <Button Tag="view.fullscreen" Click="OnCommandClicked"
+                            Style="{StaticResource ViewerToolbarButtonStyle}"
+                            AutomationProperties.Name="Toggle fullscreen" ToolTipService.ToolTip="Fullscreen (F11)">
+                        <SymbolIcon Symbol="FullScreen" />
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
-
-        <views:FrameControl
-            x:Name="FrameControl"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Bottom"
-            Margin="{StaticResource ViewerChromeFrameControlMargin}" />
-        <views:BottomInfoBar x:Name="InfoBar" VerticalAlignment="Bottom" Margin="{StaticResource ViewerChromeOuterMargin}">
-            <views:BottomInfoBar.RenderTransform>
-                <TranslateTransform x:Name="BottomInfoBarTransform" />
-            </views:BottomInfoBar.RenderTransform>
-        </views:BottomInfoBar>
+        <views:FrameControl x:Name="FrameControl" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                            Margin="{StaticResource ViewerChromeFrameControlMargin}" />
+        <views:BottomInfoBar x:Name="InfoBar" VerticalAlignment="Bottom" />
     </Grid>
 </UserControl>

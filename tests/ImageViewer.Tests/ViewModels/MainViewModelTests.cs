@@ -1290,18 +1290,27 @@ public sealed class MainViewModelTests
         Assert.False(viewModel.CommandPaletteState.IsVisible);
     }
 
-    [Fact]
-    public async Task SetSlideshowTransitionAsync_UpdatesTransitionPreferenceAndSaves()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SetSlideshowTransitionAsync_UpdatesRunningShowAndSavesWithoutChangingPlayback(bool paused)
     {
         var settings = ViewerSettings.Default with { SlideshowTransition = TransitionEffect.Fade };
         var services = TestServices.WithSettings(settings);
         var viewModel = services.CreateViewModel();
         await viewModel.InitializeAsync();
+        viewModel.SlideshowState.Start(new SlideshowConfig(TimeSpan.FromSeconds(5), TransitionEffect.Fade), 2);
+        if (paused) viewModel.SlideshowState.Pause();
 
         await viewModel.SetSlideshowTransitionAsync(TransitionEffect.Zoom);
 
         Assert.Equal(TransitionEffect.Zoom, viewModel.Settings.SlideshowTransition);
         Assert.Equal(TransitionEffect.Zoom, services.SettingsService.SavedSettings.Single().SlideshowTransition);
+        Assert.Equal(TransitionEffect.Zoom, viewModel.SlideshowState.Transition);
+        Assert.True(viewModel.SlideshowState.IsActive);
+        Assert.Equal(paused, viewModel.SlideshowState.IsPaused);
+        Assert.Equal(2, viewModel.SlideshowState.CurrentImageIndex);
+        Assert.Equal(TimeSpan.FromSeconds(5), viewModel.SlideshowState.Interval);
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using ImageViewer.App.Services;
 using ImageViewer.App.Services.Input;
 using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
+using ImageViewer.Core.Services;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
@@ -31,6 +32,7 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherTimer _loadingDelayTimer;
     private readonly DispatcherTimer _warningDismissTimer;
     private readonly Task _initializationTask;
+    private bool _filePickerOpen;
 
     public MainWindow(MainViewModel viewModel, IViewerMotionService motionService)
     {
@@ -46,6 +48,7 @@ public sealed partial class MainWindow : Window
         RootGrid.DataContext = viewModel;
         ImageCanvas.Attach(viewModel);
         ImageCanvas.AttachMotionService(motionService);
+        ImageCanvas.OpenFileRequested += async (_, _) => await OpenFileFromPickerAsync();
         ComparisonView.Attach(viewModel);
         ComparisonView.AttachMotionService(motionService);
         GridLayout.Attach(viewModel);
@@ -64,13 +67,17 @@ public sealed partial class MainWindow : Window
         DropIndicator.AttachMotionService(motionService);
         Chrome.OpenFileRequested += async (_, _) => await OpenFileFromPickerAsync();
         viewModel.OpenFileRequested += OnViewModelOpenFileRequested;
+        viewModel.ExportRequested += OnExportRequested;
+        viewModel.SaveTransformsRequested += OnSaveTransformsRequested;
         viewModel.SearchRequested += OnViewModelSearchRequested;
         viewModel.SearchHidden += OnViewModelSearchHidden;
         Chrome.RecentFileRequested += async (_, path) => await _viewModel.OpenRecentFileAsync(path);
         Chrome.ExitRequested += (_, _) => Close();
-        Chrome.AboutRequested += (_, _) => ShowInfo("spitfire.img Phase 1 MVP Viewer");
+        Chrome.AboutRequested += (_, _) => ShowInfo("spitfire.img 0.4.0 · Local image viewer");
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ViewerState.PropertyChanged += OnViewerStatePropertyChanged;
+        viewModel.LayoutState.PropertyChanged += OnViewingModeChanged;
+        viewModel.ComparisonState.PropertyChanged += OnViewingModeChanged;
         viewModel.CommandPaletteState.PropertyChanged += OnCommandPaletteStatePropertyChanged;
         viewModel.CodecInstallPromptRequested += OnCodecInstallPromptRequested;
         RegisterKeyboardAccelerators();
@@ -117,7 +124,9 @@ public sealed partial class MainWindow : Window
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
-        RootGrid.Focus(FocusState.Programmatic);
+        if (args.WindowActivationState != WindowActivationState.Deactivated &&
+            RootGrid.XamlRoot is not null && FocusManager.GetFocusedElement(RootGrid.XamlRoot) is null)
+            RootGrid.Focus(FocusState.Programmatic);
     }
 
     private void OnRootGridLoaded(object sender, RoutedEventArgs e)
@@ -159,9 +168,13 @@ public sealed partial class MainWindow : Window
         RootGrid.Loaded -= OnRootGridLoaded;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.ViewerState.PropertyChanged -= OnViewerStatePropertyChanged;
+        _viewModel.LayoutState.PropertyChanged -= OnViewingModeChanged;
+        _viewModel.ComparisonState.PropertyChanged -= OnViewingModeChanged;
         _viewModel.CommandPaletteState.PropertyChanged -= OnCommandPaletteStatePropertyChanged;
         _viewModel.CodecInstallPromptRequested -= OnCodecInstallPromptRequested;
         _viewModel.OpenFileRequested -= OnViewModelOpenFileRequested;
+        _viewModel.ExportRequested -= OnExportRequested;
+        _viewModel.SaveTransformsRequested -= OnSaveTransformsRequested;
         _viewModel.SearchRequested -= OnViewModelSearchRequested;
         _viewModel.SearchHidden -= OnViewModelSearchHidden;
         await _viewModel.SaveWindowStateAsync(
@@ -217,31 +230,33 @@ public sealed partial class MainWindow : Window
 
     private async Task OpenFileFromPickerAsync()
     {
-        var picker = new FileOpenPicker
+        if (_filePickerOpen) return;
+        _filePickerOpen = true;
+        Chrome.PauseFade();
+        try
         {
-            SuggestedStartLocation = PickerLocationId.PicturesLibrary
-        };
+            var picker = new FileOpenPicker
+            {
+                SuggestedStartLocation = PickerLocationId.PicturesLibrary
+            };
 
-        foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp" })
-        {
-            picker.FileTypeFilter.Add(extension);
+            foreach (var extension in ImageFormatCatalog.OpenFileExtensions)
+            {
+                picker.FileTypeFilter.Add(extension);
+            }
+
+            InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+            var file = await picker.PickSingleFileAsync();
+            if (file is not null)
+            {
+                await _viewModel.OpenFileAsync(file.Path);
+            }
         }
-
-        if (_viewModel.CanAttemptOpenFormat(".heic"))
+        finally
         {
-            picker.FileTypeFilter.Add(".heic");
-        }
-
-        if (_viewModel.CanAttemptOpenFormat(".avif"))
-        {
-            picker.FileTypeFilter.Add(".avif");
-        }
-
-        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
-        var file = await picker.PickSingleFileAsync();
-        if (file is not null)
-        {
-            await _viewModel.OpenFileAsync(file.Path);
+            _filePickerOpen = false;
+            Chrome.ResumeFade();
+            RootGrid.Focus(FocusState.Programmatic);
         }
     }
 
@@ -588,7 +603,14 @@ public sealed partial class MainWindow : Window
         {
             DispatcherQueue.TryEnqueue(ApplyFullscreenState);
         }
+        if (e.PropertyName == nameof(ViewerState.CurrentImage))
+            DispatcherQueue.TryEnqueue(() => Title = _viewModel.ViewerState.CurrentImage is { } image
+                ? $"{Path.GetFileName(image.FilePath)} — spitfire.img" : "spitfire.img");
     }
+
+    private void OnViewingModeChanged(object? sender, PropertyChangedEventArgs e) =>
+        DispatcherQueue.TryEnqueue(() => ImageCanvas.SetActive(
+            !_viewModel.ComparisonState.IsActive && _viewModel.LayoutState.CurrentLayout == LayoutMode.Single));
 
     private void OnCommandPaletteStatePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -617,14 +639,21 @@ public sealed partial class MainWindow : Window
         await OpenFileFromPickerAsync();
     }
 
+    private async void OnExportRequested(object? sender, EventArgs e) => await ExportCurrentImageAsync();
+
+    private async void OnSaveTransformsRequested(object? sender, EventArgs e) => await SaveTransformsWithConfirmationAsync();
+
     private void OnViewModelSearchRequested(object? sender, EventArgs e)
     {
         SearchOverlay.Show();
+        Chrome.PauseFade();
     }
 
     private void OnViewModelSearchHidden(object? sender, EventArgs e)
     {
         SearchOverlay.Hide();
+        Chrome.ResumeFade();
+        RootGrid.Focus(FocusState.Programmatic);
     }
 
     private void OnCodecInstallPromptRequested(object? sender, CodecInstallPromptRequest request)

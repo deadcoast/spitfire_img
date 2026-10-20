@@ -28,11 +28,15 @@ public partial class App : Application
         var window = _services.GetRequiredService<MainWindow>();
         window.Activate();
 
+#if VIEWER_UI_TEST
+        _ = Verification.ViewerUiSmoke.RunAsync(window, _services.GetRequiredService<MainViewModel>());
+#else
         var filePath = ParseInitialFilePath(args.Arguments, Environment.GetCommandLineArgs(), Environment.CommandLine);
         if (!string.IsNullOrWhiteSpace(filePath))
         {
             _ = window.OpenInitialFileAsync(filePath);
         }
+#endif
     }
 
     public static Task<Result<CodecAvailability>> DetectCodecsOnStartupAsync(IServiceProvider services)
@@ -165,6 +169,9 @@ public partial class App : Application
         var localDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "spitfire.img");
+#if VIEWER_UI_TEST
+        localDataFolder = Path.Combine(Verification.ViewerUiSmoke.OutputDirectory, "settings");
+#endif
 
         services.AddSingleton<IWindowsCodecRegistry, WindowsCodecRegistry>();
         services.AddSingleton<ICodecDetectionService, WindowsCodecDetectionService>();
@@ -190,7 +197,7 @@ public partial class App : Application
         services.AddSingleton<IAnimationService, WindowsAnimationService>();
         services.AddTransient<IAnimationPlaybackTimer, DispatcherAnimationPlaybackTimer>();
         services.AddTransient<ISlideshowTimer, DispatcherSlideshowTimer>();
-        services.AddTransient<MainViewModel>();
+        services.AddSingleton<MainViewModel>();
         services.AddTransient<MainWindow>();
     }
 }

@@ -12,6 +12,7 @@ public sealed partial class BottomInfoBar : UserControl
     public BottomInfoBar()
     {
         InitializeComponent();
+        SizeChanged += (_, _) => Update();
     }
 
     public void Attach(MainViewModel viewModel)
@@ -53,7 +54,13 @@ public sealed partial class BottomInfoBar : UserControl
             : Path.GetFileName(_viewModel.PlaylistState.FolderPath);
         var modeText = GetModeIndicator();
         ModeText.Text = modeText;
-        ModeChip.Visibility = string.IsNullOrWhiteSpace(modeText) ? Visibility.Collapsed : Visibility.Visible;
+        ModeText.Visibility = string.IsNullOrWhiteSpace(modeText) || ActualWidth < 900 ? Visibility.Collapsed : Visibility.Visible;
+        FolderText.Visibility = ActualWidth < 1000 ? Visibility.Collapsed : Visibility.Visible;
+        ZoomText.Text = _viewModel.ViewerState.DisplayMode == Core.Models.DisplayMode.FitToWindow
+            ? "Fit"
+            : $"{_viewModel.ViewerState.ZoomLevel:0}%";
+        ToolTipService.SetToolTip(FilenameText, current?.FilePath);
+        ToolTipService.SetToolTip(FolderText, _viewModel.PlaylistState.FolderPath);
     }
 
     private string GetSyncIndicator()

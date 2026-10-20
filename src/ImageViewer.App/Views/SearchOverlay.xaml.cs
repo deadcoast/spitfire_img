@@ -49,6 +49,7 @@ public sealed partial class SearchOverlay : UserControl
 
     public void Hide()
     {
+        _searchDebounceTimer.Stop();
         ViewerMotionStoryboard.AnimateOverlay(
             this,
             SearchOverlayPanelTransform,
@@ -113,7 +114,10 @@ public sealed partial class SearchOverlay : UserControl
         }
 
         _searchDebounceTimer.Stop();
-        _searchDebounceTimer.Start();
+        if (SearchInput.Text.Length == 0)
+            _viewModel?.SetSearchQuery(string.Empty);
+        else
+            _searchDebounceTimer.Start();
     }
 
     private void OnSearchDebounceElapsed(object? sender, object e)

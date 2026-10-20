@@ -6,6 +6,9 @@ public sealed record ComparisonImageViewport(
     ImagePoint PanOffset,
     DisplayMode DisplayMode = DisplayMode.FitToWindow)
 {
+    public double FitZoomLevel { get; init; } = 100;
+    public double EffectiveZoomLevel => DisplayMode == DisplayMode.FitToWindow ? FitZoomLevel : ZoomLevel;
+
     public static ComparisonImageViewport Default { get; } = new(
         ImageDimensions.Unknown,
         ZoomLevel: 100,

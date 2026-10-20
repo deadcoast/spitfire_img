@@ -24,6 +24,7 @@ public sealed partial class FilmstripView : UserControl
     public FilmstripView()
     {
         InitializeComponent();
+        FocusCanvas.SetActive(false);
         FilmstripThumbnailList.ItemsSource = _items;
         Loaded += OnLoaded;
     }
@@ -32,39 +33,29 @@ public sealed partial class FilmstripView : UserControl
     {
         _viewModel = viewModel;
         viewModel.LayoutState.PropertyChanged += OnLayoutStateChanged;
-        viewModel.ViewerState.PropertyChanged += OnViewerStateChanged;
+        viewModel.ImageContentChanged += (_, _) => QueueRefresh();
+        FocusCanvas.Attach(viewModel);
         if (_isLoaded)
         {
             QueueRefresh();
-            UpdateDisplayMode();
         }
     }
 
     public void AttachMotionService(IViewerMotionService motionService)
     {
         _motionService = motionService;
+        FocusCanvas.AttachMotionService(motionService);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _isLoaded = true;
         QueueRefresh();
-        UpdateDisplayMode();
     }
 
     private void OnLayoutStateChanged(object? sender, PropertyChangedEventArgs e)
     {
         QueueRefresh();
-    }
-
-    private void OnViewerStateChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(ViewerState.DisplayMode)
-            or nameof(ViewerState.ZoomLevel)
-            or nameof(ViewerState.PanOffset))
-        {
-            DispatcherQueue.TryEnqueue(UpdateDisplayMode);
-        }
     }
 
     private void Refresh()
@@ -79,7 +70,6 @@ public sealed partial class FilmstripView : UserControl
             return;
         }
 
-        ApplyHostSize();
         if (!_viewModel.LayoutState.IsFilmstripActive)
         {
             HideFilmstrip();
@@ -88,7 +78,6 @@ public sealed partial class FilmstripView : UserControl
 
         ShowFilmstrip();
         _ = LoadFilmstripAsync(++_loadVersion);
-        UpdateDisplayMode();
     }
 
     private void ShowFilmstrip()
@@ -99,6 +88,7 @@ public sealed partial class FilmstripView : UserControl
         }
 
         _isFilmstripVisible = true;
+        FocusCanvas.SetActive(true);
         Visibility = Visibility.Visible;
         ViewerMotionStoryboard.AnimateOverlay(
             LayoutRoot,
@@ -111,12 +101,13 @@ public sealed partial class FilmstripView : UserControl
     {
         if (!_isFilmstripVisible && Visibility == Visibility.Collapsed)
         {
-            FocusImage.Source = null;
+            FocusCanvas.SetActive(false);
             _items.Clear();
             return;
         }
 
         _isFilmstripVisible = false;
+        _loadVersion++;
         ViewerMotionStoryboard.AnimateOverlay(
             LayoutRoot,
             FilmstripLayoutTransform,
@@ -125,7 +116,7 @@ public sealed partial class FilmstripView : UserControl
             completed: () =>
             {
                 Visibility = Visibility.Collapsed;
-                FocusImage.Source = null;
+                FocusCanvas.SetActive(false);
                 _items.Clear();
             });
     }
@@ -148,24 +139,6 @@ public sealed partial class FilmstripView : UserControl
         }
     }
 
-    private void ApplyHostSize()
-    {
-        if (Parent is not FrameworkElement parent)
-        {
-            return;
-        }
-
-        if (parent.ActualWidth > 0)
-        {
-            Width = parent.ActualWidth;
-        }
-
-        if (parent.ActualHeight > 0)
-        {
-            Height = parent.ActualHeight;
-        }
-    }
-
     private async Task LoadFilmstripAsync(int loadVersion)
     {
         if (_viewModel is null)
@@ -179,13 +152,6 @@ public sealed partial class FilmstripView : UserControl
             return;
         }
 
-        var focusBitmap = await TryLoadBitmapAsync(focusItem.FilePath);
-        if (loadVersion != _loadVersion)
-        {
-            return;
-        }
-
-        FocusImage.Source = focusBitmap;
         FilmstripFocusText.Text = $"{focusItem.Filename} - {(_viewModel.LayoutState.FilmstripFocusIndex + 1)} of {_viewModel.PlaylistState.TotalCount}";
         _items.Clear();
 
@@ -232,22 +198,6 @@ public sealed partial class FilmstripView : UserControl
         return new LoadedFilmstripThumbnail(visibleIndex, imageSource);
     }
 
-    private static async Task<BitmapImage?> TryLoadBitmapAsync(string filePath)
-    {
-        try
-        {
-            await using var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var randomAccessStream = fileStream.AsRandomAccessStream();
-            var bitmap = new BitmapImage();
-            await bitmap.SetSourceAsync(randomAccessStream);
-            return bitmap;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     private static async Task<BitmapImage?> CreateBitmapImageAsync(byte[] encodedBytes)
     {
         if (encodedBytes.Length == 0)
@@ -272,27 +222,6 @@ public sealed partial class FilmstripView : UserControl
         }
 
         await _viewModel.SetFilmstripFocusAsync(item.PlaylistIndex);
-    }
-
-    private void UpdateDisplayMode()
-    {
-        if (_viewModel is null)
-        {
-            return;
-        }
-
-        FocusImage.Stretch = _viewModel.ViewerState.DisplayMode == DisplayMode.FitToWindow
-            ? Microsoft.UI.Xaml.Media.Stretch.Uniform
-            : Microsoft.UI.Xaml.Media.Stretch.None;
-
-        var scale = _viewModel.ViewerState.DisplayMode == DisplayMode.Custom
-            ? _viewModel.ViewerState.ZoomLevel / 100d
-            : 1d;
-
-        FocusImageTransform.ScaleX = scale;
-        FocusImageTransform.ScaleY = scale;
-        FocusImageTransform.TranslateX = _viewModel.ViewerState.PanOffset.X;
-        FocusImageTransform.TranslateY = _viewModel.ViewerState.PanOffset.Y;
     }
 
     private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)

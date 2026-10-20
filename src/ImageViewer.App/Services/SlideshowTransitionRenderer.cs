@@ -1,171 +1,74 @@
 using ImageViewer.Core.Models;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 
 namespace ImageViewer.App.Services;
 
+/// <summary>Owns the two presentation layers; never changes the image viewport transform.</summary>
 public sealed class SlideshowTransitionRenderer
 {
-    public Task<Result> ApplyTransitionAsync(
-        Image currentImage,
-        Image nextImage,
-        CompositeTransform currentTransform,
-        CompositeTransform nextTransform,
-        SlideshowTransitionPlan plan)
+    private Storyboard? _storyboard;
+    private Action? _finish;
+
+    public void Cancel()
     {
-        return plan.Effect switch
-        {
-            TransitionEffect.None => ApplyInstantTransitionAsync(currentImage, nextImage, currentTransform, nextTransform),
-            TransitionEffect.Fade => RunStoryboardTransitionAsync(
-                currentImage,
-                nextImage,
-                currentTransform,
-                nextTransform,
-                CreateFadeStoryboard(currentImage, nextImage, plan.Duration)),
-            TransitionEffect.Slide => RunStoryboardTransitionAsync(
-                currentImage,
-                nextImage,
-                currentTransform,
-                nextTransform,
-                CreateSlideStoryboard(currentImage, nextImage, nextTransform, plan.Duration)),
-            TransitionEffect.Zoom => RunStoryboardTransitionAsync(
-                currentImage,
-                nextImage,
-                currentTransform,
-                nextTransform,
-                CreateZoomStoryboard(currentImage, nextImage, currentTransform, plan.Duration)),
-            _ => ApplyInstantTransitionAsync(currentImage, nextImage, currentTransform, nextTransform)
-        };
+        _storyboard?.Stop();
+        _storyboard = null;
+        var finish = _finish;
+        _finish = null;
+        finish?.Invoke();
     }
 
-    private static Task<Result> ApplyInstantTransitionAsync(
-        Image currentImage,
-        Image nextImage,
-        CompositeTransform currentTransform,
-        CompositeTransform nextTransform)
+    public Task ApplyTransitionAsync(FrameworkElement outgoing, FrameworkElement incoming,
+        CompositeTransform outgoingTransform, CompositeTransform incomingTransform, SlideshowTransitionPlan plan)
     {
-        currentImage.Source = nextImage.Source;
-        ResetVisualState(currentImage, nextImage, currentTransform, nextTransform);
-        return Task.FromResult(Result.Success());
-    }
-
-    private static async Task<Result> RunStoryboardTransitionAsync(
-        Image currentImage,
-        Image nextImage,
-        CompositeTransform currentTransform,
-        CompositeTransform nextTransform,
-        Storyboard storyboard)
-    {
-        try
-        {
-            await BeginStoryboardAsync(storyboard).ConfigureAwait(true);
-            currentImage.Source = nextImage.Source;
-            ResetVisualState(currentImage, nextImage, currentTransform, nextTransform);
-            return Result.Success();
-        }
-        catch (Exception)
-        {
-            currentImage.Source = nextImage.Source;
-            ResetVisualState(currentImage, nextImage, currentTransform, nextTransform);
-            return Result.Success();
-        }
-    }
-
-    private static Storyboard CreateFadeStoryboard(Image currentImage, Image nextImage, TimeSpan duration)
-    {
-        nextImage.Opacity = 0;
-
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(CreateDoubleAnimation(currentImage, "Opacity", 1, 0, duration));
-        storyboard.Children.Add(CreateDoubleAnimation(nextImage, "Opacity", 0, 1, duration));
-        return storyboard;
-    }
-
-    private static Storyboard CreateSlideStoryboard(
-        Image currentImage,
-        Image nextImage,
-        CompositeTransform nextTransform,
-        TimeSpan duration)
-    {
-        var slideDistance = currentImage.ActualWidth > 0 ? currentImage.ActualWidth : 320;
-        nextImage.Opacity = 1;
-        nextTransform.TranslateX = slideDistance;
-
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(CreateDoubleAnimation(currentImage, "Opacity", 1, 0, duration));
-        storyboard.Children.Add(CreateDoubleAnimation(nextTransform, "TranslateX", slideDistance, 0, duration));
-        return storyboard;
-    }
-
-    private static Storyboard CreateZoomStoryboard(
-        Image currentImage,
-        Image nextImage,
-        CompositeTransform currentTransform,
-        TimeSpan duration)
-    {
-        currentTransform.ScaleX = 1;
-        currentTransform.ScaleY = 1;
-        nextImage.Opacity = 0;
-
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(CreateDoubleAnimation(currentImage, "Opacity", 1, 0, duration));
-        storyboard.Children.Add(CreateDoubleAnimation(nextImage, "Opacity", 0, 1, duration));
-        storyboard.Children.Add(CreateDoubleAnimation(currentTransform, "ScaleX", 1, 0.92, duration));
-        storyboard.Children.Add(CreateDoubleAnimation(currentTransform, "ScaleY", 1, 0.92, duration));
-        return storyboard;
-    }
-
-    private static DoubleAnimation CreateDoubleAnimation(
-        DependencyObject target,
-        string targetProperty,
-        double from,
-        double to,
-        TimeSpan duration)
-    {
-        var animation = new DoubleAnimation
-        {
-            From = from,
-            To = to,
-            Duration = duration,
-            EnableDependentAnimation = true
-        };
-
-        Storyboard.SetTarget(animation, target);
-        Storyboard.SetTargetProperty(animation, targetProperty);
-        return animation;
-    }
-
-    private static Task BeginStoryboardAsync(Storyboard storyboard)
-    {
+        Cancel();
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        storyboard.Completed += OnCompleted;
-        storyboard.Begin();
-        return completion.Task;
-
-        void OnCompleted(object? sender, object e)
+        void Finish()
         {
-            storyboard.Completed -= OnCompleted;
+            outgoing.Opacity = 0;
+            incoming.Opacity = 1;
+            outgoingTransform.ScaleX = outgoingTransform.ScaleY = 1;
+            incomingTransform.ScaleX = incomingTransform.ScaleY = 1;
+            outgoingTransform.TranslateX = incomingTransform.TranslateX = 0;
             completion.TrySetResult();
         }
+        if (plan.Duration <= TimeSpan.Zero || plan.Effect == TransitionEffect.None)
+        {
+            Finish();
+            return completion.Task;
+        }
+        outgoing.Opacity = 1;
+        incoming.Opacity = plan.Effect == TransitionEffect.Slide ? 1 : 0;
+        var storyboard = new Storyboard();
+        Add(storyboard, outgoing, "Opacity", 1, 0, plan.Duration);
+        if (plan.Effect != TransitionEffect.Slide)
+            Add(storyboard, incoming, "Opacity", 0, 1, plan.Duration);
+        if (plan.Effect == TransitionEffect.Slide)
+            Add(storyboard, incomingTransform, "TranslateX", incoming.ActualWidth, 0, plan.Duration);
+        if (plan.Effect == TransitionEffect.Zoom)
+        {
+            Add(storyboard, outgoingTransform, "ScaleX", 1, .92, plan.Duration);
+            Add(storyboard, outgoingTransform, "ScaleY", 1, .92, plan.Duration);
+        }
+        _finish = Finish;
+        _storyboard = storyboard;
+        storyboard.Completed += (_, _) =>
+        {
+            if (!ReferenceEquals(_storyboard, storyboard)) return;
+            Cancel();
+        };
+        storyboard.Begin();
+        return completion.Task;
     }
 
-    private static void ResetVisualState(
-        Image currentImage,
-        Image nextImage,
-        CompositeTransform currentTransform,
-        CompositeTransform nextTransform)
+    private static void Add(Storyboard storyboard, DependencyObject target, string property,
+        double from, double to, TimeSpan duration)
     {
-        currentImage.Opacity = 1;
-        nextImage.Opacity = 0;
-        currentTransform.ScaleX = 1;
-        currentTransform.ScaleY = 1;
-        currentTransform.TranslateX = 0;
-        currentTransform.TranslateY = 0;
-        nextTransform.ScaleX = 1;
-        nextTransform.ScaleY = 1;
-        nextTransform.TranslateX = 0;
-        nextTransform.TranslateY = 0;
+        var animation = new DoubleAnimation { From = from, To = to, Duration = duration };
+        Storyboard.SetTarget(animation, target);
+        Storyboard.SetTargetProperty(animation, property);
+        storyboard.Children.Add(animation);
     }
 }

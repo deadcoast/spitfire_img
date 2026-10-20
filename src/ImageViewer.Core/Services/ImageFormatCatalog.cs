@@ -2,6 +2,9 @@ namespace ImageViewer.Core.Services;
 
 public static class ImageFormatCatalog
 {
+    public static IReadOnlyList<string> OpenFileExtensions { get; } =
+        Array.AsReadOnly(new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff", ".tif", ".heic", ".avif" });
+
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".png",

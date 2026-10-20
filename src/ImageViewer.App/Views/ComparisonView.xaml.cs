@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
+using ImageViewer.Core.Services;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -23,10 +24,20 @@ public sealed partial class ComparisonView : UserControl
     private int _panningImageIndex = -1;
     private Windows.Foundation.Point _lastPointerPosition;
     private bool _isComparisonVisible;
+    private bool _isOverlayVisible;
+    private bool _refreshQueued;
 
     public ComparisonView()
     {
         InitializeComponent();
+        PointerWheelChanged += (_, e) =>
+        {
+            if (_viewModel?.ComparisonState.IsActive != true) return;
+            if (e.GetCurrentPoint(this).Properties.MouseWheelDelta > 0) _viewModel.ZoomIn();
+            else _viewModel.ZoomOut();
+            e.Handled = true;
+        };
+        SizeChanged += (_, _) => UpdateRenderedTransforms();
     }
 
     public void Attach(MainViewModel viewModel)
@@ -60,7 +71,9 @@ public sealed partial class ComparisonView : UserControl
             return;
         }
 
-        DispatcherQueue.TryEnqueue(Refresh);
+        if (_refreshQueued) return;
+        _refreshQueued = true;
+        DispatcherQueue.TryEnqueue(() => { _refreshQueued = false; Refresh(); });
     }
 
     private void Refresh()
@@ -108,6 +121,7 @@ public sealed partial class ComparisonView : UserControl
         }
 
         _isComparisonVisible = false;
+        _loadVersion++;
         ViewerMotionStoryboard.AnimateOverlay(
             ComparisonRoot,
             ComparisonLayoutTransform,
@@ -158,6 +172,7 @@ public sealed partial class ComparisonView : UserControl
             };
 
             image.RenderTransform = CreateImageTransform(loadedImage.VisibleIndex);
+            image.SizeChanged += (_, _) => UpdateRenderedTransforms();
             images.Add(CreateSelectableImageFrame(
                 image,
                 loadedImage.VisibleIndex,
@@ -267,6 +282,8 @@ public sealed partial class ComparisonView : UserControl
         border.PointerPressed += OnImagePointerPressed;
         border.PointerMoved += OnImagePointerMoved;
         border.PointerReleased += OnImagePointerReleased;
+        border.PointerCanceled += OnImagePointerReleased;
+        border.PointerCaptureLost += (_, _) => { _isPanning = false; _panningImageIndex = -1; };
         return border;
     }
 
@@ -303,7 +320,22 @@ public sealed partial class ComparisonView : UserControl
                 continue;
             }
 
-            image.RenderTransform = CreateImageTransform(visibleIndex);
+            if (image.Source is not BitmapImage bitmap || child.ActualWidth <= 0 || child.ActualHeight <= 0) continue;
+            var viewport = GetViewport(visibleIndex);
+            var geometry = ImageViewportGeometry.Calculate(
+                new ImageMetadata(bitmap.PixelWidth, bitmap.PixelHeight, 0),
+                image.ActualWidth, image.ActualHeight, XamlRoot?.RasterizationScale ?? 1,
+                viewport.DisplayMode, viewport.ZoomLevel, 0, new PanOffset(viewport.PanOffset.X, viewport.PanOffset.Y));
+            var scale = geometry.Scale / (geometry.FitZoomPercent / 100);
+            _viewModel?.SetComparisonFitZoom(visibleIndex, geometry.FitZoomPercent);
+            image.RenderTransform = new CompositeTransform
+            {
+                ScaleX = scale,
+                ScaleY = scale,
+                TranslateX = geometry.Pan.X,
+                TranslateY = geometry.Pan.Y
+            };
+            child.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, child.ActualWidth, child.ActualHeight) };
         }
     }
 
@@ -316,8 +348,9 @@ public sealed partial class ComparisonView : UserControl
 
         var isOverlayActive = _viewModel.ComparisonState.IsActive &&
                               _viewModel.ComparisonState.Layout == ComparisonLayout.Overlay;
-        if (isOverlayActive)
+        if (isOverlayActive && !_isOverlayVisible)
         {
+            _isOverlayVisible = true;
             OverlayControls.Visibility = Visibility.Visible;
             ViewerMotionStoryboard.AnimateOverlay(
                 OverlayControls,
@@ -325,8 +358,9 @@ public sealed partial class ComparisonView : UserControl
                 GetMotionPlan(ViewerMotionCategory.Comparison),
                 isEntering: true);
         }
-        else if (OverlayControls.Visibility == Visibility.Visible)
+        else if (!isOverlayActive && _isOverlayVisible)
         {
+            _isOverlayVisible = false;
             ViewerMotionStoryboard.AnimateOverlay(
                 OverlayControls,
                 OverlayControlsTransform,
@@ -440,7 +474,7 @@ public sealed partial class ComparisonView : UserControl
         }
 
         var viewport = GetViewport(visibleIndex);
-        if (viewport.ZoomLevel <= 100)
+        if (viewport.DisplayMode == DisplayMode.FitToWindow || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             return;
         }
@@ -449,6 +483,7 @@ public sealed partial class ComparisonView : UserControl
         _panningImageIndex = visibleIndex;
         _lastPointerPosition = e.GetCurrentPoint(this).Position;
         ((Border)sender).CapturePointer(e.Pointer);
+        e.Handled = true;
     }
 
     private void OnImagePointerMoved(object sender, PointerRoutedEventArgs e)
@@ -464,10 +499,14 @@ public sealed partial class ComparisonView : UserControl
         var deltaX = position.X - _lastPointerPosition.X;
         var deltaY = position.Y - _lastPointerPosition.Y;
         var viewport = GetViewport(_panningImageIndex);
+        var renderedPan = sender is Border frame && FindComparisonImage(frame)?.RenderTransform is CompositeTransform transform
+            ? new ImagePoint(transform.TranslateX, transform.TranslateY)
+            : viewport.PanOffset;
         _viewModel?.SetComparisonPan(
             _panningImageIndex,
-            new ImagePoint(viewport.PanOffset.X + deltaX, viewport.PanOffset.Y + deltaY));
+            new ImagePoint(renderedPan.X + deltaX, renderedPan.Y + deltaY));
         _lastPointerPosition = position;
+        e.Handled = true;
     }
 
     private void OnImagePointerReleased(object sender, PointerRoutedEventArgs e)

@@ -22,6 +22,14 @@
     <Platforms>x64</Platforms>
   </PropertyGroup>
 
+  <!-- Compile the rendered-app regression runner only for explicit verification builds. -->
+  <PropertyGroup Condition="'$(ViewerUiTest)' == 'true'">
+    <DefineConstants>$(DefineConstants);VIEWER_UI_TEST</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(ViewerUiTest)' == 'true'">
+    <Compile Include="..\..\tests\ImageViewer.UiTests\ViewerUiSmoke.cs" Link="Verification\ViewerUiSmoke.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />

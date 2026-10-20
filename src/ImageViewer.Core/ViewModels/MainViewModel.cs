@@ -23,6 +23,8 @@ public sealed class MainViewModel : ObservableObject
     private readonly IAnimationPlaybackTimer _animationPlaybackTimer;
     private readonly ISlideshowTimer _slideshowTimer;
     private readonly ICodecDetectionService _codecDetectionService;
+    private readonly ICommandPaletteService _commands;
+    private bool _isSavingTransforms;
     private readonly HashSet<string> _codecInstallPromptsShown = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DecodedImage> _slideshowPreloadCache = new(StringComparer.OrdinalIgnoreCase);
     private ViewerSettings _settings = ViewerSettings.Default;
@@ -100,7 +102,8 @@ public sealed class MainViewModel : ObservableObject
         ThumbnailState = new ThumbnailState();
         TransformState = new TransformState();
         MetadataState = new MetadataState();
-        CommandPaletteState = new CommandPaletteState(BuildCommandPaletteService());
+        _commands = BuildCommandPaletteService();
+        CommandPaletteState = new CommandPaletteState(_commands);
     }
 
     public ViewerState ViewerState { get; } = new();
@@ -129,6 +132,22 @@ public sealed class MainViewModel : ObservableObject
 
     public event EventHandler? OpenFileRequested;
 
+    public event EventHandler? ExportRequested;
+
+    public event EventHandler? SaveTransformsRequested;
+
+    public event EventHandler? ImageContentChanged;
+
+    public IReadOnlyList<CommandItem> Commands => _commands.GetAllCommands().Value;
+
+    public async Task ExecuteCommandAsync(string commandId)
+    {
+        var result = await _commands.ExecuteCommandAsync(commandId);
+        if (result.IsFailure)
+            await HandleErrorAsync(result.Error, CancellationToken.None);
+        ShowChrome();
+    }
+
     public event EventHandler? SearchRequested;
 
     public event EventHandler? SearchHidden;
@@ -151,6 +170,12 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _isLoading;
         private set => SetProperty(ref _isLoading, value);
+    }
+
+    public bool IsSavingTransforms
+    {
+        get => _isSavingTransforms;
+        private set => SetProperty(ref _isSavingTransforms, value);
     }
 
     public bool IsCancelAvailable
@@ -209,6 +234,7 @@ public sealed class MainViewModel : ObservableObject
             }
 
             var decodeResult = await _imageDecodeService.DecodeImageAsync(validationResult.Value, operationToken);
+            operationToken.ThrowIfCancellationRequested();
             if (decodeResult.IsFailure)
             {
                 await HandleErrorAsync(decodeResult.Error, CancellationToken.None);
@@ -216,6 +242,7 @@ public sealed class MainViewModel : ObservableObject
             }
 
             var playlistResult = await _folderPlaylistService.BuildPlaylistAsync(validationResult.Value, operationToken);
+            operationToken.ThrowIfCancellationRequested();
             if (playlistResult.IsFailure)
             {
                 await HandleErrorAsync(playlistResult.Error, operationToken);
@@ -227,8 +254,11 @@ public sealed class MainViewModel : ObservableObject
                 PlaylistState.SetPlaylist(playlistResult.Value);
             }
 
+            TransformState.DiscardTransforms();
+            ComparisonState.ExitComparison();
             ViewerState.SetImage(decodeResult.Value);
             await LoadAnimationForImageAsync(decodeResult.Value.FilePath, operationToken);
+            operationToken.ThrowIfCancellationRequested();
             SearchState.SetPlaylist(PlaylistState.Items);
             await RestorePreferredLayoutAsync(operationToken);
             var recentResult = await _recentFilesService.AddRecentFileAsync(validationResult.Value, operationToken);
@@ -238,6 +268,10 @@ public sealed class MainViewModel : ObservableObject
             }
 
             ShowChrome();
+        }
+        catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
+        {
+            // A newer open/navigation owns the view; retain the last committed image.
         }
         finally
         {
@@ -251,6 +285,9 @@ public sealed class MainViewModel : ObservableObject
                ImageFormatCatalog.IsHeicFormat(extension) ||
                ImageFormatCatalog.IsAvifFormat(extension);
     }
+
+    public Task ReportPresentationErrorAsync(string filePath, Exception exception) =>
+        HandleErrorAsync(ViewerError.DecodeError("PresentImage", filePath, exception), CancellationToken.None);
 
     public void ShowChrome()
     {
@@ -412,6 +449,9 @@ public sealed class MainViewModel : ObservableObject
         return NavigateToIndexAsync(0, cancellationToken);
     }
 
+    public Task NavigateToPlaylistIndexAsync(int index, CancellationToken cancellationToken = default) =>
+        NavigateToIndexAsync(index, cancellationToken);
+
     public Task NavigateLastAsync(CancellationToken cancellationToken = default)
     {
         return NavigateToIndexAsync(PlaylistState.TotalCount - 1, cancellationToken);
@@ -421,12 +461,12 @@ public sealed class MainViewModel : ObservableObject
     {
         if (ComparisonState.IsActive)
         {
-            ApplyComparisonZoom(GetActiveComparisonViewport().ZoomLevel + 25);
+            ApplyComparisonZoom(GetActiveComparisonViewport().EffectiveZoomLevel + 25);
             ShowChrome();
             return;
         }
 
-        ViewerState.SetZoom(ViewerState.ZoomLevel + 25);
+        ViewerState.SetZoom(ViewerState.EffectiveZoomPercent + 25);
         ShowChrome();
     }
 
@@ -434,12 +474,18 @@ public sealed class MainViewModel : ObservableObject
     {
         if (ComparisonState.IsActive)
         {
-            ApplyComparisonZoom(Math.Max(100, GetActiveComparisonViewport().ZoomLevel - 25));
+            var viewport = GetActiveComparisonViewport();
+            if (viewport.EffectiveZoomLevel - 25 <= viewport.FitZoomLevel) ResetComparisonZoom();
+            else ApplyComparisonZoom(viewport.EffectiveZoomLevel - 25);
             ShowChrome();
             return;
         }
 
-        ViewerState.SetZoom(Math.Max(100, ViewerState.ZoomLevel - 25));
+        var zoom = ViewerState.EffectiveZoomPercent - 25;
+        if (zoom <= ViewerState.FitZoomPercent)
+            FitToWindow();
+        else
+            ViewerState.SetZoom(zoom);
         ShowChrome();
     }
 
@@ -539,6 +585,7 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task ExitLayoutModeAsync(CancellationToken cancellationToken = default)
     {
+        ComparisonState.ExitComparison();
         LayoutState.ExitLayout();
         await SaveLayoutPreferenceAsync(LayoutMode.Single, cancellationToken).ConfigureAwait(false);
         ShowChrome();
@@ -832,6 +879,14 @@ public sealed class MainViewModel : ObservableObject
         ComparisonState.SetImageDimensions(visibleIndex, dimensions);
     }
 
+    public void SetComparisonFitZoom(int visibleIndex, double fitZoom)
+    {
+        if (visibleIndex < 0 || visibleIndex >= ComparisonState.ImageViewports.Count) return;
+        var viewport = ComparisonState.ImageViewports[visibleIndex];
+        if (Math.Abs(viewport.FitZoomLevel - fitZoom) > .01)
+            ComparisonState.ApplyViewportUpdate(visibleIndex, viewport with { FitZoomLevel = fitZoom });
+    }
+
     public void SetComparisonPan(int visibleIndex, ImagePoint panOffset)
     {
         if (!ComparisonState.IsActive ||
@@ -925,7 +980,7 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task ApplyTransformAsync(TransformOperation operation, CancellationToken cancellationToken = default)
     {
-        if (ViewerState.CurrentImage is null)
+        if (ViewerState.CurrentImage is null || IsSavingTransforms)
         {
             return;
         }
@@ -949,6 +1004,7 @@ public sealed class MainViewModel : ObservableObject
 
     public void UndoTransform()
     {
+        if (IsSavingTransforms) return;
         TransformState.Undo();
         UpdateTransformPreviewMetadata();
         ShowChrome();
@@ -956,6 +1012,7 @@ public sealed class MainViewModel : ObservableObject
 
     public void RedoTransform()
     {
+        if (IsSavingTransforms) return;
         TransformState.Redo();
         UpdateTransformPreviewMetadata();
         ShowChrome();
@@ -963,26 +1020,45 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task SaveTransformsAsync(CancellationToken cancellationToken = default)
     {
-        if (ViewerState.CurrentImage is null || !TransformState.HasUnsavedChanges)
+        if (ViewerState.CurrentImage is null || !TransformState.HasUnsavedChanges || IsSavingTransforms)
         {
             return;
         }
 
-        var operations = TransformState.PendingTransforms.ToArray();
-        var result = await _transformService.SaveTransformsAsync(
-                ViewerState.CurrentImage.FilePath,
-                operations,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        if (result.IsFailure)
+        IsSavingTransforms = true;
+        try
         {
-            await HandleErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
-            return;
-        }
+            var source = ViewerState.CurrentImage;
+            var operations = TransformState.PendingTransforms.ToArray();
+            var result = await _transformService.SaveTransformsAsync(
+                    source.FilePath, operations, cancellationToken).ConfigureAwait(false);
+            if (result.IsFailure)
+            {
+                await HandleErrorAsync(result.Error, cancellationToken).ConfigureAwait(false);
+                return;
+            }
 
-        TransformState.DiscardTransforms();
-        ShowChrome();
+            _thumbnailService.ClearCache();
+            _slideshowPreloadCache.Remove(source.FilePath);
+            _metadataCache.Remove(source.FilePath);
+            // Navigation during a save must not replace the newer image.
+            if (!ReferenceEquals(ViewerState.CurrentImage, source)) return;
+            TransformState.DiscardTransforms();
+            var reloaded = await _imageDecodeService.DecodeImageAsync(source.FilePath, cancellationToken).ConfigureAwait(false);
+            if (!ReferenceEquals(ViewerState.CurrentImage, source)) return;
+            if (reloaded.IsFailure)
+            {
+                await HandleErrorAsync(reloaded.Error, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            ViewerState.SetImage(reloaded.Value);
+            ImageContentChanged?.Invoke(this, EventArgs.Empty);
+            ShowChrome();
+        }
+        finally
+        {
+            IsSavingTransforms = false;
+        }
     }
 
     public async Task<Result<Thumbnail>> GetThumbnailAsync(
@@ -1089,6 +1165,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         Settings = Settings with { SlideshowTransition = transition };
+        SlideshowState.SetTransition(transition);
         await SaveSettingsOrReportErrorAsync(cancellationToken).ConfigureAwait(false);
         ShowChrome();
     }
@@ -1143,6 +1220,7 @@ public sealed class MainViewModel : ObservableObject
                 var playlist = new Playlist(PlaylistState.Items.ToList(), PlaylistState.CurrentIndex, PlaylistState.FolderPath);
                 var navigationServiceResult = await _navigationService.NavigateToIndexAsync(playlist, targetIndex, operationToken)
                     .ConfigureAwait(false);
+                operationToken.ThrowIfCancellationRequested();
 
                 if (navigationServiceResult.IsFailure)
                 {
@@ -1156,8 +1234,13 @@ public sealed class MainViewModel : ObservableObject
             PlaylistState.SetCurrentIndex(navigationResult.Index);
             ViewerState.SetImage(navigationResult.Image);
             await LoadAnimationForImageAsync(navigationResult.Image.FilePath, operationToken).ConfigureAwait(false);
+            operationToken.ThrowIfCancellationRequested();
             TransformState.DiscardTransforms();
             ShowChrome();
+        }
+        catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
+        {
+            // Cancellation is expected during rapid browsing.
         }
         finally
         {
@@ -1581,6 +1664,8 @@ public sealed class MainViewModel : ObservableObject
         return new CommandPaletteService(
         [
             Register("file.open", "Open File", "File", "Ctrl+O", () => OpenFileRequested?.Invoke(this, EventArgs.Empty)),
+            Register("file.export", "Save a copy…", "File", "Ctrl+Shift+S", () => ExportRequested?.Invoke(this, EventArgs.Empty)),
+            Register("file.save", "Save changes to original…", "File", "Ctrl+S", () => SaveTransformsRequested?.Invoke(this, EventArgs.Empty)),
             Register("view.fullscreen", "Toggle Fullscreen", "View", "F11", ToggleFullscreen),
             Register("view.fit", "Fit to Window", "View", "Ctrl+0", FitToWindow),
             Register("view.actual-size", "Actual Size", "View", "Ctrl+Shift+1", ActualSize),
@@ -1609,6 +1694,7 @@ public sealed class MainViewModel : ObservableObject
             RegisterAsync("comparison.overlay", "Overlay Comparison", "Comparison", "Ctrl+Shift+D", () => EnterComparisonModeAsync(ComparisonLayout.Overlay)),
             RegisterAsync("comparison.sync-zoom", "Toggle Sync Zoom", "Comparison", "Ctrl+L", () => ToggleComparisonSyncZoomAsync()),
             Register("comparison.swap-overlay", "Swap Overlay Layers", "Comparison", "S", SwapOverlayLayers),
+            Register("comparison.exit", "Leave comparison", "Comparison", "Esc", ExitComparisonMode),
             RegisterAsync("comparison.count-two", "Show Two Comparison Images", "Comparison", "Ctrl+2", () => SetComparisonImageCountAsync(2)),
             RegisterAsync("comparison.count-three", "Show Three Comparison Images", "Comparison", "Ctrl+3", () => SetComparisonImageCountAsync(3)),
             RegisterAsync("comparison.count-four", "Show Four Comparison Images", "Comparison", "Ctrl+4", () => SetComparisonImageCountAsync(4)),
@@ -1747,6 +1833,9 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var animationResult = await _animationService.LoadAnimatedGifAsync(filePath, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!string.Equals(ViewerState.CurrentImage?.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+            return;
         if (animationResult.IsSuccess)
         {
             AnimationState.LoadAnimation(animationResult.Value);

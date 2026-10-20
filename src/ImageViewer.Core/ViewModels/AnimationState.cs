@@ -8,6 +8,7 @@ public sealed class AnimationState : ObservableObject
     private bool _isAnimated;
     private bool _isPlaying;
     private int _currentFrame;
+    public string? FilePath { get; private set; }
 
     public bool IsAnimated
     {
@@ -41,6 +42,7 @@ public sealed class AnimationState : ObservableObject
 
     public void LoadAnimation(AnimatedGif gif)
     {
+        FilePath = gif.FilePath;
         Frames.Clear();
         foreach (var frame in gif.Frames)
         {
@@ -58,6 +60,7 @@ public sealed class AnimationState : ObservableObject
 
     public void Clear()
     {
+        FilePath = null;
         Frames.Clear();
         CurrentFrame = 0;
         IsAnimated = false;

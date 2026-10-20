@@ -72,16 +72,8 @@ public sealed class Phase5LayoutSurfaceTests
         Assert.Contains("if (!_isLoaded)", code);
     }
 
-    [Fact]
-    public void CaptureHarness_CanScopeEvidenceToLayoutSurfaces()
-    {
-        var script = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "TestResults", "phase5-evidence", "visual", "capture-before-states.ps1"));
-
-        Assert.Contains("[switch]$OnlyLayoutSurfaces", script);
-        Assert.Contains("06-thumbnail-strip.png", script);
-        Assert.Contains("07-grid-layout.png", script);
-        Assert.Contains("08-filmstrip-layout.png", script);
-    }
+    // Layout captures and bounds checks run in tests/ImageViewer.UiTests.
+    // They no longer depend on an untracked script in ignored TestResults.
 
     private static string ReadViewXaml(string fileName)
     {

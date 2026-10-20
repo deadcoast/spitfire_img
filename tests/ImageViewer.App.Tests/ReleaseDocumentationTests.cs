@@ -6,7 +6,7 @@ public sealed class ReleaseDocumentationTests
     public void ReleaseReadme_CoversRequiredReleaseSections()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var readmePath = Path.Combine(repositoryRoot, "docs", "release", "README.md");
+        var readmePath = Path.Combine(repositoryRoot, "docs", "phase-4-release-readiness", "release", "README.md");
 
         Assert.True(File.Exists(readmePath));
 
@@ -37,7 +37,7 @@ public sealed class ReleaseDocumentationTests
     public void ReleaseReadme_DoesNotClaimOutOfScopeFeatures()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var readmePath = Path.Combine(repositoryRoot, "docs", "release", "README.md");
+        var readmePath = Path.Combine(repositoryRoot, "docs", "phase-4-release-readiness", "release", "README.md");
         var readme = File.ReadAllText(readmePath);
 
         Assert.DoesNotContain("cataloging", readme, StringComparison.OrdinalIgnoreCase);
@@ -52,7 +52,7 @@ public sealed class ReleaseDocumentationTests
     public void ReleaseTemplate_CoversRequiredReleaseRecordFields()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var templatePath = Path.Combine(repositoryRoot, "docs", "release", "release-template.md");
+        var templatePath = Path.Combine(repositoryRoot, "docs", "phase-4-release-readiness", "release", "release-template.md");
 
         Assert.True(File.Exists(templatePath));
 
@@ -74,7 +74,7 @@ public sealed class ReleaseDocumentationTests
     public void Phase4EvidenceTemplate_CoversRequiredReleaseGateEvidenceSections()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var templatePath = Path.Combine(repositoryRoot, "docs", "release", "phase4-evidence-template.md");
+        var templatePath = Path.Combine(repositoryRoot, "docs", "phase-4-release-readiness", "release", "phase4-evidence-template.md");
 
         Assert.True(File.Exists(templatePath));
 
