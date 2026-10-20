@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -9,7 +10,9 @@ namespace ImageViewer.App.Views;
 public sealed partial class FrameControl : UserControl
 {
     private MainViewModel? _viewModel;
+    private IViewerMotionService? _motionService;
     private bool _isUpdating;
+    private bool _isFrameControlVisible;
 
     public FrameControl()
     {
@@ -21,6 +24,11 @@ public sealed partial class FrameControl : UserControl
         _viewModel = viewModel;
         viewModel.AnimationState.PropertyChanged += OnAnimationStateChanged;
         Refresh();
+    }
+
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
     }
 
     private void OnAnimationStateChanged(object? sender, PropertyChangedEventArgs e)
@@ -36,9 +44,10 @@ public sealed partial class FrameControl : UserControl
         }
 
         var state = _viewModel.AnimationState;
-        Visibility = state.IsAnimated ? Visibility.Visible : Visibility.Collapsed;
+        UpdateFrameControlVisibility(state.IsAnimated);
         PlayPauseIcon.Symbol = state.IsPlaying ? Symbol.Pause : Symbol.Play;
         PlaybackStateText.Text = state.IsPlaying ? "Playing" : "Paused";
+        PulseGifState();
         FrameText.Text = state.FrameDisplayText;
         FrameRangeText.Text = state.TotalFrames > 0
             ? $"{state.CurrentFrame + 1} of {state.TotalFrames}"
@@ -54,6 +63,46 @@ public sealed partial class FrameControl : UserControl
         FrameSlider.Maximum = Math.Max(1, state.TotalFrames);
         FrameSlider.Value = state.TotalFrames == 0 ? 1 : state.CurrentFrame + 1;
         _isUpdating = false;
+    }
+
+    private void UpdateFrameControlVisibility(bool isAnimated)
+    {
+        if (isAnimated && !_isFrameControlVisible)
+        {
+            _isFrameControlVisible = true;
+            Visibility = Visibility.Visible;
+            ViewerMotionStoryboard.AnimateOpacity(this, GetMotionPlan(), 1);
+            return;
+        }
+
+        if (!isAnimated && _isFrameControlVisible)
+        {
+            _isFrameControlVisible = false;
+            ViewerMotionStoryboard.AnimateOpacity(
+                this,
+                GetMotionPlan(),
+                0,
+                completed: () => Visibility = Visibility.Collapsed);
+            return;
+        }
+
+        if (!isAnimated)
+        {
+            Visibility = Visibility.Collapsed;
+            Opacity = 0;
+        }
+    }
+
+    private void PulseGifState()
+    {
+        if (!_isFrameControlVisible)
+        {
+            return;
+        }
+
+        var motionPlan = GetMotionPlan();
+        FrameControlPanel.Opacity = motionPlan.Duration <= TimeSpan.Zero ? 1 : 0.86;
+        ViewerMotionStoryboard.AnimateOpacity(FrameControlPanel, motionPlan, 1);
     }
 
     private void OnPlayPauseClicked(object sender, RoutedEventArgs e)
@@ -86,5 +135,11 @@ public sealed partial class FrameControl : UserControl
         var playPauseName = state.IsPlaying ? "Pause GIF" : "Play GIF";
         AutomationProperties.SetName(PlayPauseButton, playPauseName);
         AutomationProperties.SetName(FrameSlider, $"GIF frame timeline, frame {state.CurrentFrame + 1} of {Math.Max(1, state.TotalFrames)}");
+    }
+
+    private ViewerMotionPlan GetMotionPlan()
+    {
+        return _motionService?.CreatePlan(ViewerMotionCategory.GifControls)
+            ?? ViewerMotionService.CreateDefaultPlan(ViewerMotionCategory.GifControls, isReducedMotion: false);
     }
 }

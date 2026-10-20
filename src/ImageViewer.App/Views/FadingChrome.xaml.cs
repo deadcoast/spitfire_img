@@ -1,4 +1,5 @@
 using ImageViewer.Core.ViewModels;
+using ImageViewer.App.Services.Motion;
 using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -11,6 +12,7 @@ public sealed partial class FadingChrome : UserControl
 {
     private readonly DispatcherTimer _fadeTimer;
     private MainViewModel? _viewModel;
+    private IViewerMotionService? _motionService;
 
     public FadingChrome()
     {
@@ -43,6 +45,12 @@ public sealed partial class FadingChrome : UserControl
         RebuildRecentFilesMenu();
         UpdateChromeState();
         ShowChrome();
+    }
+
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
+        FrameControl.AttachMotionService(motionService);
     }
 
     private void OnTransformStateChanged(object? sender, PropertyChangedEventArgs e)
@@ -101,7 +109,8 @@ public sealed partial class FadingChrome : UserControl
     {
         _fadeTimer.Stop();
         VisualStateManager.GoToState(this, "Active", true);
-        AnimateOpacity(GetDoubleResource("ViewerChromeActiveOpacity", 1.0), 100);
+        ApplyChromeRevealMotion();
+        ViewerMotionStoryboard.AnimateOpacity(ChromeRoot, GetMotionPlan(ViewerMotionCategory.ChromeReveal), GetDoubleResource("ViewerChromeActiveOpacity", 1.0));
         _fadeTimer.Start();
     }
 
@@ -109,7 +118,8 @@ public sealed partial class FadingChrome : UserControl
     {
         _fadeTimer.Stop();
         VisualStateManager.GoToState(this, "Active", true);
-        AnimateOpacity(GetDoubleResource("ViewerChromeActiveOpacity", 1.0), 100);
+        ApplyChromeRevealMotion();
+        ViewerMotionStoryboard.AnimateOpacity(ChromeRoot, GetMotionPlan(ViewerMotionCategory.ChromeReveal), GetDoubleResource("ViewerChromeActiveOpacity", 1.0));
     }
 
     public void ResumeFade()
@@ -121,24 +131,19 @@ public sealed partial class FadingChrome : UserControl
     {
         _fadeTimer.Stop();
         VisualStateManager.GoToState(this, "Idle", true);
-        AnimateOpacity(GetDoubleResource("ViewerChromeIdleOpacity", 0.72), 300);
+        ViewerMotionStoryboard.AnimateOpacity(ChromeRoot, GetMotionPlan(ViewerMotionCategory.ChromeIdle), GetDoubleResource("ViewerChromeIdleOpacity", 0.72));
     }
 
-    private void AnimateOpacity(double opacity, int durationMs)
+    private void ApplyChromeRevealMotion()
     {
-        var animation = new DoubleAnimation
-        {
-            To = opacity,
-            Duration = TimeSpan.FromMilliseconds(durationMs),
-            EnableDependentAnimation = true
-        };
+        var motionPlan = GetMotionPlan(ViewerMotionCategory.ChromeReveal);
+        ViewerMotionStoryboard.AnimateVerticalTranslation(TopChromeTransform, motionPlan, -motionPlan.OffsetPixels, 0);
+        ViewerMotionStoryboard.AnimateVerticalTranslation(BottomInfoBarTransform, motionPlan, motionPlan.OffsetPixels, 0);
+    }
 
-        Storyboard.SetTarget(animation, ChromeRoot);
-        Storyboard.SetTargetProperty(animation, "Opacity");
-
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(animation);
-        storyboard.Begin();
+    private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)
+    {
+        return _motionService?.CreatePlan(category) ?? ViewerMotionService.CreateDefaultPlan(category, isReducedMotion: false);
     }
 
     private double GetDoubleResource(string key, double fallback)

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.InteropServices.WindowsRuntime;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
@@ -14,9 +15,11 @@ public sealed partial class FilmstripView : UserControl
 {
     private readonly ObservableCollection<FilmstripThumbnailItem> _items = [];
     private MainViewModel? _viewModel;
+    private IViewerMotionService? _motionService;
     private int _loadVersion;
     private bool _isLoaded;
     private bool _refreshQueued;
+    private bool _isFilmstripVisible;
 
     public FilmstripView()
     {
@@ -35,6 +38,11 @@ public sealed partial class FilmstripView : UserControl
             QueueRefresh();
             UpdateDisplayMode();
         }
+    }
+
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -72,16 +80,54 @@ public sealed partial class FilmstripView : UserControl
         }
 
         ApplyHostSize();
-        Visibility = _viewModel.LayoutState.IsFilmstripActive ? Visibility.Visible : Visibility.Collapsed;
         if (!_viewModel.LayoutState.IsFilmstripActive)
+        {
+            HideFilmstrip();
+            return;
+        }
+
+        ShowFilmstrip();
+        _ = LoadFilmstripAsync(++_loadVersion);
+        UpdateDisplayMode();
+    }
+
+    private void ShowFilmstrip()
+    {
+        if (_isFilmstripVisible)
+        {
+            return;
+        }
+
+        _isFilmstripVisible = true;
+        Visibility = Visibility.Visible;
+        ViewerMotionStoryboard.AnimateOverlay(
+            LayoutRoot,
+            FilmstripLayoutTransform,
+            GetMotionPlan(ViewerMotionCategory.LayoutModeChange),
+            isEntering: true);
+    }
+
+    private void HideFilmstrip()
+    {
+        if (!_isFilmstripVisible && Visibility == Visibility.Collapsed)
         {
             FocusImage.Source = null;
             _items.Clear();
             return;
         }
 
-        _ = LoadFilmstripAsync(++_loadVersion);
-        UpdateDisplayMode();
+        _isFilmstripVisible = false;
+        ViewerMotionStoryboard.AnimateOverlay(
+            LayoutRoot,
+            FilmstripLayoutTransform,
+            GetMotionPlan(ViewerMotionCategory.LayoutModeChange),
+            isEntering: false,
+            completed: () =>
+            {
+                Visibility = Visibility.Collapsed;
+                FocusImage.Source = null;
+                _items.Clear();
+            });
     }
 
     private void QueueRefresh()
@@ -247,6 +293,11 @@ public sealed partial class FilmstripView : UserControl
         FocusImageTransform.ScaleY = scale;
         FocusImageTransform.TranslateX = _viewModel.ViewerState.PanOffset.X;
         FocusImageTransform.TranslateY = _viewModel.ViewerState.PanOffset.Y;
+    }
+
+    private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)
+    {
+        return _motionService?.CreatePlan(category) ?? ViewerMotionService.CreateDefaultPlan(category, isReducedMotion: false);
     }
 
     public sealed class FilmstripThumbnailItem : ObservableObject

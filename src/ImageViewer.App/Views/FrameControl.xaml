@@ -3,8 +3,10 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     AutomationProperties.Name="Animated GIF frame controls"
+    Opacity="{StaticResource ViewerHiddenOpacity}"
+    TabFocusNavigation="Cycle"
     Visibility="Collapsed">
-    <Border Style="{StaticResource ViewerFrameControlPanelBorderStyle}">
+    <Border x:Name="FrameControlPanel" Style="{StaticResource ViewerFrameControlPanelBorderStyle}">
         <Grid ColumnSpacing="{StaticResource ViewerMediaControlColumnSpacing}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />

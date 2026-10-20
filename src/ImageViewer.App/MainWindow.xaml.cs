@@ -1,11 +1,14 @@
 using System.ComponentModel;
 using ImageViewer.App.Services;
+using ImageViewer.App.Services.Input;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage.Pickers;
@@ -23,14 +26,16 @@ public sealed partial class MainWindow : Window
     private const int OemMinusVirtualKey = 189;
 
     private readonly MainViewModel _viewModel;
+    private readonly IViewerMotionService _motionService;
     private readonly AppWindow _appWindow;
     private readonly DispatcherTimer _loadingDelayTimer;
     private readonly DispatcherTimer _warningDismissTimer;
     private readonly Task _initializationTask;
 
-    public MainWindow(MainViewModel viewModel)
+    public MainWindow(MainViewModel viewModel, IViewerMotionService motionService)
     {
         _viewModel = viewModel;
+        _motionService = motionService;
         InitializeComponent();
         _appWindow = GetAppWindow();
         _loadingDelayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
@@ -40,14 +45,23 @@ public sealed partial class MainWindow : Window
 
         RootGrid.DataContext = viewModel;
         ImageCanvas.Attach(viewModel);
+        ImageCanvas.AttachMotionService(motionService);
         ComparisonView.Attach(viewModel);
+        ComparisonView.AttachMotionService(motionService);
         GridLayout.Attach(viewModel);
+        GridLayout.AttachMotionService(motionService);
         FilmstripView.Attach(viewModel);
+        FilmstripView.AttachMotionService(motionService);
         ThumbnailStrip.Attach(viewModel);
         SearchOverlay.Attach(viewModel);
+        SearchOverlay.AttachMotionService(motionService);
         CommandPalette.Attach(viewModel);
+        CommandPalette.AttachMotionService(motionService);
         MetadataPanel.Attach(viewModel);
+        MetadataPanel.AttachMotionService(motionService);
         Chrome.Attach(viewModel);
+        Chrome.AttachMotionService(motionService);
+        DropIndicator.AttachMotionService(motionService);
         Chrome.OpenFileRequested += async (_, _) => await OpenFileFromPickerAsync();
         viewModel.OpenFileRequested += OnViewModelOpenFileRequested;
         viewModel.SearchRequested += OnViewModelSearchRequested;
@@ -246,6 +260,19 @@ public sealed partial class MainWindow : Window
                                 Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
         var isShiftPressed = (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) &
                               Windows.UI.Core.CoreVirtualKeyStates.Down) == Windows.UI.Core.CoreVirtualKeyStates.Down;
+        var topLayer = ViewerInputRouting.ResolveTopLayer(GetInputState());
+        if (await TryHandleTopLayerKeyAsync(e.Key, topLayer))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewerInputRouting.ShouldSuppressRootNavigation(topLayer) &&
+            IsRootNavigationKey(e.Key, isControlPressed, isShiftPressed))
+        {
+            e.Handled = true;
+            return;
+        }
 
         switch (e.Key)
         {
@@ -298,36 +325,6 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case VirtualKey.Escape:
-                if (_viewModel.CommandPaletteState.IsVisible)
-                {
-                    _viewModel.HideCommandPalette();
-                    e.Handled = true;
-                }
-                else if (_viewModel.SlideshowState.IsActive)
-                {
-                    await _viewModel.ToggleSlideshowAsync();
-                    e.Handled = true;
-                }
-                else if (_viewModel.ComparisonState.IsActive)
-                {
-                    _viewModel.ExitComparisonMode();
-                    e.Handled = true;
-                }
-                else if (_viewModel.LayoutState.CurrentLayout != LayoutMode.Single)
-                {
-                    await _viewModel.ExitLayoutModeAsync();
-                    e.Handled = true;
-                }
-                else if (_viewModel.MetadataState.IsVisible)
-                {
-                    _viewModel.MetadataState.HidePanel();
-                    e.Handled = true;
-                }
-                else if (_viewModel.ViewerState.IsFullscreen)
-                {
-                    _viewModel.ToggleFullscreen();
-                    e.Handled = true;
-                }
                 break;
             case VirtualKey.Number0 when isControlPressed:
                 _viewModel.FitToWindow();
@@ -466,6 +463,76 @@ public sealed partial class MainWindow : Window
                 e.Handled = true;
                 break;
         }
+    }
+
+    private async Task<bool> TryHandleTopLayerKeyAsync(VirtualKey key, ViewerInputLayer topLayer)
+    {
+        if (key != VirtualKey.Escape)
+        {
+            return false;
+        }
+
+        switch (ViewerInputRouting.ResolveEscapeAction(GetInputState()))
+        {
+            case ViewerEscapeAction.HideCommandPalette:
+                _viewModel.HideCommandPalette();
+                return true;
+            case ViewerEscapeAction.HideSearchOverlay:
+                _viewModel.HideSearch();
+                return true;
+            case ViewerEscapeAction.HideMetadataPanel:
+                _viewModel.MetadataState.HidePanel();
+                return true;
+            case ViewerEscapeAction.StopSlideshow:
+                await _viewModel.ToggleSlideshowAsync();
+                return true;
+            case ViewerEscapeAction.ExitComparison:
+                _viewModel.ExitComparisonMode();
+                return true;
+            case ViewerEscapeAction.ExitLayoutMode:
+                await _viewModel.ExitLayoutModeAsync();
+                return true;
+            case ViewerEscapeAction.ExitFullscreen:
+                _viewModel.ToggleFullscreen();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private ViewerInputState GetInputState()
+    {
+        return new ViewerInputState(
+            _viewModel.CommandPaletteState.IsVisible,
+            IsSearchOverlayVisible(),
+            _viewModel.MetadataState.IsVisible,
+            _viewModel.SlideshowState.IsActive,
+            _viewModel.ComparisonState.IsActive,
+            _viewModel.LayoutState.CurrentLayout != LayoutMode.Single,
+            _viewModel.ViewerState.IsFullscreen);
+    }
+
+    private bool IsSearchOverlayVisible()
+    {
+        return SearchOverlay.Visibility == Visibility.Visible;
+    }
+
+    private static bool IsRootNavigationKey(VirtualKey key, bool isControlPressed, bool isShiftPressed)
+    {
+        return key is VirtualKey.Right
+            or VirtualKey.Left
+            or VirtualKey.Up
+            or VirtualKey.Down
+            or VirtualKey.Home
+            or VirtualKey.End
+            or VirtualKey.Enter
+            or VirtualKey.Tab
+            or VirtualKey.Space
+            || IsPlusKey(key)
+            || IsMinusKey(key)
+            || IsCommaKey(key)
+            || IsPeriodKey(key)
+            || (!isControlPressed && !isShiftPressed && (key == VirtualKey.F5 || key == VirtualKey.F11));
     }
 
     private bool IsOverlayComparisonActive()
@@ -620,7 +687,7 @@ public sealed partial class MainWindow : Window
         ErrorInfoBar.Title = "Status";
         ErrorInfoBar.Message = message;
         ErrorRecoveryButton.Visibility = Visibility.Collapsed;
-        ErrorInfoBar.IsOpen = true;
+        ShowStatusInfoBar();
     }
 
     private void OnCancelLoadingClicked(object sender, RoutedEventArgs e)
@@ -645,8 +712,8 @@ public sealed partial class MainWindow : Window
         _loadingDelayTimer.Stop();
         LoadingRing.IsActive = false;
         LoadingStatusBody.Text = "Decoding the file while the viewer remains available.";
-        LoadingOverlay.Visibility = Visibility.Collapsed;
         CancelLoadingButton.Visibility = Visibility.Collapsed;
+        HideLoadingOverlay();
     }
 
     private void UpdateCancelState()
@@ -667,13 +734,22 @@ public sealed partial class MainWindow : Window
             ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning
             : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error;
         ErrorInfoBar.Title = isWarning ? "Review needed" : "Unable to open image";
+        var hasMessage = !string.IsNullOrWhiteSpace(_viewModel.ErrorMessage);
         ErrorInfoBar.Message = _viewModel.ErrorMessage ?? string.Empty;
-        ErrorInfoBar.IsOpen = !string.IsNullOrWhiteSpace(_viewModel.ErrorMessage);
-        ErrorRecoveryButton.Visibility = ErrorInfoBar.IsOpen && !isWarning
+        ErrorRecoveryButton.Visibility = hasMessage && !isWarning
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        if (ErrorInfoBar.IsOpen && isWarning)
+        if (hasMessage)
+        {
+            ShowStatusInfoBar();
+        }
+        else
+        {
+            HideStatusInfoBar();
+        }
+
+        if (hasMessage && isWarning)
         {
             _warningDismissTimer.Start();
         }
@@ -687,15 +763,60 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        LoadingOverlay.Visibility = Visibility.Visible;
         LoadingRing.IsActive = true;
         UpdateCancelState();
+        ShowLoadingOverlay();
     }
 
     private void OnWarningDismissElapsed(object? sender, object e)
     {
         _warningDismissTimer.Stop();
-        ErrorInfoBar.IsOpen = false;
+        HideStatusInfoBar();
+    }
+
+    private void ShowStatusInfoBar()
+    {
+        ErrorInfoBar.IsOpen = true;
+        ViewerMotionStoryboard.AnimateOverlay(
+            ErrorInfoBar,
+            ErrorInfoBarTransform,
+            GetStatusMotionPlan(),
+            isEntering: true);
+    }
+
+    private void HideStatusInfoBar()
+    {
+        ViewerMotionStoryboard.AnimateOverlay(
+            ErrorInfoBar,
+            ErrorInfoBarTransform,
+            GetStatusMotionPlan(),
+            isEntering: false,
+            completed: () => ErrorInfoBar.IsOpen = false);
+    }
+
+    private void ShowLoadingOverlay()
+    {
+        LoadingOverlay.Visibility = Visibility.Visible;
+        ViewerMotionStoryboard.AnimateOverlay(
+            LoadingOverlay,
+            LoadingOverlayTransform,
+            GetStatusMotionPlan(),
+            isEntering: true);
+    }
+
+    private void HideLoadingOverlay()
+    {
+        ViewerMotionStoryboard.AnimateOverlay(
+            LoadingOverlay,
+            LoadingOverlayTransform,
+            GetStatusMotionPlan(),
+            isEntering: false,
+            completed: () => LoadingOverlay.Visibility = Visibility.Collapsed);
+    }
+
+    private ViewerMotionPlan GetStatusMotionPlan()
+    {
+        return _motionService.CreatePlan(ViewerMotionCategory.Status);
     }
 
     private async void OnRootDragOver(object sender, DragEventArgs e)

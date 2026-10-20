@@ -23,7 +23,7 @@ For the Windows-native stack, the current best-fit direction is **WinUI 3 with t
 
 ---
 
-# Recommended Development Documents
+## Recommended Development Documents
 
 ## 1. Product Vision Document
 
@@ -420,7 +420,7 @@ Motion should be subtle:
 
 ### Primary Recommendation
 
-**WinUI 3 + Windows App SDK + C#/.NET**
+* **WinUI 3 + Windows App SDK + C#/.NET**
 
 Best if you want:
 
@@ -434,7 +434,7 @@ Microsoft’s current Windows developer overview identifies WinUI as the recomme
 
 ### Alternative
 
-**WPF + modern styling**
+* **WPF + modern styling**
 
 Best if you want:
 
@@ -611,7 +611,7 @@ Add:
 
 ---
 
-# Suggested Document Set to Actually Create
+## Suggested Document Set to Actually Create
 
 I would create these files in your project repo:
 
@@ -631,7 +631,7 @@ docs/
 
 ---
 
-# Important Design Decisions to Lock Early
+## Important Design Decisions to Lock Early
 
 These are the decisions I would make before coding:
 
@@ -644,7 +644,7 @@ These are the decisions I would make before coding:
 
 ---
 
-# App Concept Name Ideas
+## App Concept Name Ideas
 
 A few names that fit the presentation-first direction:
 
@@ -669,7 +669,7 @@ My favorite for this concept: **ImageStage**. It communicates that the app prese
 
 ## Development Plan Refinement 2
 
-# spitfire.img Roadmap
+## spitfire.img Roadmap
 
 ## Phase 1: MVP Viewer
 
@@ -677,14 +677,14 @@ Goal: ship a complete local image viewing loop with presentation-first UI.
 
 Acceptance criteria:
 
-- Open `PNG`, `JPG/JPEG`, `BMP`, and `WEBP` files.
-- Automatically use the opened image's parent folder as the playlist.
-- Support previous, next, first, and last keyboard navigation.
-- Provide fit-to-window, actual size, zoom, pan, and fullscreen behavior.
-- Fade top and bottom UI chrome in windowed and fullscreen modes.
-- Show filename, image index, dimensions, and folder metadata.
-- Persist basic theme and viewer settings.
-- Write structured error logs for file, decode, playlist, settings, navigation, and unexpected errors.
+* Open `PNG`, `JPG/JPEG`, `BMP`, and `WEBP` files.
+* Automatically use the opened image's parent folder as the playlist.
+* Support previous, next, first, and last keyboard navigation.
+* Provide fit-to-window, actual size, zoom, pan, and fullscreen behavior.
+* Fade top and bottom UI chrome in windowed and fullscreen modes.
+* Show filename, image index, dimensions, and folder metadata.
+* Persist basic theme and viewer settings.
+* Write structured error logs for file, decode, playlist, settings, navigation, and unexpected errors.
 
 ## Phase 2: Browse And Quality Of Life
 
@@ -692,20 +692,20 @@ Goal: make everyday folder browsing faster and more convenient without changing 
 
 Candidate features:
 
-- Search the current folder by filename.
-- Add an optional thumbnail strip.
-- Add recent files.
-- Support drag-and-drop image opening.
-- Add export or save-copy behavior.
-- Add rotate and flip commands.
-- Add better image metadata.
-- Add `GIF` and `TIFF` support after decoding behavior is defined.
+* Search the current folder by filename.
+* Add an optional thumbnail strip.
+* Add recent files.
+* Support drag-and-drop image opening.
+* Add export or save-copy behavior.
+* Add rotate and flip commands.
+* Add better image metadata.
+* Add `GIF` and `TIFF` support after decoding behavior is defined.
 
 Acceptance criteria draft:
 
-- Search and thumbnails use the same playlist model as Phase 1.
-- Recent files do not replace folder-as-playlist behavior.
-- New format support routes through the image decode service, not the window.
+* Search and thumbnails use the same playlist model as Phase 1.
+* Recent files do not replace folder-as-playlist behavior.
+* New format support routes through the image decode service, not the window.
 
 ## Phase 3: Advanced Viewing Modes
 
@@ -713,18 +713,18 @@ Goal: add power-user presentation and comparison workflows after the core viewer
 
 Candidate features:
 
-- Slideshow mode.
-- Custom layout modes.
-- Image comparison mode.
-- Command palette.
-- Animated image support where relevant.
-- `HEIC` and `AVIF` support after dependency and Windows codec strategy is selected.
+* Slideshow mode.
+* Custom layout modes.
+* Image comparison mode.
+* Command palette.
+* Animated image support where relevant.
+* `HEIC` and `AVIF` support after dependency and Windows codec strategy is selected.
 
 Acceptance criteria draft:
 
-- Comparison and slideshow modes reuse existing image item and playlist models.
-- Advanced formats produce structured unsupported/decode errors when unavailable.
-- New layouts preserve the low-distraction fading UI principle.
+* Comparison and slideshow modes reuse existing image item and playlist models.
+* Advanced formats produce structured unsupported/decode errors when unavailable.
+* New layouts preserve the low-distraction fading UI principle.
 
 ## Deferred Means Planned
 
@@ -732,7 +732,7 @@ Features listed in Phase 2 or Phase 3 are deferred to protect Phase 1 delivery. 
 
 ---
 
-# Phase 1 MVP Viewer Design
+## Phase 1 MVP Viewer Design
 
 ## Purpose
 
@@ -742,20 +742,20 @@ Build the first complete version of `spitfire.img`: a modern Windows-native imag
 
 Phase 1 includes:
 
-- Open local `PNG`, `JPG/JPEG`, `BMP`, and `WEBP` files.
-- Automatically treat the opened file's parent folder as the playlist.
-- Navigate previous, next, first, and last image by keyboard.
-- Display images centered with fit-to-window as the default mode.
-- Support zoom, pan, actual-size, fit reset, and fullscreen.
-- Fade top and bottom UI chrome after inactivity in windowed and fullscreen modes.
-- Show basic metadata: filename, playlist index, dimensions, and folder name.
-- Persist basic settings such as theme and default view mode.
-- Log structured errors to disk.
+* Open local `PNG`, `JPG/JPEG`, `BMP`, and `WEBP` files.
+* Automatically treat the opened file's parent folder as the playlist.
+* Navigate previous, next, first, and last image by keyboard.
+* Display images centered with fit-to-window as the default mode.
+* Support zoom, pan, actual-size, fit reset, and fullscreen.
+* Fade top and bottom UI chrome after inactivity in windowed and fullscreen modes.
+* Show basic metadata: filename, playlist index, dimensions, and folder name.
+* Persist basic settings such as theme and default view mode.
+* Log structured errors to disk.
 
 Phase 1 explicitly defers:
 
-- `GIF`, `TIFF`, `HEIC`, and `AVIF` support.
-- Search, thumbnail strip, recent files, drag-and-drop, export/save copy, rotate/flip, slideshow, comparison mode, command palette, and advanced metadata.
+* `GIF`, `TIFF`, `HEIC`, and `AVIF` support.
+* Search, thumbnail strip, recent files, drag-and-drop, export/save copy, rotate/flip, slideshow, comparison mode, command palette, and advanced metadata.
 
 Deferred means planned but not built in this phase.
 
@@ -806,15 +806,15 @@ When a user opens an image, the app validates the extension, decodes the image, 
 
 Keyboard behavior:
 
-- `Left Arrow`: previous image.
-- `Right Arrow`: next image.
-- `Home`: first image.
-- `End`: last image.
-- `F11` or double-click: toggle fullscreen.
-- `Ctrl+0`: fit to window.
-- `Ctrl+1`: actual size.
-- `Ctrl++` / `Ctrl+-`: zoom in/out.
-- `Esc`: exit fullscreen or close transient overlay.
+* `Left Arrow`: previous image.
+* `Right Arrow`: next image.
+* `Home`: first image.
+* `End`: last image.
+* `F11` or double-click: toggle fullscreen.
+* `Ctrl+0`: fit to window.
+* `Ctrl+1`: actual size.
+* `Ctrl++` / `Ctrl+-`: zoom in/out.
+* `Esc`: exit fullscreen or close transient overlay.
 
 ## Error Handling
 
@@ -822,13 +822,13 @@ Phase 1 includes a structured error system with `ViewerError` and `ErrorLogServi
 
 Defined categories:
 
-- `FileAccessError`
-- `UnsupportedFormatError`
-- `DecodeError`
-- `PlaylistScanError`
-- `NavigationError`
-- `SettingsPersistenceError`
-- `UnexpectedViewerError`
+* `FileAccessError`
+* `UnsupportedFormatError`
+* `DecodeError`
+* `PlaylistScanError`
+* `NavigationError`
+* `SettingsPersistenceError`
+* `UnexpectedViewerError`
 
 Each log entry should include timestamp, severity, category, user-safe message, operation, optional file path, exception type, and stack trace when available. User-facing messages must be calm and actionable, for example: "This file format is not supported in this version." Raw stack traces should never appear in the UI.
 
@@ -840,9 +840,9 @@ Phase 2 and Phase 3 must remain visible during Phase 1 development through expli
 
 Create or maintain:
 
-- `docs/roadmap.md`, listing Phase 2 and Phase 3 features with short acceptance criteria.
-- Architecture decisions for WinUI 3, decoding strategy, playlist model, settings persistence, and UI fade behavior.
-- Service interfaces that allow search, thumbnails, recent files, drag-and-drop, advanced formats, and comparison mode to plug in later.
+* `docs/roadmap.md`, listing Phase 2 and Phase 3 features with short acceptance criteria.
+* Architecture decisions for WinUI 3, decoding strategy, playlist model, settings persistence, and UI fade behavior.
+* Service interfaces that allow search, thumbnails, recent files, drag-and-drop, advanced formats, and comparison mode to plug in later.
 
 Phase 1 should not hardwire future decisions into UI code. For example, supported format detection should live behind an image format or decode service rather than scattered file-extension checks in the window.
 
@@ -850,28 +850,28 @@ Phase 1 should not hardwire future decisions into UI code. For example, supporte
 
 Automated tests should cover:
 
-- Supported extension detection for `PNG`, `JPG/JPEG`, `BMP`, and `WEBP`.
-- Rejection of deferred formats with `UnsupportedFormatError`.
-- Folder playlist scanning and deterministic sorting.
-- Opened image index selection.
-- Previous, next, first, and last navigation boundaries.
-- Settings defaults and persistence.
-- Structured error log entry creation.
+* Supported extension detection for `PNG`, `JPG/JPEG`, `BMP`, and `WEBP`.
+* Rejection of deferred formats with `UnsupportedFormatError`.
+* Folder playlist scanning and deterministic sorting.
+* Opened image index selection.
+* Previous, next, first, and last navigation boundaries.
+* Settings defaults and persistence.
+* Structured error log entry creation.
 
 Manual verification should cover:
 
-- Windowed fading UI.
-- Fullscreen behavior.
-- Keyboard shortcuts.
-- Zoom and pan feel.
-- Theme switching.
-- Visual polish and low-distraction presentation.
+* Windowed fading UI.
+* Fullscreen behavior.
+* Keyboard shortcuts.
+* Zoom and pan feel.
+* Theme switching.
+* Visual polish and low-distraction presentation.
 
 ## Acceptance Criteria
 
-- A user can open a supported local image and immediately browse sibling images in the same folder.
-- The viewer never requires the user to manually define a playlist for normal folder browsing.
-- The UI fades in windowed mode and fullscreen mode without hiding controls permanently.
-- Unsupported or corrupt files show a user-safe message and write a structured log entry.
-- Phase 2 and Phase 3 features remain documented as deferred, not forgotten.
-- Core non-UI behavior is covered by automated tests.
+* A user can open a supported local image and immediately browse sibling images in the same folder.
+* The viewer never requires the user to manually define a playlist for normal folder browsing.
+* The UI fades in windowed mode and fullscreen mode without hiding controls permanently.
+* Unsupported or corrupt files show a user-safe message and write a structured log entry.
+* Phase 2 and Phase 3 features remain documented as deferred, not forgotten.
+* Core non-UI behavior is covered by automated tests.

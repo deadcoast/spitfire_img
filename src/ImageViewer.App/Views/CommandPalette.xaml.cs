@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
@@ -16,6 +17,7 @@ public sealed partial class CommandPalette : UserControl
     private static readonly TimeSpan SearchDebounceInterval = TimeSpan.FromMilliseconds(50);
     private readonly DispatcherTimer _searchDebounceTimer;
     private MainViewModel? _viewModel;
+    private IViewerMotionService? _motionService;
     private bool _isUpdating;
 
     public CommandPalette()
@@ -32,16 +34,31 @@ public sealed partial class CommandPalette : UserControl
         Refresh();
     }
 
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
+    }
+
     public void Show()
     {
         Visibility = Visibility.Visible;
+        ViewerMotionStoryboard.AnimateOverlay(
+            this,
+            PalettePanelTransform,
+            GetMotionPlan(ViewerMotionCategory.OverlayEntrance),
+            isEntering: true);
         SearchInput.Focus(FocusState.Programmatic);
     }
 
     public void Hide()
     {
         _searchDebounceTimer.Stop();
-        Visibility = Visibility.Collapsed;
+        ViewerMotionStoryboard.AnimateOverlay(
+            this,
+            PalettePanelTransform,
+            GetMotionPlan(ViewerMotionCategory.OverlayExit),
+            isEntering: false,
+            completed: () => Visibility = Visibility.Collapsed);
     }
 
     private void OnCommandPaletteStateChanged(object? sender, PropertyChangedEventArgs e)
@@ -253,6 +270,11 @@ public sealed partial class CommandPalette : UserControl
         return Application.Current.Resources.TryGetValue(resourceKey, out var value) && value is Brush brush
             ? brush
             : null;
+    }
+
+    private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)
+    {
+        return _motionService?.CreatePlan(category) ?? ViewerMotionService.CreateDefaultPlan(category, isReducedMotion: false);
     }
 
     private void OnPaletteRootPointerPressed(object sender, PointerRoutedEventArgs e)

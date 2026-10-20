@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
@@ -10,6 +11,7 @@ namespace ImageViewer.App.Views;
 public sealed partial class MetadataPanel : UserControl
 {
     private MainViewModel? _viewModel;
+    private IViewerMotionService? _motionService;
 
     public MetadataPanel()
     {
@@ -22,6 +24,11 @@ public sealed partial class MetadataPanel : UserControl
         viewModel.MetadataState.PropertyChanged += OnMetadataChanged;
         viewModel.ViewerState.PropertyChanged += OnMetadataChanged;
         Refresh();
+    }
+
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
     }
 
     private void OnMetadataChanged(object? sender, PropertyChangedEventArgs e)
@@ -37,7 +44,6 @@ public sealed partial class MetadataPanel : UserControl
         }
 
         var shouldShow = _viewModel.MetadataState.IsVisible;
-        Visibility = shouldShow ? Visibility.Visible : Visibility.Collapsed;
         AnimatePanel(shouldShow);
         var image = _viewModel.ViewerState.CurrentImage;
         var metadata = _viewModel.ViewerState.Metadata;
@@ -81,27 +87,37 @@ public sealed partial class MetadataPanel : UserControl
 
     private void AnimatePanel(bool show)
     {
-        var opacityAnimation = new DoubleAnimation
+        var motionPlan = GetMotionPlan();
+        if (show)
         {
-            To = show ? 1 : 0,
-            Duration = TimeSpan.FromMilliseconds(220),
-            EnableDependentAnimation = true
-        };
-        Storyboard.SetTarget(opacityAnimation, this);
-        Storyboard.SetTargetProperty(opacityAnimation, "Opacity");
+            Visibility = Visibility.Visible;
+        }
 
-        var slideAnimation = new DoubleAnimation
-        {
-            To = show ? 0 : 360,
-            Duration = TimeSpan.FromMilliseconds(220),
-            EnableDependentAnimation = true
-        };
-        Storyboard.SetTarget(slideAnimation, PanelTransform);
-        Storyboard.SetTargetProperty(slideAnimation, "X");
+        ViewerMotionStoryboard.AnimateHorizontalPanel(
+            this,
+            PanelTransform,
+            motionPlan,
+            isEntering: show,
+            hiddenOffset: GetDoubleResource("ViewerMetadataPanelWidth", 360),
+            completed: () =>
+            {
+                if (!show)
+                {
+                    Visibility = Visibility.Collapsed;
+                }
+            });
+    }
 
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(opacityAnimation);
-        storyboard.Children.Add(slideAnimation);
-        storyboard.Begin();
+    private ViewerMotionPlan GetMotionPlan()
+    {
+        return _motionService?.CreatePlan(ViewerMotionCategory.MetadataPanel)
+            ?? ViewerMotionService.CreateDefaultPlan(ViewerMotionCategory.MetadataPanel, isReducedMotion: false);
+    }
+
+    private double GetDoubleResource(string key, double fallback)
+    {
+        return Application.Current.Resources.TryGetValue(key, out var value) && value is double doubleValue
+            ? doubleValue
+            : fallback;
     }
 }

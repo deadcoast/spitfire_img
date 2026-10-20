@@ -195,3 +195,72 @@ Motion work is complete only when evidence records:
 - No state is communicated only by motion.
 
 Automated tests should cover service decisions, reduced-motion configuration, and state routing. Visual timing itself can remain manual evidence unless a stable UI automation harness exists.
+
+## Task 11 implementation status
+
+Task 11 establishes the foundation for the broader motion work without claiming the later transition surfaces complete.
+
+Implemented source:
+
+- `MotionTokens.xaml` contains named duration, easing, distance, scale, and category keys.
+- `IViewerMotionService`, `ViewerMotionService`, `ViewerMotionPlan`, `ViewerMotionCategory`, `ViewerMotionEasing`, and `ViewerMotionPreference` define a centralized motion contract.
+- `ReducedMotionService` provides platform-respecting reduced-motion handling through Windows animation accessibility settings.
+- `FadingChrome`, `SearchOverlay`, `MetadataPanel`, and `DropIndicator` consume motion plans from the app service container.
+
+Reduced-motion behavior:
+
+- Reduced motion returns zero-duration plans.
+- Reduced motion suppresses translation, scale, and looping.
+- Opacity remains allowed so surfaces can still change visible state.
+- Focus, selected, warning, error, and structural cues remain required outside motion.
+
+Remaining work stays in tasks 12 and 13:
+
+- Broader choreography for command palette, loading, error, status, and mode transitions.
+- Manual normal-motion and reduced-motion evidence for each broad surface category.
+- Keyboard responsiveness validation during animated overlay transitions.
+
+## Task 12 implementation status
+
+Task 12 applies the motion foundation to chrome and overlay/status surfaces.
+
+Implemented source:
+
+- `ViewerMotionStoryboard` centralizes non-blocking storyboard setup for opacity, overlay, horizontal panel, and chrome reveal motion.
+- `FadingChrome` defines top and bottom chrome transforms and applies reveal movement through the motion service.
+- `CommandPalette` now uses service-driven overlay entrance and exit transitions.
+- `SearchOverlay` now uses the same overlay entrance and exit transition path.
+- `MetadataPanel` now keeps the panel visible until its exit animation completes.
+- `MainWindow` now applies status motion plans to loading, warning, and error surfaces.
+
+Task 12 evidence:
+
+- `TestResults/phase5-evidence/motion/chrome-overlay-transitions.md`
+- `Phase5MotionTransitionTests`
+
+Remaining work stays in task 13:
+
+- Single image, grid, filmstrip, comparison, and GIF mode transition polish.
+- Full normal-motion and reduced-motion capture set for the later Phase 5 gate.
+
+## Task 13 implementation status
+
+Task 13 applies mode-transition polish to the image and layout-mode surfaces.
+
+Implemented source:
+
+- `ImageCanvas` uses `ViewerMotionCategory.ImageNavigation` for image navigation fade-in and `ViewerMotionCategory.Feedback` for transform-preview feedback.
+- `GridLayout` uses a whole-surface transition with `GridLayoutTransform` and `ViewerMotionCategory.LayoutModeChange`.
+- `FilmstripView` uses a whole-surface transition with `FilmstripLayoutTransform` and `ViewerMotionCategory.LayoutModeChange`.
+- `ComparisonView` uses `ComparisonLayoutTransform` for mode entry/exit and `OverlayControlsTransform` with `ViewerMotionCategory.Comparison` for overlay controls.
+- `FrameControl` uses `ViewerMotionCategory.GifControls` for GIF control visibility and play/pause state feedback.
+- The transition work avoids per-item animation loops over image collections.
+
+Task 13 evidence:
+
+- `TestResults/phase5-evidence/motion/layout-modes.md`
+- `Phase5ModeTransitionTests`
+
+Remaining motion evidence work stays in later Phase 5 review/gate tasks:
+
+- Captured normal-motion and reduced-motion screenshots or recordings across the full surface set.

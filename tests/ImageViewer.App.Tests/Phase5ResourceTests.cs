@@ -253,7 +253,29 @@ public sealed class Phase5ResourceTests
         "ViewerMotionStandardEasing",
         "ViewerMotionEmphasizedEasing",
         "ViewerMotionExitEasing",
-        "ViewerMotionLinearEasing"
+        "ViewerMotionLinearEasing",
+        "ViewerMotionEaseOut",
+        "ViewerMotionEaseIn",
+        "ViewerMotionEaseInOut",
+        "ViewerMotionLinear",
+        "ViewerMotionOverlayEntranceOffset",
+        "ViewerMotionChromeRevealOffset",
+        "ViewerMotionPanelSlideOffset",
+        "ViewerMotionSubtleScaleFrom",
+        "ViewerMotionSubtleScaleTo",
+        "ViewerMotionCategoryChromeReveal",
+        "ViewerMotionCategoryChromeIdle",
+        "ViewerMotionCategoryOverlayEntrance",
+        "ViewerMotionCategoryOverlayExit",
+        "ViewerMotionCategoryMetadataPanel",
+        "ViewerMotionCategoryImageNavigation",
+        "ViewerMotionCategoryLayoutModeChange",
+        "ViewerMotionCategoryReposition",
+        "ViewerMotionCategoryFeedback",
+        "ViewerMotionCategoryStatus",
+        "ViewerMotionCategoryDropIndicator",
+        "ViewerMotionCategoryGifControls",
+        "ViewerMotionCategoryComparison"
     ];
 
     private static readonly string[] RequiredPanelStyleKeys =

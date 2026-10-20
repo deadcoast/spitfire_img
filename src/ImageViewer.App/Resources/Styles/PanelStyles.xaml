@@ -129,6 +129,18 @@
         <Setter Property="BorderBrush" Value="{ThemeResource ViewerSelectionStrokeBrush}" />
         <Setter Property="BorderThickness" Value="3" />
     </Style>
+    <Style x:Key="ViewerInteractiveImageFrameBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerThumbnailCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerImageMatBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerImageSafeStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style x:Key="ViewerInteractiveImageFrameActiveBorderStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource ViewerThumbnailCornerRadius}" />
+        <Setter Property="Background" Value="{ThemeResource ViewerImageMatBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource ViewerKeyboardFocusStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="3" />
+    </Style>
     <Style x:Key="ViewerGridImageFooterBorderStyle" TargetType="Border">
         <Setter Property="CornerRadius" Value="{StaticResource ViewerControlCornerRadius}" />
         <Setter Property="Background" Value="{ThemeResource ViewerChromeSurfaceBrush}" />

@@ -15,4 +15,29 @@
     <x:String x:Key="ViewerMotionEmphasizedEasing">0.05,0.7,0.1,1</x:String>
     <x:String x:Key="ViewerMotionExitEasing">0.4,0,1,1</x:String>
     <x:String x:Key="ViewerMotionLinearEasing">0,0,1,1</x:String>
+
+    <x:String x:Key="ViewerMotionEaseOut">0.2,0,0,1</x:String>
+    <x:String x:Key="ViewerMotionEaseIn">0.4,0,1,1</x:String>
+    <x:String x:Key="ViewerMotionEaseInOut">0.16,1,0.3,1</x:String>
+    <x:String x:Key="ViewerMotionLinear">0,0,1,1</x:String>
+
+    <x:Double x:Key="ViewerMotionOverlayEntranceOffset">12</x:Double>
+    <x:Double x:Key="ViewerMotionChromeRevealOffset">8</x:Double>
+    <x:Double x:Key="ViewerMotionPanelSlideOffset">24</x:Double>
+    <x:Double x:Key="ViewerMotionSubtleScaleFrom">0.98</x:Double>
+    <x:Double x:Key="ViewerMotionSubtleScaleTo">1</x:Double>
+
+    <x:String x:Key="ViewerMotionCategoryChromeReveal">chrome-reveal</x:String>
+    <x:String x:Key="ViewerMotionCategoryChromeIdle">chrome-idle</x:String>
+    <x:String x:Key="ViewerMotionCategoryOverlayEntrance">overlay-entrance</x:String>
+    <x:String x:Key="ViewerMotionCategoryOverlayExit">overlay-exit</x:String>
+    <x:String x:Key="ViewerMotionCategoryMetadataPanel">metadata-panel</x:String>
+    <x:String x:Key="ViewerMotionCategoryImageNavigation">image-navigation</x:String>
+    <x:String x:Key="ViewerMotionCategoryLayoutModeChange">layout-mode-change</x:String>
+    <x:String x:Key="ViewerMotionCategoryReposition">reposition</x:String>
+    <x:String x:Key="ViewerMotionCategoryFeedback">feedback</x:String>
+    <x:String x:Key="ViewerMotionCategoryStatus">status</x:String>
+    <x:String x:Key="ViewerMotionCategoryDropIndicator">drop-indicator</x:String>
+    <x:String x:Key="ViewerMotionCategoryGifControls">gif-controls</x:String>
+    <x:String x:Key="ViewerMotionCategoryComparison">comparison</x:String>
 </ResourceDictionary>

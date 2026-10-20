@@ -1,6 +1,8 @@
 using System.ComponentModel;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -13,7 +15,9 @@ namespace ImageViewer.App.Views;
 public sealed partial class GridLayout : UserControl
 {
     private MainViewModel? _viewModel;
+    private IViewerMotionService? _motionService;
     private int _loadVersion;
+    private bool _isGridVisible;
 
     public GridLayout()
     {
@@ -28,6 +32,11 @@ public sealed partial class GridLayout : UserControl
         Refresh();
     }
 
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
+    }
+
     private void OnLayoutStateChanged(object? sender, PropertyChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(Refresh);
@@ -40,17 +49,51 @@ public sealed partial class GridLayout : UserControl
             return;
         }
 
-        LayoutRoot.Visibility = _viewModel.LayoutState.IsGridActive
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-
         if (!_viewModel.LayoutState.IsGridActive)
+        {
+            HideGrid();
+            return;
+        }
+
+        ShowGrid();
+        _ = LoadImagesAsync(++_loadVersion);
+    }
+
+    private void ShowGrid()
+    {
+        if (_isGridVisible)
+        {
+            return;
+        }
+
+        _isGridVisible = true;
+        LayoutRoot.Visibility = Visibility.Visible;
+        ViewerMotionStoryboard.AnimateOverlay(
+            LayoutRoot,
+            GridLayoutTransform,
+            GetMotionPlan(ViewerMotionCategory.LayoutModeChange),
+            isEntering: true);
+    }
+
+    private void HideGrid()
+    {
+        if (!_isGridVisible && LayoutRoot.Visibility == Visibility.Collapsed)
         {
             ImageHost.Children.Clear();
             return;
         }
 
-        _ = LoadImagesAsync(++_loadVersion);
+        _isGridVisible = false;
+        ViewerMotionStoryboard.AnimateOverlay(
+            LayoutRoot,
+            GridLayoutTransform,
+            GetMotionPlan(ViewerMotionCategory.LayoutModeChange),
+            isEntering: false,
+            completed: () =>
+            {
+                LayoutRoot.Visibility = Visibility.Collapsed;
+                ImageHost.Children.Clear();
+            });
     }
 
     private async Task LoadImagesAsync(int loadVersion)
@@ -156,6 +199,8 @@ public sealed partial class GridLayout : UserControl
                 : "ViewerGridImageFrameBorderStyle"),
             Child = content
         };
+        frame.PointerEntered += (_, _) => ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
+        frame.PointerExited += (_, _) => ProtectedCursor = null;
         frame.Tapped += OnGridImageTapped;
 
         Canvas.SetLeft(frame, gridImage.Cell.X);
@@ -260,6 +305,11 @@ public sealed partial class GridLayout : UserControl
         }
 
         return null;
+    }
+
+    private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)
+    {
+        return _motionService?.CreatePlan(category) ?? ViewerMotionService.CreateDefaultPlan(category, isReducedMotion: false);
     }
 
     private sealed record GridFrameElements(Border Root, Image Image, TextBlock Placeholder, string FilePath);

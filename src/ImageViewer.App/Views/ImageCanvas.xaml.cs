@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices.WindowsRuntime;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml.Controls;
@@ -14,6 +15,7 @@ public sealed partial class ImageCanvas : UserControl
 {
     private ViewerState? _viewerState;
     private MainViewModel? _viewModel;
+    private IViewerMotionService? _motionService;
     private bool _isPanning;
     private Windows.Foundation.Point _lastPointerPosition;
     private int _imageLoadVersion;
@@ -36,6 +38,11 @@ public sealed partial class ImageCanvas : UserControl
         viewModel.TransformState.PropertyChanged += OnTransformStateChanged;
         UpdateImage();
         UpdateDisplayMode();
+    }
+
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
     }
 
     private void OnViewerStateChanged(object? sender, PropertyChangedEventArgs e)
@@ -76,6 +83,7 @@ public sealed partial class ImageCanvas : UserControl
         if (image is null)
         {
             DisplayedImage.Source = null;
+            DisplayedImage.Opacity = 0;
             return;
         }
 
@@ -101,6 +109,7 @@ public sealed partial class ImageCanvas : UserControl
             if (loadVersion == _imageLoadVersion)
             {
                 DisplayedImage.Source = bitmap;
+                AnimateImageNavigation();
             }
         }
         catch
@@ -108,6 +117,7 @@ public sealed partial class ImageCanvas : UserControl
             if (loadVersion == _imageLoadVersion)
             {
                 DisplayedImage.Source = null;
+                DisplayedImage.Opacity = 0;
             }
         }
     }
@@ -131,6 +141,7 @@ public sealed partial class ImageCanvas : UserControl
             if (loadVersion == _imageLoadVersion)
             {
                 DisplayedImage.Source = bitmap;
+                AnimateImageNavigation();
             }
         }
         catch
@@ -138,6 +149,7 @@ public sealed partial class ImageCanvas : UserControl
             if (loadVersion == _imageLoadVersion)
             {
                 DisplayedImage.Source = null;
+                DisplayedImage.Opacity = 0;
             }
         }
     }
@@ -200,20 +212,21 @@ public sealed partial class ImageCanvas : UserControl
 
     private void PulseTransformPreview()
     {
-        var animation = new DoubleAnimation
-        {
-            From = 0.82,
-            To = 1,
-            Duration = TimeSpan.FromMilliseconds(160),
-            EnableDependentAnimation = true
-        };
+        var motionPlan = GetMotionPlan(ViewerMotionCategory.Feedback);
+        DisplayedImage.Opacity = motionPlan.Duration <= TimeSpan.Zero ? 1 : 0.82;
+        ViewerMotionStoryboard.AnimateOpacity(DisplayedImage, motionPlan, 1);
+    }
 
-        Storyboard.SetTarget(animation, DisplayedImage);
-        Storyboard.SetTargetProperty(animation, "Opacity");
+    private void AnimateImageNavigation()
+    {
+        var motionPlan = GetMotionPlan(ViewerMotionCategory.ImageNavigation);
+        DisplayedImage.Opacity = motionPlan.Duration <= TimeSpan.Zero ? 1 : 0;
+        ViewerMotionStoryboard.AnimateOpacity(DisplayedImage, motionPlan, 1);
+    }
 
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(animation);
-        storyboard.Begin();
+    private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)
+    {
+        return _motionService?.CreatePlan(category) ?? ViewerMotionService.CreateDefaultPlan(category, isReducedMotion: false);
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)

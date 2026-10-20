@@ -2,7 +2,9 @@
     x:Class="ImageViewer.App.Views.MetadataPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    IsTabStop="True"
     Opacity="{StaticResource ViewerHiddenOpacity}"
+    TabFocusNavigation="Cycle"
     Visibility="Collapsed">
     <Grid HorizontalAlignment="Stretch">
         <Border

@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Opacity="{StaticResource ViewerHiddenOpacity}"
+    TabFocusNavigation="Cycle"
     Visibility="Collapsed">
     <Grid
         x:Name="SearchOverlayRoot"
@@ -22,6 +23,9 @@
             Padding="{StaticResource ViewerOverlayContentPadding}"
             AutomationProperties.Name="Search images"
             Style="{StaticResource ViewerCommandPalettePanelBorderStyle}">
+            <Border.RenderTransform>
+                <CompositeTransform x:Name="SearchOverlayPanelTransform" />
+            </Border.RenderTransform>
             <StackPanel Spacing="{StaticResource ViewerPanelContentSpacing}">
                 <Grid
                     x:Name="SearchHeader"

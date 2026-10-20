@@ -30,6 +30,9 @@
             Margin="{StaticResource ViewerChromeOuterMargin}"
             Padding="{StaticResource ViewerMenuBarPadding}"
             Style="{StaticResource ViewerChromeShellBorderStyle}">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="TopChromeTransform" />
+            </Border.RenderTransform>
             <Grid
                 x:Name="TopChromeContent"
                 ColumnSpacing="{StaticResource ViewerChromeShellColumnSpacing}">
@@ -85,6 +88,10 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Bottom"
             Margin="{StaticResource ViewerChromeFrameControlMargin}" />
-        <views:BottomInfoBar x:Name="InfoBar" VerticalAlignment="Bottom" Margin="{StaticResource ViewerChromeOuterMargin}" />
+        <views:BottomInfoBar x:Name="InfoBar" VerticalAlignment="Bottom" Margin="{StaticResource ViewerChromeOuterMargin}">
+            <views:BottomInfoBar.RenderTransform>
+                <TranslateTransform x:Name="BottomInfoBarTransform" />
+            </views:BottomInfoBar.RenderTransform>
+        </views:BottomInfoBar>
     </Grid>
 </UserControl>

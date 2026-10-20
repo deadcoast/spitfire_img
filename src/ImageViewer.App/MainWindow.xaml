@@ -35,7 +35,11 @@
             AutomationProperties.Name="Image warning or error status"
             IsOpen="False"
             IsClosable="True"
+            Opacity="{StaticResource ViewerHiddenOpacity}"
             Severity="Error">
+            <InfoBar.RenderTransform>
+                <CompositeTransform x:Name="ErrorInfoBarTransform" />
+            </InfoBar.RenderTransform>
             <InfoBar.ActionButton>
                 <Button
                     x:Name="ErrorRecoveryButton"
@@ -53,7 +57,11 @@
             VerticalAlignment="Center"
             AutomationProperties.Name="Image loading status"
             Style="{StaticResource ViewerLoadingStatusBorderStyle}"
+            Opacity="{StaticResource ViewerHiddenOpacity}"
             Visibility="Collapsed">
+            <Border.RenderTransform>
+                <CompositeTransform x:Name="LoadingOverlayTransform" />
+            </Border.RenderTransform>
             <Grid ColumnSpacing="{StaticResource ViewerStatusSurfaceSpacing}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

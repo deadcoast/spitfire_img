@@ -1,3 +1,4 @@
+using ImageViewer.App.Services.Motion;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -6,38 +7,36 @@ namespace ImageViewer.App.Views;
 
 public sealed partial class DropIndicator : UserControl
 {
+    private IViewerMotionService? _motionService;
+
     public DropIndicator()
     {
         InitializeComponent();
+    }
+
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
     }
 
     public void Show(bool isValid)
     {
         MessageText.Text = isValid ? "Drop image to open" : "Unsupported file format";
         Visibility = Visibility.Visible;
-        AnimateOpacity(1, 100);
+        ViewerMotionStoryboard.AnimateOpacity(this, GetMotionPlan(ViewerMotionCategory.DropIndicator), 1);
     }
 
     public void Hide()
     {
-        AnimateOpacity(0, 80);
-        Visibility = Visibility.Collapsed;
+        ViewerMotionStoryboard.AnimateOpacity(
+            this,
+            GetMotionPlan(ViewerMotionCategory.OverlayExit),
+            0,
+            completed: () => Visibility = Visibility.Collapsed);
     }
 
-    private void AnimateOpacity(double opacity, int durationMs)
+    private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)
     {
-        var animation = new DoubleAnimation
-        {
-            To = opacity,
-            Duration = TimeSpan.FromMilliseconds(durationMs),
-            EnableDependentAnimation = true
-        };
-
-        Storyboard.SetTarget(animation, this);
-        Storyboard.SetTargetProperty(animation, "Opacity");
-
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(animation);
-        storyboard.Begin();
+        return _motionService?.CreatePlan(category) ?? ViewerMotionService.CreateDefaultPlan(category, isReducedMotion: false);
     }
 }

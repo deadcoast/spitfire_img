@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     AutomationProperties.Name="Filmstrip layout surface"
     HorizontalAlignment="Stretch"
+    IsTabStop="True"
     VerticalAlignment="Stretch"
     Visibility="Collapsed">
     <Grid
@@ -11,7 +12,11 @@
         HorizontalAlignment="Stretch"
         VerticalAlignment="Stretch"
         Background="{ThemeResource ViewerCanvasBackgroundBrush}"
+        Opacity="{StaticResource ViewerHiddenOpacity}"
         RowSpacing="{StaticResource ViewerFilmstripRowSpacing}">
+        <Grid.RenderTransform>
+            <CompositeTransform x:Name="FilmstripLayoutTransform" />
+        </Grid.RenderTransform>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="180" />

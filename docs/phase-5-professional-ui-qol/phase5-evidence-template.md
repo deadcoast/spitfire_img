@@ -24,25 +24,25 @@ Use this template for Phase 5 checkpoints. Evidence belongs under `TestResults/p
 
 ## Visual before/after
 
-| Surface | Before evidence | After evidence | Result | Notes |
-| --- | --- | --- | --- | --- |
-| Empty state |  |  |  |  |
-| Main image canvas |  |  |  |  |
-| Top chrome |  |  |  |  |
-| Bottom info bar |  |  |  |  |
-| Command palette |  |  |  |  |
-| Search overlay |  |  |  |  |
-| Metadata panel |  |  |  |  |
-| Thumbnail strip |  |  |  |  |
-| Grid layout |  |  |  |  |
-| Filmstrip layout |  |  |  |  |
-| Comparison side-by-side |  |  |  |  |
-| Comparison overlay |  |  |  |  |
-| GIF controls |  |  |  |  |
-| Drop indicator |  |  |  |  |
-| Loading state |  |  |  |  |
-| Warning state |  |  |  |  |
-| Error state |  |  |  |  |
+| Surface                 | Before evidence | After evidence | Result | Notes |
+|-------------------------|-----------------|----------------|--------|-------|
+| Empty state             |                 |                |        |       |
+| Main image canvas       |                 |                |        |       |
+| Top chrome              |                 |                |        |       |
+| Bottom info bar         |                 |                |        |       |
+| Command palette         |                 |                |        |       |
+| Search overlay          |                 |                |        |       |
+| Metadata panel          |                 |                |        |       |
+| Thumbnail strip         |                 |                |        |       |
+| Grid layout             |                 |                |        |       |
+| Filmstrip layout        |                 |                |        |       |
+| Comparison side-by-side |                 |                |        |       |
+| Comparison overlay      |                 |                |        |       |
+| GIF controls            |                 |                |        |       |
+| Drop indicator          |                 |                |        |       |
+| Loading state           |                 |                |        |       |
+| Warning state           |                 |                |        |       |
+| Error state             |                 |                |        |       |
 
 ## Token validation
 
@@ -57,17 +57,17 @@ Use this template for Phase 5 checkpoints. Evidence belongs under `TestResults/p
 
 ## Motion evidence
 
-| Motion category | Normal-motion evidence | Reduced-motion evidence | Keyboard responsive | Result |
-| --- | --- | --- | --- | --- |
-| Chrome reveal/hide |  |  |  |  |
-| Command palette |  |  |  |  |
-| Search overlay |  |  |  |  |
-| Metadata panel |  |  |  |  |
-| Image navigation |  |  |  |  |
-| Grid/filmstrip transition |  |  |  |  |
-| Comparison transition |  |  |  |  |
-| Loading/status |  |  |  |  |
-| Warning/error |  |  |  |  |
+| Motion category           | Normal-motion evidence | Reduced-motion evidence | Keyboard responsive | Result |
+|---------------------------|------------------------|-------------------------|---------------------|--------|
+| Chrome reveal/hide        |                        |                         |                     |        |
+| Command palette           |                        |                         |                     |        |
+| Search overlay            |                        |                         |                     |        |
+| Metadata panel            |                        |                         |                     |        |
+| Image navigation          |                        |                         |                     |        |
+| Grid/filmstrip transition |                        |                         |                     |        |
+| Comparison transition     |                        |                         |                     |        |
+| Loading/status            |                        |                         |                     |        |
+| Warning/error             |                        |                         |                     |        |
 
 ## Reduced-motion notes
 
@@ -89,17 +89,17 @@ Use this template for Phase 5 checkpoints. Evidence belongs under `TestResults/p
 
 ## Keyboard and input
 
-| Workflow | Shortcut/input | Expected result | Actual result | Evidence |
-| --- | --- | --- | --- | --- |
-| Open command palette |  |  |  |  |
-| Search |  |  |  |  |
-| Toggle metadata |  |  |  |  |
-| Toggle thumbnail strip |  |  |  |  |
-| Grid density |  |  |  |  |
-| Filmstrip navigation |  |  |  |  |
-| Comparison mode |  |  |  |  |
-| GIF controls |  |  |  |  |
-| Fullscreen/chrome |  |  |  |  |
+| Workflow               | Shortcut/input | Expected result | Actual result | Evidence |
+|------------------------|----------------|-----------------|---------------|----------|
+| Open command palette   |                |                 |               |          |
+| Search                 |                |                 |               |          |
+| Toggle metadata        |                |                 |               |          |
+| Toggle thumbnail strip |                |                 |               |          |
+| Grid density           |                |                 |               |          |
+| Filmstrip navigation   |                |                 |               |          |
+| Comparison mode        |                |                 |               |          |
+| GIF controls           |                |                 |               |          |
+| Fullscreen/chrome      |                |                 |               |          |
 
 ## Backend QOL before/after
 
@@ -162,8 +162,8 @@ dotnet test SpitfireImg.sln -p:Platform=x64
 ## Known issues
 
 | Issue | Severity | Blocking Phase 5 completion | Owner/next action |
-| --- | --- | --- | --- |
-|  |  |  |  |
+|-------|----------|-----------------------------|-------------------|
+|       |          |                             |                   |
 
 ## Final verdict
 

@@ -377,20 +377,46 @@ Observed motion hooks:
 - `FadingChrome.xaml.cs` controls chrome fade/show behavior.
 - `FrameControl` and layout surfaces do not define a coherent motion system.
 
-Gaps:
+Phase 5 motion-system foundation now in source:
 
-- No named duration/easing resources.
-- No reduced-motion strategy.
+- `src/ImageViewer.App/Resources/Styles/MotionTokens.xaml` defines named duration, easing, distance, scale, and category tokens.
+- `src/ImageViewer.App/Services/Motion/ViewerMotionService.cs` defines service-driven plans for allowed motion categories.
+- `src/ImageViewer.App/Services/Motion/ReducedMotionService.cs` respects the Windows animation accessibility setting through `UISettings.AnimationsEnabled`.
+- `FadingChrome`, `SearchOverlay`, `MetadataPanel`, and `DropIndicator` receive motion plans from DI instead of owning unrelated duration values.
+
+Allowed motion categories:
+
+- Chrome reveal and idle.
+- Overlay entrance and exit.
+- Metadata panel.
+- Image navigation.
+- Layout mode change.
+- Reposition.
+- Feedback.
+- Status.
+- Drop indicator.
+- GIF controls.
+- Comparison.
+
+Prohibited decorative motion:
+
+- Decorative loops that do not communicate viewer state.
+- Glow pulses, bokeh movement, blank gradient movement, or ornamental animation used as primary design work.
+- Motion that hides warning or error information.
+- Motion that delays next/previous image navigation, keyboard focus, command execution, or inspection of the loaded image.
+- State communication that depends only on motion, color, glow, opacity, or transparency.
+
+Remaining gaps for later Phase 5 motion tasks:
+
 - No unified overlay choreography.
 - No documented mode-transition strategy.
-- No explicit motion evidence.
+- No full normal-motion and reduced-motion evidence set for every surface.
 
 Required Phase 5 work:
 
-- Add `MotionTokens.xaml`.
-- Define motion categories.
-- Implement transition behavior in a way that does not block image navigation.
-- Capture normal-motion and reduced-motion evidence.
+- Implement chrome and overlay transition polish without blocking image navigation.
+- Implement mode transition polish for image, grid, filmstrip, comparison, and GIF states.
+- Capture normal-motion and reduced-motion evidence for touched surfaces.
 
 ## Backend QOL audit
 
@@ -532,6 +558,7 @@ Required screenshot set:
 - Warning/error state.
 
 Each accepted screenshot is backed by `before-evidence-validation.md`, which records source executable, capture method, input file or scenario, visible state, latest manifest timestamp, theme, and window size.
+
 - Whether the screenshot represents a current limitation or a passing baseline.
 
 ## Audit conclusion

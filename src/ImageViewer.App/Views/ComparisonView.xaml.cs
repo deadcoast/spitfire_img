@@ -1,6 +1,8 @@
 using System.ComponentModel;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -14,11 +16,13 @@ namespace ImageViewer.App.Views;
 public sealed partial class ComparisonView : UserControl
 {
     private MainViewModel? _viewModel;
+    private IViewerMotionService? _motionService;
     private int _loadVersion;
     private bool _isUpdatingSlider;
     private bool _isPanning;
     private int _panningImageIndex = -1;
     private Windows.Foundation.Point _lastPointerPosition;
+    private bool _isComparisonVisible;
 
     public ComparisonView()
     {
@@ -30,6 +34,11 @@ public sealed partial class ComparisonView : UserControl
         _viewModel = viewModel;
         viewModel.ComparisonState.PropertyChanged += OnComparisonStateChanged;
         Refresh();
+    }
+
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
     }
 
     private void OnComparisonStateChanged(object? sender, PropertyChangedEventArgs e)
@@ -61,19 +70,54 @@ public sealed partial class ComparisonView : UserControl
             return;
         }
 
-        ComparisonRoot.Visibility = _viewModel.ComparisonState.IsActive
-            ? Visibility.Visible
-            : Visibility.Collapsed;
         UpdateComparisonHud();
         UpdateOverlayControls();
 
         if (!_viewModel.ComparisonState.IsActive)
         {
+            HideComparison();
+            return;
+        }
+
+        ShowComparison();
+        _ = LoadImagesAsync(++_loadVersion);
+    }
+
+    private void ShowComparison()
+    {
+        if (_isComparisonVisible)
+        {
+            return;
+        }
+
+        _isComparisonVisible = true;
+        ComparisonRoot.Visibility = Visibility.Visible;
+        ViewerMotionStoryboard.AnimateOverlay(
+            ComparisonRoot,
+            ComparisonLayoutTransform,
+            GetMotionPlan(ViewerMotionCategory.LayoutModeChange),
+            isEntering: true);
+    }
+
+    private void HideComparison()
+    {
+        if (!_isComparisonVisible && ComparisonRoot.Visibility == Visibility.Collapsed)
+        {
             ImageHost.Children.Clear();
             return;
         }
 
-        _ = LoadImagesAsync(++_loadVersion);
+        _isComparisonVisible = false;
+        ViewerMotionStoryboard.AnimateOverlay(
+            ComparisonRoot,
+            ComparisonLayoutTransform,
+            GetMotionPlan(ViewerMotionCategory.LayoutModeChange),
+            isEntering: false,
+            completed: () =>
+            {
+                ComparisonRoot.Visibility = Visibility.Collapsed;
+                ImageHost.Children.Clear();
+            });
     }
 
     private async Task LoadImagesAsync(int loadVersion)
@@ -211,6 +255,8 @@ public sealed partial class ComparisonView : UserControl
                 : "ViewerComparisonImageFrameBorderStyle"),
             Child = frameHost
         };
+        border.PointerEntered += (_, _) => ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
+        border.PointerExited += (_, _) => ProtectedCursor = null;
         AutomationProperties.SetName(
             border,
             isActive
@@ -270,7 +316,24 @@ public sealed partial class ComparisonView : UserControl
 
         var isOverlayActive = _viewModel.ComparisonState.IsActive &&
                               _viewModel.ComparisonState.Layout == ComparisonLayout.Overlay;
-        OverlayControls.Visibility = isOverlayActive ? Visibility.Visible : Visibility.Collapsed;
+        if (isOverlayActive)
+        {
+            OverlayControls.Visibility = Visibility.Visible;
+            ViewerMotionStoryboard.AnimateOverlay(
+                OverlayControls,
+                OverlayControlsTransform,
+                GetMotionPlan(ViewerMotionCategory.Comparison),
+                isEntering: true);
+        }
+        else if (OverlayControls.Visibility == Visibility.Visible)
+        {
+            ViewerMotionStoryboard.AnimateOverlay(
+                OverlayControls,
+                OverlayControlsTransform,
+                GetMotionPlan(ViewerMotionCategory.Comparison),
+                isEntering: false,
+                completed: () => OverlayControls.Visibility = Visibility.Collapsed);
+        }
 
         _isUpdatingSlider = true;
         OverlayOpacitySlider.Value = _viewModel.ComparisonState.OverlayOpacity;
@@ -432,6 +495,11 @@ public sealed partial class ComparisonView : UserControl
         {
             return null;
         }
+    }
+
+    private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)
+    {
+        return _motionService?.CreatePlan(category) ?? ViewerMotionService.CreateDefaultPlan(category, isReducedMotion: false);
     }
 
     private sealed record LoadedComparisonImage(int VisibleIndex, BitmapImage? Bitmap);

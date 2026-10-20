@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using ImageViewer.App.Services;
+using ImageViewer.App.Services.Motion;
 using Microsoft.UI.Xaml;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.Services;
@@ -179,6 +180,8 @@ public partial class App : Application
         services.AddSingleton<IErrorLogService>(_ => new ErrorLogService(localDataFolder));
         services.AddSingleton<ISearchService, SearchService>();
         services.AddSingleton<IThumbnailService, WindowsThumbnailService>();
+        services.AddSingleton<IViewerMotionPreferenceProvider, ReducedMotionService>();
+        services.AddSingleton<IViewerMotionService, ViewerMotionService>();
         services.AddSingleton<IRecentFilesService>(_ => new RecentFilesService(localDataFolder));
         services.AddSingleton<WindowsImageProcessingService>();
         services.AddSingleton<IExportService>(provider => provider.GetRequiredService<WindowsImageProcessingService>());

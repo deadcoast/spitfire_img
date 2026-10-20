@@ -80,28 +80,28 @@ Generated visual evidence belongs under `TestResults/phase5-evidence/` and must 
   - Capture visual evidence for comparison and 100-frame GIF scenarios
   - _Requirements: 4.1, 4.6, 5.2, 6.1, 7.2_
 
-- [ ] 11. Implement Phase 5 motion token system
+- [x] 11. Implement Phase 5 motion token system
   - Define named motion durations, easing, and transition categories in XAML resources or a focused motion service
   - Document allowed motion categories and prohibited decorative motion in `visual-audit.md` or a dedicated motion section
   - Add reduced-motion handling or setting design before applying broad animation changes
   - Add tests for service-driven motion configuration where possible
   - _Requirements: 5.1, 5.3, 5.5, 5.6_
 
-- [ ] 12. Implement chrome and overlay transitions
+- [x] 12. Implement chrome and overlay transitions
   - Refine chrome fade/reveal behavior
   - Add consistent entrance/exit transitions for command palette, search overlay, metadata panel, status HUD, loading, and error surfaces
   - Verify keyboard input remains responsive during animations
   - Record motion evidence under `TestResults/phase5-evidence/motion/`
   - _Requirements: 5.2, 5.3, 5.4, 6.3_
 
-- [ ] 13. Implement mode transition polish
+- [x] 13. Implement mode transition polish
   - Add or refine transitions for single image, grid, filmstrip, comparison, and GIF control state changes
   - Use connected, entrance, reposition, opacity, scale, or translation animations only where they clarify continuity
   - Avoid transitions that delay critical navigation or obscure image inspection
   - Record normal-motion and reduced-motion evidence
   - _Requirements: 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 14. Improve focus, keyboard, and pointer ergonomics
+- [x] 14. Improve focus, keyboard, and pointer ergonomics
   - Review all Phase 5-touched controls for focus visuals, keyboard traversal, pointer hover, pressed state, and disabled state
   - Add regression tests for changed input routing
   - Verify command palette, search, menus, overlays, metadata, grid, filmstrip, comparison, GIF controls, and fullscreen mode do not conflict

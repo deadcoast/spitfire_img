@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ImageViewer.App.Services.Motion;
 using ImageViewer.Core.Models;
 using ImageViewer.Core.ViewModels;
 using Microsoft.UI.Xaml;
@@ -14,6 +15,7 @@ public sealed partial class SearchOverlay : UserControl
     private MainViewModel? _viewModel;
     private bool _isUpdating;
     private readonly DispatcherTimer _searchDebounceTimer;
+    private IViewerMotionService? _motionService;
 
     public SearchOverlay()
     {
@@ -29,34 +31,35 @@ public sealed partial class SearchOverlay : UserControl
         RefreshResults();
     }
 
+    public void AttachMotionService(IViewerMotionService motionService)
+    {
+        _motionService = motionService;
+    }
+
     public void Show()
     {
         Visibility = Visibility.Visible;
-        AnimateOpacity(1, 120);
+        ViewerMotionStoryboard.AnimateOverlay(
+            this,
+            SearchOverlayPanelTransform,
+            GetMotionPlan(ViewerMotionCategory.OverlayEntrance),
+            isEntering: true);
         SearchInput.Focus(FocusState.Programmatic);
     }
 
     public void Hide()
     {
-        AnimateOpacity(0, 80);
-        Visibility = Visibility.Collapsed;
+        ViewerMotionStoryboard.AnimateOverlay(
+            this,
+            SearchOverlayPanelTransform,
+            GetMotionPlan(ViewerMotionCategory.OverlayExit),
+            isEntering: false,
+            completed: () => Visibility = Visibility.Collapsed);
     }
 
-    private void AnimateOpacity(double opacity, int durationMs)
+    private ViewerMotionPlan GetMotionPlan(ViewerMotionCategory category)
     {
-        var animation = new DoubleAnimation
-        {
-            To = opacity,
-            Duration = TimeSpan.FromMilliseconds(durationMs),
-            EnableDependentAnimation = true
-        };
-
-        Storyboard.SetTarget(animation, this);
-        Storyboard.SetTargetProperty(animation, "Opacity");
-
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(animation);
-        storyboard.Begin();
+        return _motionService?.CreatePlan(category) ?? ViewerMotionService.CreateDefaultPlan(category, isReducedMotion: false);
     }
 
     private void OnSearchStateChanged(object? sender, PropertyChangedEventArgs e)

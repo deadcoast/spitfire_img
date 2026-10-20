@@ -188,4 +188,3 @@ Support bundles include app version metadata, system metadata, codec availabilit
 - The app views local files and folders; it does not maintain a separate media database or online service connection.
 - Transform tools remain limited to the existing Phase 2 rotate, flip, undo, redo, save, and export behavior.
 - Support bundles redact local paths and exclude images by default, so maintainers may need follow-up details that users choose to provide separately.
-

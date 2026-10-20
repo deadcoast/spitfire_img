@@ -33,11 +33,11 @@ git diff --check
 
 | Command | Result | Notes |
 | --- | --- | --- |
-| `dotnet build SpitfireImg.sln -p:Platform=x64` | Pending |  |
-| `dotnet test SpitfireImg.sln -p:Platform=x64` | Pending |  |
-| `powershell -ExecutionPolicy Bypass -File scripts\build-release.ps1` | Pending |  |
-| `powershell -ExecutionPolicy Bypass -File scripts\collect-support.ps1 -Validation` | Pending |  |
-| `git diff --check` | Pending |  |
+| `dotnet build SpitfireImg.sln -p:Platform=x64` | Pending | |
+| `dotnet test SpitfireImg.sln -p:Platform=x64` | Pending | |
+| `powershell -ExecutionPolicy Bypass -File scripts\build-release.ps1` | Pending | |
+| `powershell -ExecutionPolicy Bypass -File scripts\collect-support.ps1 -Validation` | Pending | |
+| `git diff --check` | Pending | |
 
 ## Manual evidence links
 
@@ -55,4 +55,3 @@ Link evidence files under `TestResults/phase4-evidence/`.
 ## Known issues
 
 - None recorded.
-

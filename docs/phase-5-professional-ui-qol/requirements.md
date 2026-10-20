@@ -15,10 +15,10 @@ Phase 5 is not a release-packaging phase, not a cataloging phase, not a cloud ph
 
 Phase 5 implementation must use professional source material instead of improvised boilerplate styling. The minimum source set is:
 
-- Microsoft Fluent 2 design guidance for motion, typography, spacing, color, density, and interaction tone: https://fluent2.microsoft.design/
-- Microsoft Learn Windows app motion guidance, including connected animations and XAML animation guidance: https://learn.microsoft.com/en-us/windows/apps/design/motion/
-- WinUI Gallery source and samples for WinUI control usage and interaction patterns: https://github.com/microsoft/WinUI-Gallery
-- Windows App SDK and WinUI documentation for platform-appropriate composition, XAML, and system backdrop behavior: https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/
+- Microsoft Fluent 2 design guidance for motion, typography, spacing, color, density, and interaction tone: <https://fluent2.microsoft.design/>
+- Microsoft Learn Windows app motion guidance, including connected animations and XAML animation guidance: <https://learn.microsoft.com/en-us/windows/apps/design/motion/>
+- WinUI Gallery source and samples for WinUI control usage and interaction patterns: <https://github.com/microsoft/WinUI-Gallery>
+- Windows App SDK and WinUI documentation for platform-appropriate composition, XAML, and system backdrop behavior: <https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/>
 
 Additional libraries, assets, or design references may be used only when they are named, licensed or license-reviewed, source-controlled when required, and validated against the application instead of accepted as generic inspiration.
 
