@@ -110,11 +110,11 @@ TestResults/phase5-evidence/qol/session-restore-before-after.md
 
 ## Recommended responsiveness slice
 
-### Feature
+### Features
 
 Bounded neighbor preload around the current playlist index.
 
-### User value
+### User values
 
 Next/previous navigation in normal folders feels faster without pretending large-folder work is free.
 
@@ -125,7 +125,7 @@ src/ImageViewer.Core/Services/IImagePreloadService.cs
 src/ImageViewer.Core/Services/ImagePreloadService.cs
 ```
 
-### Behavior
+### Behaviors
 
 - Maintain a bounded window around the current playlist index.
 - Use cancellation when the current index changes quickly.
@@ -135,7 +135,7 @@ src/ImageViewer.Core/Services/ImagePreloadService.cs
 - Surface progress/status only when operation duration affects user interaction.
 - Do not reduce supported formats, playlist size, metadata, or thumbnail behavior.
 
-### Tests
+### Test
 
 - Preload window respects configured bounds.
 - Quick navigation cancels stale work.
@@ -143,7 +143,7 @@ src/ImageViewer.Core/Services/ImagePreloadService.cs
 - Cache does not exceed configured budget.
 - Decode failures are logged or returned without breaking navigation.
 
-### Evidence
+### Evidences
 
 ```text
 TestResults/phase5-evidence/qol/preload-before-after.md
@@ -152,15 +152,15 @@ TestResults/phase5-evidence/qol/preload-measurements.json
 
 ## Recommended error-recovery slice
 
-### Feature
+### error-recovery Features
 
 Recoverable navigation failure keeps playlist active and offers next valid image behavior.
 
-### User value
+### error-recovery User value
 
 A corrupt or missing image should not make the session feel broken when the surrounding folder still contains valid images.
 
-### Behavior
+### error-recovery Behavior
 
 - Preserve the error message and structured log.
 - Keep the playlist loaded when one item fails.
@@ -169,7 +169,7 @@ A corrupt or missing image should not make the session feel broken when the surr
 - Do not remove failed files from playlist unless the user takes an explicit action.
 - Keep support bundle redaction intact.
 
-### Tests
+### error-recovery Tests
 
 - Decode failure records structured error.
 - Playlist remains intact after recoverable failure.
@@ -177,7 +177,7 @@ A corrupt or missing image should not make the session feel broken when the surr
 - Repeated failures stop safely instead of infinite looping.
 - Missing file and corrupt file paths are covered separately if behavior differs.
 
-### Evidence
+### error-recovery Evidence
 
 ```text
 TestResults/phase5-evidence/qol/recoverable-error-before-after.md
