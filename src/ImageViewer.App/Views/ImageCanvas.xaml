@@ -53,7 +53,7 @@
                     Text="Drop a file here. Browse every image in its folder with the arrow keys." />
                 <Button x:Name="OpenImageButton" Content="Open image…" Click="OnOpenImageClicked"
                         HorizontalAlignment="Left" Margin="{StaticResource ViewerEmptyActionMargin}"
-                        Style="{StaticResource AccentButtonStyle}" ToolTipService.ToolTip="Open image (Ctrl+O)" />
+                        ToolTipService.ToolTip="Open image (Ctrl+O)" />
                 <TextBlock
                     x:Name="EmptyStateFormatHint"
                     Style="{StaticResource ViewerTextStatusBodyStyle}"

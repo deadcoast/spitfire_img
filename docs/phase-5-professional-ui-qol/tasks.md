@@ -1,5 +1,9 @@
 # Implementation Plan: Phase 5 Professional UI And User QOL
 
+## Current acceptance status
+
+The user rejected the running application's quality on 2026-10-19. Earlier checked implementation tasks are historical records, not acceptance of the current UI. The [viewer repair](viewer-repair-20261019.md) records reproduced failures, repairs, verification and remaining checks. Phase 5 review and acceptance remain open.
+
 ## Overview
 
 This implementation plan converts the Phase 5 Professional UI And User QOL requirements and design into required development tasks.
